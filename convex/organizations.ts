@@ -95,9 +95,13 @@ export const create = mutation({
 
 export const get = query({
   args: { orgSlug: v.string() },
-  handler: async (ctx, args): Promise<Doc<"organizations">> => {
-    const actx = await requireOrgMember(ctx, { orgSlug: args.orgSlug });
-    return actx.org;
+  handler: async (ctx, args): Promise<Doc<"organizations"> | null> => {
+    try {
+      const actx = await requireOrgMember(ctx, { orgSlug: args.orgSlug });
+      return actx.org;
+    } catch {
+      return null;
+    }
   },
 });
 

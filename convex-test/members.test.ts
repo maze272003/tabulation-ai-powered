@@ -22,6 +22,7 @@ async function orgIdOf(
   const org = await t.withIdentity(aliceIdentity).query(api.organizations.get, {
     orgSlug,
   });
+  if (!org) throw new Error("org not found");
   return org._id;
 }
 

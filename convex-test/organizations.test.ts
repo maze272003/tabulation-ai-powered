@@ -31,16 +31,17 @@ describe("organizations", () => {
     ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
   });
 
-  it("prevents cross-org access by slug with FORBIDDEN", async () => {
+  it("prevents cross-org access by slug by returning null", async () => {
     const t = setupTest();
     await seedAndProvision(t, aliceIdentity);
     await seedAndProvision(t, bobIdentity);
     await t
       .withIdentity(aliceIdentity)
       .mutation(api.organizations.create, { name: "Acme", slug: "acme" });
-    await expect(
-      t.withIdentity(bobIdentity).query(api.organizations.get, { orgSlug: "acme" }),
-    ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
+    const result = await t
+      .withIdentity(bobIdentity)
+      .query(api.organizations.get, { orgSlug: "acme" });
+    expect(result).toBeNull();
   });
 
   it("rejects unauthenticated create with UNAUTHENTICATED", async () => {
