@@ -1,11 +1,20 @@
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
+import { api } from "../convex/_generated/api";
 import schema from "../convex/schema";
 
 const testModules = import.meta.glob("../convex/**/*.ts");
 
 export function setupTest() {
   return convexTest(schema, testModules);
+}
+
+export async function seedAndProvision(
+  t: ReturnType<typeof setupTest>,
+  identity: typeof aliceIdentity,
+) {
+  await t.mutation(api.seed.seedReferenceData, {});
+  return t.withIdentity(identity).mutation(api.auth.ensureUserProfile, {});
 }
 
 export const aliceIdentity = {
