@@ -36,6 +36,12 @@ export const create = mutation({
       .withIndex("by_name", (q) => q.eq("name", args.roleName))
       .unique();
     if (!role) throw appError(ErrorCode.NOT_FOUND, "Role not found");
+    if (role.name === "Org Owner") {
+      throw appError(
+        ErrorCode.FORBIDDEN,
+        "The Owner role can only be granted via organization creation or ownership transfer.",
+      );
+    }
 
     const existing = await ctx.db
       .query("invitations")

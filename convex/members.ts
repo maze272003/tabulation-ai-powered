@@ -55,6 +55,12 @@ export const changeRole = mutation({
       .withIndex("by_name", (q) => q.eq("name", args.roleName))
       .unique();
     if (!newRole) throw appError(ErrorCode.NOT_FOUND, "Role not found");
+    if (newRole.name === "Org Owner") {
+      throw appError(
+        ErrorCode.FORBIDDEN,
+        "The Owner role can only be granted via organization creation or ownership transfer.",
+      );
+    }
     if (actx.org.ownerId === target.userId && target.roleId !== newRole._id) {
       throw appError(
         ErrorCode.CONFLICT,

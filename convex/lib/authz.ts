@@ -67,6 +67,10 @@ export async function requirePermission(
   return actx;
 }
 
+// NOTE: this gates on the `organization.update` permission, which Org Admins also hold.
+// It is NOT a true Owner-only check. Use a direct `actx.org.ownerId === actx.user._id`
+// comparison (or a `organization.delete` permission check) when you need actual Owner exclusivity.
+// Phase 6 should rename or replace this when ownership-transfer lands.
 export const requireOrgOwner = (ctx: QueryCtx, args: { orgSlug: string }) =>
   requirePermission(ctx, { orgSlug: args.orgSlug, permission: "organization.update" });
 

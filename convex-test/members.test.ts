@@ -444,5 +444,103 @@ describe("members & invitations", () => {
     const active = members.filter((m) => m.status === "active");
     expect(active.length).toBe(5);
   });
+
+  it("changeRole cannot assign the Org Owner role (FORBIDDEN)", async () => {
+    const t = setupTest();
+    await seedAndProvision(t, aliceIdentity);
+    await seedAndProvision(t, bobIdentity);
+    await t
+      .withIdentity(aliceIdentity)
+      .mutation(api.organizations.create, { name: "Acme", slug: "acme" });
+
+    const token = await t.withIdentity(aliceIdentity).mutation(
+      api.invitations.create,
+      {
+        orgSlug: "acme",
+        email: "bob@example.com",
+        roleName: "Viewer",
+      },
+    );
+    await t
+      .withIdentity(bobIdentity)
+      .mutation(api.invitations.accept, { token });
+
+    const bob = await membershipOf(t, "acme", "bob@example.com");
+    expect(bob.roleName).toBe("Viewer");
+
+    // Legitimate role change succeeds.
+    await t.withIdentity(aliceIdentity).mutation(api.members.changeRole, {
+      orgSlug: "acme",
+      membershipId: bob.membershipId,
+      roleName: "Tabulator",
+    });
+    const bobTabulator = await membershipOf(t, "acme", "bob@example.com");
+    expect(bobTabulator.roleName).toBe("Tabulator");
+
+    // Privilege escalation attempt is refused.
+    await expect(
+      t.withIdentity(aliceIdentity).mutation(api.members.changeRole, {
+        orgSlug: "acme",
+        membershipId: bob.membershipId,
+        roleName: "Org Owner",
+      }),
+    ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
+  });
+
+  it("invitations.create cannot request the Org Owner role (FORBIDDEN)", async () => {
+    const t = setupTest();
+    await seedAndProvision(t, aliceIdentity);
+    await seedAndProvision(t, bobIdentity);
+    await t
+      .withIdentity(aliceIdentity)
+      .mutation(api.organizations.create, { name: "Acme", slug: "acme" });
+
+    await expect(
+      t.withIdentity(aliceIdentity).mutation(api.invitations.create, {
+        orgSlug: "acme",
+        email: "bob@example.com",
+        roleName: "Org Owner",
+      }),
+    ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
+  });
+
+  it("writes a member.role.changed audit row on role change", async () => {
+    const t = setupTest();
+    await seedAndProvision(t, aliceIdentity);
+    await seedAndProvision(t, bobIdentity);
+    await t
+      .withIdentity(aliceIdentity)
+      .mutation(api.organizations.create, { name: "Acme", slug: "acme" });
+
+    const token = await t.withIdentity(aliceIdentity).mutation(
+      api.invitations.create,
+      {
+        orgSlug: "acme",
+        email: "bob@example.com",
+        roleName: "Viewer",
+      },
+    );
+    await t
+      .withIdentity(bobIdentity)
+      .mutation(api.invitations.accept, { token });
+
+    const bob = await membershipOf(t, "acme", "bob@example.com");
+    await t.withIdentity(aliceIdentity).mutation(api.members.changeRole, {
+      orgSlug: "acme",
+      membershipId: bob.membershipId,
+      roleName: "Tabulator",
+    });
+
+    const orgId = await orgIdOf(t, "acme");
+    const logs = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("auditLogs")
+        .withIndex("by_org_id_and_creation_time", (q) => q.eq("orgId", orgId))
+        .collect();
+    });
+    const roleChanged = logs.filter((l) => l.action === "member.role.changed");
+    expect(roleChanged.length).toBeGreaterThanOrEqual(1);
+    expect(roleChanged[0].resourceId).toBe(bob.membershipId);
+  });
 });
 
