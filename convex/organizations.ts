@@ -51,7 +51,7 @@ export const create = mutation({
       .withIndex("by_name", (q) => q.eq("name", "Free"))
       .unique();
     if (!freePlan) {
-      throw appError(ErrorCode.NOT_FOUND, "Free plan missing — run seed");
+      throw appError(ErrorCode.NOT_FOUND, "Free plan missing - run seed");
     }
 
     const trimmedName = args.name.trim();

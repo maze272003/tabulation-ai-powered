@@ -142,6 +142,6 @@ export default defineSchema({
     after: v.string(),
     reason: v.union(v.null(), v.string()),
   })
-    .index("by_org_id_and_creation_time", ["orgId"]) // _creationTime is auto-appended by Convex; explicit listing is rejected by schema validation
+    .index("by_org_id_and_creation_time", ["orgId"])
     .index("by_actor", ["actorId"]),
 });
