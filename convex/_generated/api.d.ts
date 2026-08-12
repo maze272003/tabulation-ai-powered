@@ -8,7 +8,7 @@
  * @module
  */
 
-import type * as __test__ from "../__test__.js";
+import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
 import type * as http from "../http.js";
 import type * as invitations from "../invitations.js";
@@ -22,7 +22,11 @@ import type * as lib_serializers from "../lib/serializers.js";
 import type * as lib_usage from "../lib/usage.js";
 import type * as members from "../members.js";
 import type * as organizations from "../organizations.js";
+import type * as plans from "../plans.js";
+import type * as platform from "../platform.js";
+import type * as roles from "../roles.js";
 import type * as seed from "../seed.js";
+import type * as subscriptions from "../subscriptions.js";
 
 import type {
   ApiFromModules,
@@ -31,7 +35,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  __test__: typeof __test__;
+  audit: typeof audit;
   auth: typeof auth;
   http: typeof http;
   invitations: typeof invitations;
@@ -45,7 +49,11 @@ declare const fullApi: ApiFromModules<{
   "lib/usage": typeof lib_usage;
   members: typeof members;
   organizations: typeof organizations;
+  plans: typeof plans;
+  platform: typeof platform;
+  roles: typeof roles;
   seed: typeof seed;
+  subscriptions: typeof subscriptions;
 }>;
 
 /**
