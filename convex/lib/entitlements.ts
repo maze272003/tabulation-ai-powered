@@ -38,6 +38,15 @@ export async function requireFeature(
   }
 }
 
+/**
+ * Resolve the plan-limits key for a usage resource. Usage rows store short
+ * resource names ("members", "events"); plan.limits are keyed with a `max`
+ * prefix ("maxMembers", "maxEvents"). This maps between the two conventions.
+ */
+function limitKeyForResource(resource: string): string {
+  return `max${resource.charAt(0).toUpperCase()}${resource.slice(1)}`;
+}
+
 export async function requireLimit(
   ctx: MutationCtx,
   sub: Doc<"subscriptions">,
@@ -45,12 +54,14 @@ export async function requireLimit(
 ): Promise<void> {
   const plan = await getPlan(ctx, sub);
   const current = await getUsage(ctx, sub.orgId, resource);
-  if (!hasLimit(plan, resource, current)) {
-    const limits: Record<string, number> = plan.limits;
+  const key = limitKeyForResource(resource);
+  const limits: Record<string, number> = plan.limits;
+  const max = limits[key];
+  if (typeof max !== "number" || current >= max) {
     throw appError(ErrorCode.LIMIT_EXCEEDED, `Limit reached: ${resource}`, {
       resource,
       current,
-      max: limits[resource],
+      max,
     });
   }
 }
