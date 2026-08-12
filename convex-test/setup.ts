@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
+import type { UserIdentity } from "convex/server";
 import { api } from "../convex/_generated/api";
 import schema from "../convex/schema";
 
@@ -11,7 +12,7 @@ export function setupTest() {
 
 export async function seedAndProvision(
   t: ReturnType<typeof setupTest>,
-  identity: typeof aliceIdentity,
+  identity: Partial<UserIdentity>,
 ) {
   await t.mutation(api.seed.seedReferenceData, {});
   return t.withIdentity(identity).mutation(api.auth.ensureUserProfile, {});
