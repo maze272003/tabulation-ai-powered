@@ -92,8 +92,10 @@ export const remove = mutation({
       throw appError(ErrorCode.CONFLICT, "Cannot remove the owner");
     }
     const before = { status: target.status };
+    if (target.status === "active") {
+      await incrementUsage(ctx, actx.org._id, "members", -1);
+    }
     await ctx.db.patch(args.membershipId, { status: "inactive" });
-    await incrementUsage(ctx, actx.org._id, "members", -1);
     await writeAudit(ctx, {
       orgId: actx.org._id,
       actorId: actx.user._id,

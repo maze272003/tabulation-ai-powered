@@ -133,7 +133,7 @@ export const accept = mutation({
     if (!inv || inv.status !== "pending") {
       throw appError(ErrorCode.NOT_FOUND, "Invitation not found");
     }
-    if (inv.email !== profile.email) {
+    if (inv.email !== profile.email.toLowerCase()) {
       throw appError(ErrorCode.FORBIDDEN, "Invitation is not for you");
     }
     if (Date.now() > inv.expiresAt) {
@@ -151,6 +151,10 @@ export const accept = mutation({
         q.eq("orgId", inv.orgId).eq("userId", profile._id),
       )
       .unique();
+    const increasesActiveCount = !existing || existing.status !== "active";
+    if (increasesActiveCount) {
+      await requireLimit(ctx, await getSubscription(ctx, inv.orgId), "members");
+    }
     if (existing) {
       await ctx.db.patch(existing._id, {
         roleId: inv.roleId,

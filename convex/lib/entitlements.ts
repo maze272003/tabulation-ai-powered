@@ -54,14 +54,12 @@ export async function requireLimit(
 ): Promise<void> {
   const plan = await getPlan(ctx, sub);
   const current = await getUsage(ctx, sub.orgId, resource);
-  const key = limitKeyForResource(resource);
-  const limits: Record<string, number> = plan.limits;
-  const max = limits[key];
-  if (typeof max !== "number" || current >= max) {
+  const limitKey = limitKeyForResource(resource);
+  if (!hasLimit(plan, limitKey, current)) {
     throw appError(ErrorCode.LIMIT_EXCEEDED, `Limit reached: ${resource}`, {
       resource,
       current,
-      max,
+      max: plan.limits[limitKey as keyof typeof plan.limits],
     });
   }
 }

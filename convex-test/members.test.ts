@@ -345,5 +345,103 @@ describe("members & invitations", () => {
         .mutation(api.invitations.accept, { token }),
     ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
   });
+
+  it("closes the accept-time quota bypass: 5th accept hits LIMIT_EXCEEDED (Finding 1)", async () => {
+    // Free plan maxMembers=5. Org owner (Alice) occupies slot 1. Four
+    // invitees accept to fill the org to the ceiling (5 active). A fifth
+    // invitation's accept must be refused by `requireLimit` inside
+    // `accept` — the exact code path this fix adds.
+    const t = setupTest();
+    await seedAndProvision(t, aliceIdentity);
+
+    const carolIdentity = {
+      tokenIdentifier: "carol-token",
+      subject: "carol-subject",
+      name: "Carol",
+      email: "carol@example.com",
+      pictureUrl: "https://example.com/c.png",
+      issuer: "https://tabulation.example.com",
+    } as const;
+    const daveIdentity = {
+      tokenIdentifier: "dave-token",
+      subject: "dave-subject",
+      name: "Dave",
+      email: "dave@example.com",
+      pictureUrl: "https://example.com/d.png",
+      issuer: "https://tabulation.example.com",
+    } as const;
+    const eveIdentity = {
+      tokenIdentifier: "eve-token",
+      subject: "eve-subject",
+      name: "Eve",
+      email: "eve@example.com",
+      pictureUrl: "https://example.com/e.png",
+      issuer: "https://tabulation.example.com",
+    } as const;
+    const frankIdentity = {
+      tokenIdentifier: "frank-token",
+      subject: "frank-subject",
+      name: "Frank",
+      email: "frank@example.com",
+      pictureUrl: "https://example.com/f.png",
+      issuer: "https://tabulation.example.com",
+    } as const;
+
+    await seedAndProvision(t, bobIdentity);
+    await seedAndProvision(t, carolIdentity);
+    await seedAndProvision(t, daveIdentity);
+    await seedAndProvision(t, eveIdentity);
+    await seedAndProvision(t, frankIdentity);
+
+    await t
+      .withIdentity(aliceIdentity)
+      .mutation(api.organizations.create, { name: "Acme", slug: "acme" });
+
+    // Mint 5 invitations up front. At create time usage.members=1, well
+    // below the ceiling, so all five `create` calls succeed.
+    const invite = (email: string) =>
+      t.withIdentity(aliceIdentity).mutation(api.invitations.create, {
+        orgSlug: "acme",
+        email,
+        roleName: "Viewer",
+      });
+    const bobToken = await invite("bob@example.com");
+    const carolToken = await invite("carol@example.com");
+    const daveToken = await invite("dave@example.com");
+    const eveToken = await invite("eve@example.com");
+    const frankToken = await invite("frank@example.com");
+
+    // First four accepts succeed and bring the org to the ceiling.
+    await t
+      .withIdentity(bobIdentity)
+      .mutation(api.invitations.accept, { token: bobToken });
+    await t
+      .withIdentity(carolIdentity)
+      .mutation(api.invitations.accept, { token: carolToken });
+    await t
+      .withIdentity(daveIdentity)
+      .mutation(api.invitations.accept, { token: daveToken });
+    await t
+      .withIdentity(eveIdentity)
+      .mutation(api.invitations.accept, { token: eveToken });
+
+    // Fifth accept: org is at maxMembers=5; requireLimit in `accept` must
+    // throw LIMIT_EXCEEDED. Before the fix, this inserted a sixth member.
+    await expect(
+      t
+        .withIdentity(frankIdentity)
+        .mutation(api.invitations.accept, { token: frankToken }),
+    ).rejects.toMatchObject({ data: { code: "LIMIT_EXCEEDED" } });
+
+    // Frank must not have become a member.
+    const members = await t
+      .withIdentity(aliceIdentity)
+      .query(api.members.list, { orgSlug: "acme" });
+    const frank = members.find((m) => m.email === "frank@example.com");
+    expect(frank).toBeUndefined();
+    // Sanity: exactly five active members now.
+    const active = members.filter((m) => m.status === "active");
+    expect(active.length).toBe(5);
+  });
 });
 
