@@ -1,0 +1,800 @@
+# Review package: 57d2aa7..HEAD
+
+## Commits
+10a6f50 feat: members and invitations with limit enforcement
+
+## Files changed
+ convex-test/members.test.ts | 349 ++++++++++++++++++++++++++++++++++++++++++++
+ convex/_generated/api.d.ts  |   4 +
+ convex/invitations.ts       | 209 ++++++++++++++++++++++++++
+ convex/lib/entitlements.ts  |  17 ++-
+ convex/members.ts           | 107 ++++++++++++++
+ 5 files changed, 683 insertions(+), 3 deletions(-)
+
+## Diff
+diff --git a/convex-test/members.test.ts b/convex-test/members.test.ts
+new file mode 100644
+index 0000000..c9dab76
+--- /dev/null
++++ b/convex-test/members.test.ts
+@@ -0,0 +1,349 @@
++/// <reference types="vite/client" />
++import { describe, expect, it } from "vitest";
++import { api } from "../convex/_generated/api";
++import type { Id } from "../convex/_generated/dataModel";
++import { aliceIdentity, bobIdentity, seedAndProvision, setupTest } from "./setup";
++
++type MemberListEntry = {
++  membershipId: Id<"organizationMembers">;
++  userId: Id<"userProfiles">;
++  name: string;
++  email: string;
++  image: string;
++  roleName: string;
++  status: "active" | "invited" | "inactive";
++  joinedAt: number;
++};
++
++async function orgIdOf(
++  t: ReturnType<typeof setupTest>,
++  orgSlug: string,
++): Promise<Id<"organizations">> {
++  const org = await t.withIdentity(aliceIdentity).query(api.organizations.get, {
++    orgSlug,
++  });
++  return org._id;
++}
++
++async function setUsage(
++  t: ReturnType<typeof setupTest>,
++  orgId: Id<"organizations">,
++  resource: string,
++  count: number,
++): Promise<void> {
++  await t.run(async (ctx) => {
++    const existing = await ctx.db
++      .query("usage")
++      .withIndex("by_org_id_and_resource", (q) =>
++        q.eq("orgId", orgId).eq("resource", resource),
++      )
++      .unique();
++    if (existing) {
++      await ctx.db.patch(existing._id, { count });
++    } else {
++      await ctx.db.insert("usage", {
++        orgId,
++        resource,
++        count,
++        periodKey: null,
++      });
++    }
++  });
++}
++
++async function expireInvitation(
++  t: ReturnType<typeof setupTest>,
++  token: string,
++): Promise<void> {
++  await t.run(async (ctx) => {
++    const inv = await ctx.db
++      .query("invitations")
++      .withIndex("by_token", (q) => q.eq("token", token))
++      .unique();
++    if (!inv) throw new Error("invitation not found");
++    await ctx.db.patch(inv._id, { expiresAt: Date.now() - 1000 });
++  });
++}
++
++async function membershipOf(
++  t: ReturnType<typeof setupTest>,
++  orgSlug: string,
++  email: string,
++): Promise<MemberListEntry> {
++  const members = await t
++    .withIdentity(aliceIdentity)
++    .query(api.members.list, { orgSlug });
++  const found = members.find((m) => m.email === email);
++  if (!found) throw new Error(`membership for ${email} not found`);
++  return found;
++}
++
++describe("members & invitations", () => {
++  it("invites, then the invitee accepts and becomes a member", async () => {
++    const t = setupTest();
++    await seedAndProvision(t, aliceIdentity);
++    await seedAndProvision(t, bobIdentity);
++    await t
++      .withIdentity(aliceIdentity)
++      .mutation(api.organizations.create, { name: "Acme", slug: "acme" });
++
++    await t.withIdentity(aliceIdentity).mutation(api.invitations.create, {
++      orgSlug: "acme",
++      email: "bob@example.com",
++      roleName: "Judge",
++    });
++
++    const pending = await t
++      .withIdentity(bobIdentity)
++      .query(api.invitations.listForUser, {});
++    expect(pending.length).toBe(1);
++    expect(pending[0].email).toBe("bob@example.com");
++    expect(pending[0].status).toBe("pending");
++
++    await t
++      .withIdentity(bobIdentity)
++      .mutation(api.invitations.accept, { token: pending[0].token });
++
++    const members = await t
++      .withIdentity(aliceIdentity)
++      .query(api.members.list, { orgSlug: "acme" });
++    const bob = members.find((m) => m.email === "bob@example.com");
++    expect(bob).toBeTruthy();
++    expect(bob?.roleName).toBe("Judge");
++    expect(bob?.status).toBe("active");
++  });
++
++  it("rejects an invitation addressed to a different email (FORBIDDEN)", async () => {
++    const t = setupTest();
++    await seedAndProvision(t, aliceIdentity);
++    await seedAndProvision(t, bobIdentity);
++    await t
++      .withIdentity(aliceIdentity)
++      .mutation(api.organizations.create, { name: "Acme", slug: "acme" });
++
++    const token = await t.withIdentity(aliceIdentity).mutation(
++      api.invitations.create,
++      {
++        orgSlug: "acme",
++        email: "someone-else@example.com",
++        roleName: "Viewer",
++      },
++    );
++
++    // Bob's listForUser should not surface it.
++    const pending = await t
++      .withIdentity(bobIdentity)
++      .query(api.invitations.listForUser, {});
++    expect(pending.length).toBe(0);
++
++    // Bob can't accept it via the token either.
++    await expect(
++      t
++        .withIdentity(bobIdentity)
++        .mutation(api.invitations.accept, { token }),
++    ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
++  });
++
++  it("expires invitations past their TTL (CONFLICT)", async () => {
++    const t = setupTest();
++    await seedAndProvision(t, aliceIdentity);
++    await seedAndProvision(t, bobIdentity);
++    await t
++      .withIdentity(aliceIdentity)
++      .mutation(api.organizations.create, { name: "Acme", slug: "acme" });
++
++    const token = await t.withIdentity(aliceIdentity).mutation(
++      api.invitations.create,
++      {
++        orgSlug: "acme",
++        email: "bob@example.com",
++        roleName: "Viewer",
++      },
++    );
++
++    // Patch expiresAt into the past directly (convex-test 0.0.55 has no
++    // time-advance API; t.run() exposes the mock mutation ctx).
++    await expireInvitation(t, token);
++
++    await expect(
++      t
++        .withIdentity(bobIdentity)
++        .mutation(api.invitations.accept, { token }),
++    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
++
++    // Re-accepting still fails (CONFLICT) ΓÇö the expiry check is deterministic
++    // and does not depend on a side-effecting status patch (which Convex
++    // would roll back alongside the throw).
++    await expect(
++      t
++        .withIdentity(bobIdentity)
++        .mutation(api.invitations.accept, { token }),
++    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
++  });
++
++  it("enforces maxMembers: blocks an invite at the ceiling (LIMIT_EXCEEDED)", async () => {
++    const t = setupTest();
++    await seedAndProvision(t, aliceIdentity);
++    await t
++      .withIdentity(aliceIdentity)
++      .mutation(api.organizations.create, { name: "Acme", slug: "acme" });
++
++    // Push the org's member usage up to the Free plan ceiling (maxMembers = 5).
++    const orgId = await orgIdOf(t, "acme");
++    await setUsage(t, orgId, "members", 5);
++
++    await expect(
++      t.withIdentity(aliceIdentity).mutation(api.invitations.create, {
++        orgSlug: "acme",
++        email: "carol@example.com",
++        roleName: "Viewer",
++      }),
++    ).rejects.toMatchObject({ data: { code: "LIMIT_EXCEEDED" } });
++  });
++
++  it("refuses to demote the owner (CONFLICT)", async () => {
++    const t = setupTest();
++    await seedAndProvision(t, aliceIdentity);
++    await t
++      .withIdentity(aliceIdentity)
++      .mutation(api.organizations.create, { name: "Acme", slug: "acme" });
++
++    const aliceMembership = await membershipOf(t, "acme", "alice@example.com");
++    expect(aliceMembership.roleName).toBe("Org Owner");
++
++    await expect(
++      t.withIdentity(aliceIdentity).mutation(api.members.changeRole, {
++        orgSlug: "acme",
++        membershipId: aliceMembership.membershipId,
++        roleName: "Judge",
++      }),
++    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
++  });
++
++  it("refuses to remove the owner (CONFLICT)", async () => {
++    const t = setupTest();
++    await seedAndProvision(t, aliceIdentity);
++    await t
++      .withIdentity(aliceIdentity)
++      .mutation(api.organizations.create, { name: "Acme", slug: "acme" });
++
++    const aliceMembership = await membershipOf(t, "acme", "alice@example.com");
++
++    await expect(
++      t.withIdentity(aliceIdentity).mutation(api.members.remove, {
++        orgSlug: "acme",
++        membershipId: aliceMembership.membershipId,
++      }),
++    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
++  });
++
++  it("non-admin member cannot invite (FORBIDDEN)", async () => {
++    const t = setupTest();
++    await seedAndProvision(t, aliceIdentity);
++    await seedAndProvision(t, bobIdentity);
++    await t
++      .withIdentity(aliceIdentity)
++      .mutation(api.organizations.create, { name: "Acme", slug: "acme" });
++
++    // Invite Bob as a Viewer (Viewer lacks organization.members.manage).
++    const token = await t.withIdentity(aliceIdentity).mutation(
++      api.invitations.create,
++      {
++        orgSlug: "acme",
++        email: "bob@example.com",
++        roleName: "Viewer",
++      },
++    );
++    await t
++      .withIdentity(bobIdentity)
++      .mutation(api.invitations.accept, { token });
++
++    await expect(
++      t.withIdentity(bobIdentity).mutation(api.invitations.create, {
++        orgSlug: "acme",
++        email: "carol@example.com",
++        roleName: "Viewer",
++      }),
++    ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
++  });
++
++  it("admin can change a non-owner member's role and remove a member", async () => {
++    const t = setupTest();
++    await seedAndProvision(t, aliceIdentity);
++    await seedAndProvision(t, bobIdentity);
++    await t
++      .withIdentity(aliceIdentity)
++      .mutation(api.organizations.create, { name: "Acme", slug: "acme" });
++
++    const token = await t.withIdentity(aliceIdentity).mutation(
++      api.invitations.create,
++      {
++        orgSlug: "acme",
++        email: "bob@example.com",
++        roleName: "Viewer",
++      },
++    );
++    await t
++      .withIdentity(bobIdentity)
++      .mutation(api.invitations.accept, { token });
++
++    const bobBefore = await membershipOf(t, "acme", "bob@example.com");
++    expect(bobBefore.roleName).toBe("Viewer");
++
++    await t.withIdentity(aliceIdentity).mutation(api.members.changeRole, {
++      orgSlug: "acme",
++      membershipId: bobBefore.membershipId,
++      roleName: "Tabulator",
++    });
++    const bobAfter = await membershipOf(t, "acme", "bob@example.com");
++    expect(bobAfter.roleName).toBe("Tabulator");
++
++    await t.withIdentity(aliceIdentity).mutation(api.members.remove, {
++      orgSlug: "acme",
++      membershipId: bobAfter.membershipId,
++    });
++    const members = await t
++      .withIdentity(aliceIdentity)
++      .query(api.members.list, { orgSlug: "acme" });
++    const bobRemoved = members.find((m) => m.email === "bob@example.com");
++    expect(bobRemoved?.status).toBe("inactive");
++  });
++
++  it("revokes a pending invitation (REVOKE ΓåÆ no longer accept-able)", async () => {
++    const t = setupTest();
++    await seedAndProvision(t, aliceIdentity);
++    await seedAndProvision(t, bobIdentity);
++    await t
++      .withIdentity(aliceIdentity)
++      .mutation(api.organizations.create, { name: "Acme", slug: "acme" });
++
++    const token = await t.withIdentity(aliceIdentity).mutation(
++      api.invitations.create,
++      {
++        orgSlug: "acme",
++        email: "bob@example.com",
++        roleName: "Viewer",
++      },
++    );
++
++    // Discover the invitation id via listForOrg so we exercise that path too.
++    const orgInvites = await t
++      .withIdentity(aliceIdentity)
++      .query(api.invitations.listForOrg, { orgSlug: "acme" });
++    expect(orgInvites.length).toBe(1);
++    const inviteId = orgInvites[0]._id;
++
++    await t.withIdentity(aliceIdentity).mutation(api.invitations.revoke, {
++      orgSlug: "acme",
++      invitationId: inviteId,
++    });
++
++    // Bob can no longer accept it.
++    await expect(
++      t
++        .withIdentity(bobIdentity)
++        .mutation(api.invitations.accept, { token }),
++    ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
++  });
++});
++
+diff --git a/convex/_generated/api.d.ts b/convex/_generated/api.d.ts
+index a70a1c0..8260085 100644
+--- a/convex/_generated/api.d.ts
++++ b/convex/_generated/api.d.ts
+@@ -4,49 +4,53 @@
+  *
+  * THIS CODE IS AUTOMATICALLY GENERATED.
+  *
+  * To regenerate, run `npx convex dev`.
+  * @module
+  */
+ 
+ import type * as __test__ from "../__test__.js";
+ import type * as auth from "../auth.js";
+ import type * as http from "../http.js";
++import type * as invitations from "../invitations.js";
+ import type * as lib_audit from "../lib/audit.js";
+ import type * as lib_auth from "../lib/auth.js";
+ import type * as lib_authz from "../lib/authz.js";
+ import type * as lib_constants from "../lib/constants.js";
+ import type * as lib_entitlements from "../lib/entitlements.js";
+ import type * as lib_errors from "../lib/errors.js";
+ import type * as lib_serializers from "../lib/serializers.js";
+ import type * as lib_usage from "../lib/usage.js";
++import type * as members from "../members.js";
+ import type * as organizations from "../organizations.js";
+ import type * as seed from "../seed.js";
+ 
+ import type {
+   ApiFromModules,
+   FilterApi,
+   FunctionReference,
+ } from "convex/server";
+ 
+ declare const fullApi: ApiFromModules<{
+   __test__: typeof __test__;
+   auth: typeof auth;
+   http: typeof http;
++  invitations: typeof invitations;
+   "lib/audit": typeof lib_audit;
+   "lib/auth": typeof lib_auth;
+   "lib/authz": typeof lib_authz;
+   "lib/constants": typeof lib_constants;
+   "lib/entitlements": typeof lib_entitlements;
+   "lib/errors": typeof lib_errors;
+   "lib/serializers": typeof lib_serializers;
+   "lib/usage": typeof lib_usage;
++  members: typeof members;
+   organizations: typeof organizations;
+   seed: typeof seed;
+ }>;
+ 
+ /**
+  * A utility for referencing Convex functions in your app's public API.
+  *
+  * Usage:
+  * ```js
+  * const myFunctionReference = api.myModule.myFunction;
+diff --git a/convex/invitations.ts b/convex/invitations.ts
+new file mode 100644
+index 0000000..fcf9148
+--- /dev/null
++++ b/convex/invitations.ts
+@@ -0,0 +1,209 @@
++import { v } from "convex/values";
++import { mutation, query } from "./_generated/server";
++import type { Id } from "./_generated/dataModel";
++import { appError, ErrorCode } from "./lib/errors";
++import { requirePermission } from "./lib/authz";
++import { requireUserProfile } from "./lib/auth";
++import { writeAudit } from "./lib/audit";
++import { getSubscription, requireLimit } from "./lib/entitlements";
++import { incrementUsage } from "./lib/usage";
++
++const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
++
++function randomToken(): string {
++  return Array.from(crypto.getRandomValues(new Uint8Array(32)))
++    .map((b) => b.toString(16).padStart(2, "0"))
++    .join("");
++}
++
++export const create = mutation({
++  args: { orgSlug: v.string(), email: v.string(), roleName: v.string() },
++  handler: async (ctx, args): Promise<string> => {
++    const actx = await requirePermission(ctx, {
++      orgSlug: args.orgSlug,
++      permission: "organization.members.manage",
++    });
++    const sub = await getSubscription(ctx, actx.org._id);
++    await requireLimit(ctx, sub, "members");
++
++    const normalizedEmail = args.email.toLowerCase().trim();
++    if (!normalizedEmail) {
++      throw appError(ErrorCode.VALIDATION_ERROR, "Email is required");
++    }
++
++    const role = await ctx.db
++      .query("roles")
++      .withIndex("by_name", (q) => q.eq("name", args.roleName))
++      .unique();
++    if (!role) throw appError(ErrorCode.NOT_FOUND, "Role not found");
++
++    const existing = await ctx.db
++      .query("invitations")
++      .withIndex("by_org_id_and_email", (q) =>
++        q.eq("orgId", actx.org._id).eq("email", normalizedEmail),
++      )
++      .filter((q) => q.eq(q.field("status"), "pending"))
++      .first();
++    if (existing) {
++      throw appError(ErrorCode.CONFLICT, "Invitation already pending", {
++        email: normalizedEmail,
++      });
++    }
++
++    const token = randomToken();
++    const expiresAt = Date.now() + INVITATION_TTL_MS;
++    const id: Id<"invitations"> = await ctx.db.insert("invitations", {
++      orgId: actx.org._id,
++      email: normalizedEmail,
++      roleId: role._id,
++      eventId: null,
++      token,
++      status: "pending",
++      expiresAt,
++      createdById: actx.user._id,
++      acceptedById: null,
++      acceptedAt: null,
++    });
++    await writeAudit(ctx, {
++      orgId: actx.org._id,
++      actorId: actx.user._id,
++      action: "member.invited",
++      resourceType: "invitation",
++      resourceId: id,
++      after: { email: normalizedEmail, roleName: args.roleName, expiresAt },
++    });
++    return token;
++  },
++});
++
++export const listForUser = query({
++  args: {},
++  handler: async (ctx) => {
++    const profile = await requireUserProfile(ctx);
++    return ctx.db
++      .query("invitations")
++      .withIndex("by_email", (q) => q.eq("email", profile.email))
++      .filter((q) => q.eq(q.field("status"), "pending"))
++      .collect();
++  },
++});
++
++export const listForOrg = query({
++  args: { orgSlug: v.string() },
++  handler: async (ctx, args) => {
++    const actx = await requirePermission(ctx, {
++      orgSlug: args.orgSlug,
++      permission: "organization.members.manage",
++    });
++    return ctx.db
++      .query("invitations")
++      .withIndex("by_org_id_and_email", (q) => q.eq("orgId", actx.org._id))
++      .filter((q) => q.eq(q.field("status"), "pending"))
++      .collect();
++  },
++});
++
++export const getByToken = query({
++  args: { token: v.string() },
++  handler: async (ctx, args) => {
++    const inv = await ctx.db
++      .query("invitations")
++      .withIndex("by_token", (q) => q.eq("token", args.token))
++      .unique();
++    if (!inv || inv.status !== "pending") return null;
++    const org = await ctx.db.get(inv.orgId);
++    const role = await ctx.db.get(inv.roleId);
++    return {
++      orgName: org?.name ?? "",
++      roleName: role?.name ?? "",
++      email: inv.email,
++      expiresAt: inv.expiresAt,
++    };
++  },
++});
++
++export const accept = mutation({
++  args: { token: v.string() },
++  handler: async (ctx, args) => {
++    const profile = await requireUserProfile(ctx);
++    const inv = await ctx.db
++      .query("invitations")
++      .withIndex("by_token", (q) => q.eq("token", args.token))
++      .unique();
++    if (!inv || inv.status !== "pending") {
++      throw appError(ErrorCode.NOT_FOUND, "Invitation not found");
++    }
++    if (inv.email !== profile.email) {
++      throw appError(ErrorCode.FORBIDDEN, "Invitation is not for you");
++    }
++    if (Date.now() > inv.expiresAt) {
++      // Note: we intentionally do not patch the invitation to "expired"
++      // here. Convex rolls back all writes when a mutation throws, so the
++      // patch would not persist anyway. The invitation remains "pending"
++      // with a stale `expiresAt`; subsequent accept attempts re-evaluate
++      // the same check and re-throw CONFLICT. A sweep job (Phase 2) can
++      // reconcile these to "expired" in batch.
++      throw appError(ErrorCode.CONFLICT, "Invitation has expired");
++    }
++    const existing = await ctx.db
++      .query("organizationMembers")
++      .withIndex("by_org_id_and_user_id", (q) =>
++        q.eq("orgId", inv.orgId).eq("userId", profile._id),
++      )
++      .unique();
++    if (existing) {
++      await ctx.db.patch(existing._id, {
++        roleId: inv.roleId,
++        status: "active",
++      });
++    } else {
++      await ctx.db.insert("organizationMembers", {
++        userId: profile._id,
++        orgId: inv.orgId,
++        roleId: inv.roleId,
++        status: "active",
++        joinedAt: Date.now(),
++      });
++      await incrementUsage(ctx, inv.orgId, "members", 1);
++    }
++    await ctx.db.patch(inv._id, {
++      status: "accepted",
++      acceptedById: profile._id,
++      acceptedAt: Date.now(),
++    });
++    await writeAudit(ctx, {
++      orgId: inv.orgId,
++      actorId: profile._id,
++      action: "member.invitation.accepted",
++      resourceType: "invitation",
++      resourceId: inv._id,
++      before: { status: "pending" },
++      after: { status: "accepted" },
++    });
++  },
++});
++
++export const revoke = mutation({
++  args: { orgSlug: v.string(), invitationId: v.id("invitations") },
++  handler: async (ctx, args) => {
++    const actx = await requirePermission(ctx, {
++      orgSlug: args.orgSlug,
++      permission: "organization.members.manage",
++    });
++    const inv = await ctx.db.get(args.invitationId);
++    if (!inv || inv.orgId !== actx.org._id) {
++      throw appError(ErrorCode.NOT_FOUND, "Invitation not found");
++    }
++    const before = { status: inv.status };
++    await ctx.db.patch(args.invitationId, { status: "revoked" });
++    await writeAudit(ctx, {
++      orgId: actx.org._id,
++      actorId: actx.user._id,
++      action: "member.invitation.revoked",
++      resourceType: "invitation",
++      resourceId: args.invitationId,
++      before,
++      after: { status: "revoked" },
++    });
++  },
++});
+diff --git a/convex/lib/entitlements.ts b/convex/lib/entitlements.ts
+index 0c79844..1507836 100644
+--- a/convex/lib/entitlements.ts
++++ b/convex/lib/entitlements.ts
+@@ -31,26 +31,37 @@ export async function requireFeature(
+   ctx: QueryCtx,
+   sub: Doc<"subscriptions">,
+   feature: string,
+ ): Promise<void> {
+   const plan = await getPlan(ctx, sub);
+   if (!hasFeature(plan, feature)) {
+     throw appError(ErrorCode.FEATURE_UNAVAILABLE, `Feature unavailable: ${feature}`, { feature });
+   }
+ }
+ 
++/**
++ * Resolve the plan-limits key for a usage resource. Usage rows store short
++ * resource names ("members", "events"); plan.limits are keyed with a `max`
++ * prefix ("maxMembers", "maxEvents"). This maps between the two conventions.
++ */
++function limitKeyForResource(resource: string): string {
++  return `max${resource.charAt(0).toUpperCase()}${resource.slice(1)}`;
++}
++
+ export async function requireLimit(
+   ctx: MutationCtx,
+   sub: Doc<"subscriptions">,
+   resource: string,
+ ): Promise<void> {
+   const plan = await getPlan(ctx, sub);
+   const current = await getUsage(ctx, sub.orgId, resource);
+-  if (!hasLimit(plan, resource, current)) {
+-    const limits: Record<string, number> = plan.limits;
++  const key = limitKeyForResource(resource);
++  const limits: Record<string, number> = plan.limits;
++  const max = limits[key];
++  if (typeof max !== "number" || current >= max) {
+     throw appError(ErrorCode.LIMIT_EXCEEDED, `Limit reached: ${resource}`, {
+       resource,
+       current,
+-      max: limits[resource],
++      max,
+     });
+   }
+ }
+diff --git a/convex/members.ts b/convex/members.ts
+new file mode 100644
+index 0000000..7ffd2e0
+--- /dev/null
++++ b/convex/members.ts
+@@ -0,0 +1,107 @@
++import { v } from "convex/values";
++import { mutation, query } from "./_generated/server";
++import { appError, ErrorCode } from "./lib/errors";
++import { requirePermission } from "./lib/authz";
++import { writeAudit } from "./lib/audit";
++import { incrementUsage } from "./lib/usage";
++
++export const list = query({
++  args: { orgSlug: v.string() },
++  handler: async (ctx, args) => {
++    const actx = await requirePermission(ctx, {
++      orgSlug: args.orgSlug,
++      permission: "organization.view",
++    });
++    const memberships = await ctx.db
++      .query("organizationMembers")
++      .withIndex("by_org_id", (q) => q.eq("orgId", actx.org._id))
++      .collect();
++    return Promise.all(
++      memberships.map(async (m) => {
++        const user = await ctx.db.get(m.userId);
++        const role = await ctx.db.get(m.roleId);
++        return {
++          membershipId: m._id,
++          userId: m.userId,
++          name: user?.name ?? "",
++          email: user?.email ?? "",
++          image: user?.image ?? "",
++          roleName: role?.name ?? "",
++          status: m.status,
++          joinedAt: m.joinedAt,
++        };
++      }),
++    );
++  },
++});
++
++export const changeRole = mutation({
++  args: {
++    orgSlug: v.string(),
++    membershipId: v.id("organizationMembers"),
++    roleName: v.string(),
++  },
++  handler: async (ctx, args) => {
++    const actx = await requirePermission(ctx, {
++      orgSlug: args.orgSlug,
++      permission: "organization.members.manage",
++    });
++    const target = await ctx.db.get(args.membershipId);
++    if (!target || target.orgId !== actx.org._id) {
++      throw appError(ErrorCode.NOT_FOUND, "Member not found");
++    }
++    const newRole = await ctx.db
++      .query("roles")
++      .withIndex("by_name", (q) => q.eq("name", args.roleName))
++      .unique();
++    if (!newRole) throw appError(ErrorCode.NOT_FOUND, "Role not found");
++    if (actx.org.ownerId === target.userId && target.roleId !== newRole._id) {
++      throw appError(
++        ErrorCode.CONFLICT,
++        "Cannot change the owner's role; transfer ownership instead",
++      );
++    }
++    const before = { roleId: target.roleId };
++    if (target.roleId !== newRole._id) {
++      await ctx.db.patch(args.membershipId, { roleId: newRole._id });
++    }
++    await writeAudit(ctx, {
++      orgId: actx.org._id,
++      actorId: actx.user._id,
++      action: "member.role.changed",
++      resourceType: "organizationMember",
++      resourceId: args.membershipId,
++      before,
++      after: { roleId: newRole._id },
++    });
++  },
++});
++
++export const remove = mutation({
++  args: { orgSlug: v.string(), membershipId: v.id("organizationMembers") },
++  handler: async (ctx, args) => {
++    const actx = await requirePermission(ctx, {
++      orgSlug: args.orgSlug,
++      permission: "organization.members.manage",
++    });
++    const target = await ctx.db.get(args.membershipId);
++    if (!target || target.orgId !== actx.org._id) {
++      throw appError(ErrorCode.NOT_FOUND, "Member not found");
++    }
++    if (actx.org.ownerId === target.userId) {
++      throw appError(ErrorCode.CONFLICT, "Cannot remove the owner");
++    }
++    const before = { status: target.status };
++    await ctx.db.patch(args.membershipId, { status: "inactive" });
++    await incrementUsage(ctx, actx.org._id, "members", -1);
++    await writeAudit(ctx, {
++      orgId: actx.org._id,
++      actorId: actx.user._id,
++      action: "member.removed",
++      resourceType: "organizationMember",
++      resourceId: args.membershipId,
++      before,
++      after: { status: "inactive" },
++    });
++  },
++});

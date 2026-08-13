@@ -1,0 +1,1580 @@
+# Review package: b5ef576..HEAD
+
+## Commits
+8757b7e feat: mount @convex-dev/better-auth component
+
+## Files changed
+ convex/_generated/api.d.ts                |    6 +-
+ convex/auth.config.ts                     |    6 +
+ convex/betterAuth/_generated/api.ts       |   52 ++
+ convex/betterAuth/_generated/component.ts | 1016 +++++++++++++++++++++++++++++
+ convex/betterAuth/_generated/dataModel.ts |   60 ++
+ convex/betterAuth/_generated/server.ts    |  156 +++++
+ convex/betterAuth/adapter.ts              |   13 +
+ convex/betterAuth/auth.ts                 |   40 ++
+ convex/betterAuth/convex.config.ts        |    5 +
+ convex/betterAuth/schema.ts               |   78 +++
+ convex/convex.config.ts                   |    8 +
+ convex/http.ts                            |    8 +
+ 12 files changed, 1447 insertions(+), 1 deletion(-)
+
+## Diff
+diff --git a/convex/_generated/api.d.ts b/convex/_generated/api.d.ts
+index 9008bd7..eb42ced 100644
+--- a/convex/_generated/api.d.ts
++++ b/convex/_generated/api.d.ts
+@@ -1,29 +1,31 @@
+ /* eslint-disable */
+ /**
+  * Generated `api` utility.
+  *
+  * THIS CODE IS AUTOMATICALLY GENERATED.
+  *
+  * To regenerate, run `npx convex dev`.
+  * @module
+  */
+ 
++import type * as http from "../http.js";
+ import type * as myFunctions from "../myFunctions.js";
+ 
+ import type {
+   ApiFromModules,
+   FilterApi,
+   FunctionReference,
+ } from "convex/server";
+ 
+ declare const fullApi: ApiFromModules<{
++  http: typeof http;
+   myFunctions: typeof myFunctions;
+ }>;
+ 
+ /**
+  * A utility for referencing Convex functions in your app's public API.
+  *
+  * Usage:
+  * ```js
+  * const myFunctionReference = api.myModule.myFunction;
+  * ```
+@@ -39,11 +41,13 @@ export declare const api: FilterApi<
+  * Usage:
+  * ```js
+  * const myFunctionReference = internal.myModule.myFunction;
+  * ```
+  */
+ export declare const internal: FilterApi<
+   typeof fullApi,
+   FunctionReference<any, "internal">
+ >;
+ 
+-export declare const components: {};
++export declare const components: {
++  betterAuth: import("../betterAuth/_generated/component.js").ComponentApi<"betterAuth">;
++};
+diff --git a/convex/auth.config.ts b/convex/auth.config.ts
+new file mode 100644
+index 0000000..a2851b4
+--- /dev/null
++++ b/convex/auth.config.ts
+@@ -0,0 +1,6 @@
++import { getAuthConfigProvider } from "@convex-dev/better-auth/auth-config";
++import type { AuthConfig } from "convex/server";
++
++export default {
++  providers: [getAuthConfigProvider()],
++} satisfies AuthConfig;
+diff --git a/convex/betterAuth/_generated/api.ts b/convex/betterAuth/_generated/api.ts
+new file mode 100644
+index 0000000..52fad39
+--- /dev/null
++++ b/convex/betterAuth/_generated/api.ts
+@@ -0,0 +1,52 @@
++/* eslint-disable */
++/**
++ * Generated `api` utility.
++ *
++ * THIS CODE IS AUTOMATICALLY GENERATED.
++ *
++ * To regenerate, run `npx convex dev`.
++ * @module
++ */
++
++import type * as adapter from "../adapter.js";
++import type * as auth from "../auth.js";
++
++import type {
++  ApiFromModules,
++  FilterApi,
++  FunctionReference,
++} from "convex/server";
++import { anyApi, componentsGeneric } from "convex/server";
++
++const fullApi: ApiFromModules<{
++  adapter: typeof adapter;
++  auth: typeof auth;
++}> = anyApi as any;
++
++/**
++ * A utility for referencing Convex functions in your app's public API.
++ *
++ * Usage:
++ * ```js
++ * const myFunctionReference = api.myModule.myFunction;
++ * ```
++ */
++export const api: FilterApi<
++  typeof fullApi,
++  FunctionReference<any, "public">
++> = anyApi as any;
++
++/**
++ * A utility for referencing Convex functions in your app's internal API.
++ *
++ * Usage:
++ * ```js
++ * const myFunctionReference = internal.myModule.myFunction;
++ * ```
++ */
++export const internal: FilterApi<
++  typeof fullApi,
++  FunctionReference<any, "internal">
++> = anyApi as any;
++
++export const components = componentsGeneric() as unknown as {};
+diff --git a/convex/betterAuth/_generated/component.ts b/convex/betterAuth/_generated/component.ts
+new file mode 100644
+index 0000000..e9b3e3a
+--- /dev/null
++++ b/convex/betterAuth/_generated/component.ts
+@@ -0,0 +1,1016 @@
++/* eslint-disable */
++/**
++ * Generated `ComponentApi` utility.
++ *
++ * THIS CODE IS AUTOMATICALLY GENERATED.
++ *
++ * To regenerate, run `npx convex dev`.
++ * @module
++ */
++
++import type { FunctionReference } from "convex/server";
++
++/**
++ * A utility for referencing a Convex component's exposed API.
++ *
++ * Useful when expecting a parameter like `components.myComponent`.
++ * Usage:
++ * ```ts
++ * async function myFunction(ctx: QueryCtx, component: ComponentApi) {
++ *   return ctx.runQuery(component.someFile.someQuery, { ...args });
++ * }
++ * ```
++ */
++export type ComponentApi<Name extends string | undefined = string | undefined> =
++  {
++    adapter: {
++      create: FunctionReference<
++        "mutation",
++        "internal",
++        {
++          input:
++            | {
++                data: {
++                  createdAt: number;
++                  email: string;
++                  emailVerified: boolean;
++                  image?: null | string;
++                  name: string;
++                  updatedAt: number;
++                  userId?: null | string;
++                };
++                model: "user";
++              }
++            | {
++                data: {
++                  createdAt: number;
++                  expiresAt: number;
++                  ipAddress?: null | string;
++                  token: string;
++                  updatedAt: number;
++                  userAgent?: null | string;
++                  userId: string;
++                };
++                model: "session";
++              }
++            | {
++                data: {
++                  accessToken?: null | string;
++                  accessTokenExpiresAt?: null | number;
++                  accountId: string;
++                  createdAt: number;
++                  idToken?: null | string;
++                  password?: null | string;
++                  providerId: string;
++                  refreshToken?: null | string;
++                  refreshTokenExpiresAt?: null | number;
++                  scope?: null | string;
++                  updatedAt: number;
++                  userId: string;
++                };
++                model: "account";
++              }
++            | {
++                data: {
++                  createdAt: number;
++                  expiresAt: number;
++                  identifier: string;
++                  updatedAt: number;
++                  value: string;
++                };
++                model: "verification";
++              }
++            | {
++                data: {
++                  createdAt: number;
++                  expiresAt?: null | number;
++                  privateKey: string;
++                  publicKey: string;
++                };
++                model: "jwks";
++              };
++          onCreateHandle?: string;
++          select?: Array<string>;
++        },
++        any,
++        Name
++      >;
++      deleteMany: FunctionReference<
++        "mutation",
++        "internal",
++        {
++          input:
++            | {
++                model: "user";
++                where?: Array<{
++                  connector?: "AND" | "OR";
++                  field:
++                    | "name"
++                    | "email"
++                    | "emailVerified"
++                    | "image"
++                    | "createdAt"
++                    | "updatedAt"
++                    | "userId"
++                    | "_id";
++                  mode?: "sensitive" | "insensitive";
++                  operator?:
++                    | "lt"
++                    | "lte"
++                    | "gt"
++                    | "gte"
++                    | "eq"
++                    | "in"
++                    | "not_in"
++                    | "ne"
++                    | "contains"
++                    | "starts_with"
++                    | "ends_with";
++                  value:
++                    | string
++                    | number
++                    | boolean
++                    | Array<string>
++                    | Array<number>
++                    | null;
++                }>;
++              }
++            | {
++                model: "session";
++                where?: Array<{
++                  connector?: "AND" | "OR";
++                  field:
++                    | "expiresAt"
++                    | "token"
++                    | "createdAt"
++                    | "updatedAt"
++                    | "ipAddress"
++                    | "userAgent"
++                    | "userId"
++                    | "_id";
++                  mode?: "sensitive" | "insensitive";
++                  operator?:
++                    | "lt"
++                    | "lte"
++                    | "gt"
++                    | "gte"
++                    | "eq"
++                    | "in"
++                    | "not_in"
++                    | "ne"
++                    | "contains"
++                    | "starts_with"
++                    | "ends_with";
++                  value:
++                    | string
++                    | number
++                    | boolean
++                    | Array<string>
++                    | Array<number>
++                    | null;
++                }>;
++              }
++            | {
++                model: "account";
++                where?: Array<{
++                  connector?: "AND" | "OR";
++                  field:
++                    | "accountId"
++                    | "providerId"
++                    | "userId"
++                    | "accessToken"
++                    | "refreshToken"
++                    | "idToken"
++                    | "accessTokenExpiresAt"
++                    | "refreshTokenExpiresAt"
++                    | "scope"
++                    | "password"
++                    | "createdAt"
++                    | "updatedAt"
++                    | "_id";
++                  mode?: "sensitive" | "insensitive";
++                  operator?:
++                    | "lt"
++                    | "lte"
++                    | "gt"
++                    | "gte"
++                    | "eq"
++                    | "in"
++                    | "not_in"
++                    | "ne"
++                    | "contains"
++                    | "starts_with"
++                    | "ends_with";
++                  value:
++                    | string
++                    | number
++                    | boolean
++                    | Array<string>
++                    | Array<number>
++                    | null;
++                }>;
++              }
++            | {
++                model: "verification";
++                where?: Array<{
++                  connector?: "AND" | "OR";
++                  field:
++                    | "identifier"
++                    | "value"
++                    | "expiresAt"
++                    | "createdAt"
++                    | "updatedAt"
++                    | "_id";
++                  mode?: "sensitive" | "insensitive";
++                  operator?:
++                    | "lt"
++                    | "lte"
++                    | "gt"
++                    | "gte"
++                    | "eq"
++                    | "in"
++                    | "not_in"
++                    | "ne"
++                    | "contains"
++                    | "starts_with"
++                    | "ends_with";
++                  value:
++                    | string
++                    | number
++                    | boolean
++                    | Array<string>
++                    | Array<number>
++                    | null;
++                }>;
++              }
++            | {
++                model: "jwks";
++                where?: Array<{
++                  connector?: "AND" | "OR";
++                  field:
++                    | "publicKey"
++                    | "privateKey"
++                    | "createdAt"
++                    | "expiresAt"
++                    | "_id";
++                  mode?: "sensitive" | "insensitive";
++                  operator?:
++                    | "lt"
++                    | "lte"
++                    | "gt"
++                    | "gte"
++                    | "eq"
++                    | "in"
++                    | "not_in"
++                    | "ne"
++                    | "contains"
++                    | "starts_with"
++                    | "ends_with";
++                  value:
++                    | string
++                    | number
++                    | boolean
++                    | Array<string>
++                    | Array<number>
++                    | null;
++                }>;
++              };
++          onDeleteHandle?: string;
++          paginationOpts: {
++            cursor: string | null;
++            endCursor?: string | null;
++            id?: number;
++            maximumBytesRead?: number;
++            maximumRowsRead?: number;
++            numItems: number;
++          };
++        },
++        any,
++        Name
++      >;
++      deleteOne: FunctionReference<
++        "mutation",
++        "internal",
++        {
++          input:
++            | {
++                model: "user";
++                where?: Array<{
++                  connector?: "AND" | "OR";
++                  field:
++                    | "name"
++                    | "email"
++                    | "emailVerified"
++                    | "image"
++                    | "createdAt"
++                    | "updatedAt"
++                    | "userId"
++                    | "_id";
++                  mode?: "sensitive" | "insensitive";
++                  operator?:
++                    | "lt"
++                    | "lte"
++                    | "gt"
++                    | "gte"
++                    | "eq"
++                    | "in"
++                    | "not_in"
++                    | "ne"
++                    | "contains"
++                    | "starts_with"
++                    | "ends_with";
++                  value:
++                    | string
++                    | number
++                    | boolean
++                    | Array<string>
++                    | Array<number>
++                    | null;
++                }>;
++              }
++            | {
++                model: "session";
++                where?: Array<{
++                  connector?: "AND" | "OR";
++                  field:
++                    | "expiresAt"
++                    | "token"
++                    | "createdAt"
++                    | "updatedAt"
++                    | "ipAddress"
++                    | "userAgent"
++                    | "userId"
++                    | "_id";
++                  mode?: "sensitive" | "insensitive";
++                  operator?:
++                    | "lt"
++                    | "lte"
++                    | "gt"
++                    | "gte"
++                    | "eq"
++                    | "in"
++                    | "not_in"
++                    | "ne"
++                    | "contains"
++                    | "starts_with"
++                    | "ends_with";
++                  value:
++                    | string
++                    | number
++                    | boolean
++                    | Array<string>
++                    | Array<number>
++                    | null;
++                }>;
++              }
++            | {
++                model: "account";
++                where?: Array<{
++                  connector?: "AND" | "OR";
++                  field:
++                    | "accountId"
++                    | "providerId"
++                    | "userId"
++                    | "accessToken"
++                    | "refreshToken"
++                    | "idToken"
++                    | "accessTokenExpiresAt"
++                    | "refreshTokenExpiresAt"
++                    | "scope"
++                    | "password"
++                    | "createdAt"
++                    | "updatedAt"
++                    | "_id";
++                  mode?: "sensitive" | "insensitive";
++                  operator?:
++                    | "lt"
++                    | "lte"
++                    | "gt"
++                    | "gte"
++                    | "eq"
++                    | "in"
++                    | "not_in"
++                    | "ne"
++                    | "contains"
++                    | "starts_with"
++                    | "ends_with";
++                  value:
++                    | string
++                    | number
++                    | boolean
++                    | Array<string>
++                    | Array<number>
++                    | null;
++                }>;
++              }
++            | {
++                model: "verification";
++                where?: Array<{
++                  connector?: "AND" | "OR";
++                  field:
++                    | "identifier"
++                    | "value"
++                    | "expiresAt"
++                    | "createdAt"
++                    | "updatedAt"
++                    | "_id";
++                  mode?: "sensitive" | "insensitive";
++                  operator?:
++                    | "lt"
++                    | "lte"
++                    | "gt"
++                    | "gte"
++                    | "eq"
++                    | "in"
++                    | "not_in"
++                    | "ne"
++                    | "contains"
++                    | "starts_with"
++                    | "ends_with";
++                  value:
++                    | string
++                    | number
++                    | boolean
++                    | Array<string>
++                    | Array<number>
++                    | null;
++                }>;
++              }
++            | {
++                model: "jwks";
++                where?: Array<{
++                  connector?: "AND" | "OR";
++                  field:
++                    | "publicKey"
++                    | "privateKey"
++                    | "createdAt"
++                    | "expiresAt"
++                    | "_id";
++                  mode?: "sensitive" | "insensitive";
++                  operator?:
++                    | "lt"
++                    | "lte"
++                    | "gt"
++                    | "gte"
++                    | "eq"
++                    | "in"
++                    | "not_in"
++                    | "ne"
++                    | "contains"
++                    | "starts_with"
++                    | "ends_with";
++                  value:
++                    | string
++                    | number
++                    | boolean
++                    | Array<string>
++                    | Array<number>
++                    | null;
++                }>;
++              };
++          onDeleteHandle?: string;
++        },
++        any,
++        Name
++      >;
++      findMany: FunctionReference<
++        "query",
++        "internal",
++        {
++          join?: any;
++          limit?: number;
++          model: "user" | "session" | "account" | "verification" | "jwks";
++          offset?: number;
++          paginationOpts: {
++            cursor: string | null;
++            endCursor?: string | null;
++            id?: number;
++            maximumBytesRead?: number;
++            maximumRowsRead?: number;
++            numItems: number;
++          };
++          select?: Array<string>;
++          sortBy?: { direction: "asc" | "desc"; field: string };
++          where?: Array<{
++            connector?: "AND" | "OR";
++            field: string;
++            mode?: "sensitive" | "insensitive";
++            operator?:
++              | "lt"
++              | "lte"
++              | "gt"
++              | "gte"
++              | "eq"
++              | "in"
++              | "not_in"
++              | "ne"
++              | "contains"
++              | "starts_with"
++              | "ends_with";
++            value:
++              string | number | boolean | Array<string> | Array<number> | null;
++          }>;
++        },
++        any,
++        Name
++      >;
++      findOne: FunctionReference<
++        "query",
++        "internal",
++        {
++          join?: any;
++          model: "user" | "session" | "account" | "verification" | "jwks";
++          select?: Array<string>;
++          where?: Array<{
++            connector?: "AND" | "OR";
++            field: string;
++            mode?: "sensitive" | "insensitive";
++            operator?:
++              | "lt"
++              | "lte"
++              | "gt"
++              | "gte"
++              | "eq"
++              | "in"
++              | "not_in"
++              | "ne"
++              | "contains"
++              | "starts_with"
++              | "ends_with";
++            value:
++              string | number | boolean | Array<string> | Array<number> | null;
++          }>;
++        },
++        any,
++        Name
++      >;
++      updateMany: FunctionReference<
++        "mutation",
++        "internal",
++        {
++          input:
++            | {
++                model: "user";
++                update: {
++                  createdAt?: number;
++                  email?: string;
++                  emailVerified?: boolean;
++                  image?: null | string;
++                  name?: string;
++                  updatedAt?: number;
++                  userId?: null | string;
++                };
++                where?: Array<{
++                  connector?: "AND" | "OR";
++                  field:
++                    | "name"
++                    | "email"
++                    | "emailVerified"
++                    | "image"
++                    | "createdAt"
++                    | "updatedAt"
++                    | "userId"
++                    | "_id";
++                  mode?: "sensitive" | "insensitive";
++                  operator?:
++                    | "lt"
++                    | "lte"
++                    | "gt"
++                    | "gte"
++                    | "eq"
++                    | "in"
++                    | "not_in"
++                    | "ne"
++                    | "contains"
++                    | "starts_with"
++                    | "ends_with";
++                  value:
++                    | string
++                    | number
++                    | boolean
++                    | Array<string>
++                    | Array<number>
++                    | null;
++                }>;
++              }
++            | {
++                model: "session";
++                update: {
++                  createdAt?: number;
++                  expiresAt?: number;
++                  ipAddress?: null | string;
++                  token?: string;
++                  updatedAt?: number;
++                  userAgent?: null | string;
++                  userId?: string;
++                };
++                where?: Array<{
++                  connector?: "AND" | "OR";
++                  field:
++                    | "expiresAt"
++                    | "token"
++                    | "createdAt"
++                    | "updatedAt"
++                    | "ipAddress"
++                    | "userAgent"
++                    | "userId"
++                    | "_id";
++                  mode?: "sensitive" | "insensitive";
++                  operator?:
++                    | "lt"
++                    | "lte"
++                    | "gt"
++                    | "gte"
++                    | "eq"
++                    | "in"
++                    | "not_in"
++                    | "ne"
++                    | "contains"
++                    | "starts_with"
++                    | "ends_with";
++                  value:
++                    | string
++                    | number
++                    | boolean
++                    | Array<string>
++                    | Array<number>
++                    | null;
++                }>;
++              }
++            | {
++                model: "account";
++                update: {
++                  accessToken?: null | string;
++                  accessTokenExpiresAt?: null | number;
++                  accountId?: string;
++                  createdAt?: number;
++                  idToken?: null | string;
++                  password?: null | string;
++                  providerId?: string;
++                  refreshToken?: null | string;
++                  refreshTokenExpiresAt?: null | number;
++                  scope?: null | string;
++                  updatedAt?: number;
++                  userId?: string;
++                };
++                where?: Array<{
++                  connector?: "AND" | "OR";
++                  field:
++                    | "accountId"
++                    | "providerId"
++                    | "userId"
++                    | "accessToken"
++                    | "refreshToken"
++                    | "idToken"
++                    | "accessTokenExpiresAt"
++                    | "refreshTokenExpiresAt"
++                    | "scope"
++                    | "password"
++                    | "createdAt"
++                    | "updatedAt"
++                    | "_id";
++                  mode?: "sensitive" | "insensitive";
++                  operator?:
++                    | "lt"
++                    | "lte"
++                    | "gt"
++                    | "gte"
++                    | "eq"
++                    | "in"
++                    | "not_in"
++                    | "ne"
++                    | "contains"
++                    | "starts_with"
++                    | "ends_with";
++                  value:
++                    | string
++                    | number
++                    | boolean
++                    | Array<string>
++                    | Array<number>
++                    | null;
++                }>;
++              }
++            | {
++                model: "verification";
++                update: {
++                  createdAt?: number;
++                  expiresAt?: number;
++                  identifier?: string;
++                  updatedAt?: number;
++                  value?: string;
++                };
++                where?: Array<{
++                  connector?: "AND" | "OR";
++                  field:
++                    | "identifier"
++                    | "value"
++                    | "expiresAt"
++                    | "createdAt"
++                    | "updatedAt"
++                    | "_id";
++                  mode?: "sensitive" | "insensitive";
++                  operator?:
++                    | "lt"
++                    | "lte"
++                    | "gt"
++                    | "gte"
++                    | "eq"
++                    | "in"
++                    | "not_in"
++                    | "ne"
++                    | "contains"
++                    | "starts_with"
++                    | "ends_with";
++                  value:
++                    | string
++                    | number
++                    | boolean
++                    | Array<string>
++                    | Array<number>
++                    | null;
++                }>;
++              }
++            | {
++                model: "jwks";
++                update: {
++                  createdAt?: number;
++                  expiresAt?: null | number;
++                  privateKey?: string;
++                  publicKey?: string;
++                };
++                where?: Array<{
++                  connector?: "AND" | "OR";
++                  field:
++                    | "publicKey"
++                    | "privateKey"
++                    | "createdAt"
++                    | "expiresAt"
++                    | "_id";
++                  mode?: "sensitive" | "insensitive";
++                  operator?:
++                    | "lt"
++                    | "lte"
++                    | "gt"
++                    | "gte"
++                    | "eq"
++                    | "in"
++                    | "not_in"
++                    | "ne"
++                    | "contains"
++                    | "starts_with"
++                    | "ends_with";
++                  value:
++                    | string
++                    | number
++                    | boolean
++                    | Array<string>
++                    | Array<number>
++                    | null;
++                }>;
++              };
++          onUpdateHandle?: string;
++          paginationOpts: {
++            cursor: string | null;
++            endCursor?: string | null;
++            id?: number;
++            maximumBytesRead?: number;
++            maximumRowsRead?: number;
++            numItems: number;
++          };
++        },
++        any,
++        Name
++      >;
++      updateOne: FunctionReference<
++        "mutation",
++        "internal",
++        {
++          input:
++            | {
++                model: "user";
++                update: {
++                  createdAt?: number;
++                  email?: string;
++                  emailVerified?: boolean;
++                  image?: null | string;
++                  name?: string;
++                  updatedAt?: number;
++                  userId?: null | string;
++                };
++                where?: Array<{
++                  connector?: "AND" | "OR";
++                  field:
++                    | "name"
++                    | "email"
++                    | "emailVerified"
++                    | "image"
++                    | "createdAt"
++                    | "updatedAt"
++                    | "userId"
++                    | "_id";
++                  mode?: "sensitive" | "insensitive";
++                  operator?:
++                    | "lt"
++                    | "lte"
++                    | "gt"
++                    | "gte"
++                    | "eq"
++                    | "in"
++                    | "not_in"
++                    | "ne"
++                    | "contains"
++                    | "starts_with"
++                    | "ends_with";
++                  value:
++                    | string
++                    | number
++                    | boolean
++                    | Array<string>
++                    | Array<number>
++                    | null;
++                }>;
++              }
++            | {
++                model: "session";
++                update: {
++                  createdAt?: number;
++                  expiresAt?: number;
++                  ipAddress?: null | string;
++                  token?: string;
++                  updatedAt?: number;
++                  userAgent?: null | string;
++                  userId?: string;
++                };
++                where?: Array<{
++                  connector?: "AND" | "OR";
++                  field:
++                    | "expiresAt"
++                    | "token"
++                    | "createdAt"
++                    | "updatedAt"
++                    | "ipAddress"
++                    | "userAgent"
++                    | "userId"
++                    | "_id";
++                  mode?: "sensitive" | "insensitive";
++                  operator?:
++                    | "lt"
++                    | "lte"
++                    | "gt"
++                    | "gte"
++                    | "eq"
++                    | "in"
++                    | "not_in"
++                    | "ne"
++                    | "contains"
++                    | "starts_with"
++                    | "ends_with";
++                  value:
++                    | string
++                    | number
++                    | boolean
++                    | Array<string>
++                    | Array<number>
++                    | null;
++                }>;
++              }
++            | {
++                model: "account";
++                update: {
++                  accessToken?: null | string;
++                  accessTokenExpiresAt?: null | number;
++                  accountId?: string;
++                  createdAt?: number;
++                  idToken?: null | string;
++                  password?: null | string;
++                  providerId?: string;
++                  refreshToken?: null | string;
++                  refreshTokenExpiresAt?: null | number;
++                  scope?: null | string;
++                  updatedAt?: number;
++                  userId?: string;
++                };
++                where?: Array<{
++                  connector?: "AND" | "OR";
++                  field:
++                    | "accountId"
++                    | "providerId"
++                    | "userId"
++                    | "accessToken"
++                    | "refreshToken"
++                    | "idToken"
++                    | "accessTokenExpiresAt"
++                    | "refreshTokenExpiresAt"
++                    | "scope"
++                    | "password"
++                    | "createdAt"
++                    | "updatedAt"
++                    | "_id";
++                  mode?: "sensitive" | "insensitive";
++                  operator?:
++                    | "lt"
++                    | "lte"
++                    | "gt"
++                    | "gte"
++                    | "eq"
++                    | "in"
++                    | "not_in"
++                    | "ne"
++                    | "contains"
++                    | "starts_with"
++                    | "ends_with";
++                  value:
++                    | string
++                    | number
++                    | boolean
++                    | Array<string>
++                    | Array<number>
++                    | null;
++                }>;
++              }
++            | {
++                model: "verification";
++                update: {
++                  createdAt?: number;
++                  expiresAt?: number;
++                  identifier?: string;
++                  updatedAt?: number;
++                  value?: string;
++                };
++                where?: Array<{
++                  connector?: "AND" | "OR";
++                  field:
++                    | "identifier"
++                    | "value"
++                    | "expiresAt"
++                    | "createdAt"
++                    | "updatedAt"
++                    | "_id";
++                  mode?: "sensitive" | "insensitive";
++                  operator?:
++                    | "lt"
++                    | "lte"
++                    | "gt"
++                    | "gte"
++                    | "eq"
++                    | "in"
++                    | "not_in"
++                    | "ne"
++                    | "contains"
++                    | "starts_with"
++                    | "ends_with";
++                  value:
++                    | string
++                    | number
++                    | boolean
++                    | Array<string>
++                    | Array<number>
++                    | null;
++                }>;
++              }
++            | {
++                model: "jwks";
++                update: {
++                  createdAt?: number;
++                  expiresAt?: null | number;
++                  privateKey?: string;
++                  publicKey?: string;
++                };
++                where?: Array<{
++                  connector?: "AND" | "OR";
++                  field:
++                    | "publicKey"
++                    | "privateKey"
++                    | "createdAt"
++                    | "expiresAt"
++                    | "_id";
++                  mode?: "sensitive" | "insensitive";
++                  operator?:
++                    | "lt"
++                    | "lte"
++                    | "gt"
++                    | "gte"
++                    | "eq"
++                    | "in"
++                    | "not_in"
++                    | "ne"
++                    | "contains"
++                    | "starts_with"
++                    | "ends_with";
++                  value:
++                    | string
++                    | number
++                    | boolean
++                    | Array<string>
++                    | Array<number>
++                    | null;
++                }>;
++              };
++          onUpdateHandle?: string;
++        },
++        any,
++        Name
++      >;
++    };
++  };
+diff --git a/convex/betterAuth/_generated/dataModel.ts b/convex/betterAuth/_generated/dataModel.ts
+new file mode 100644
+index 0000000..f97fd19
+--- /dev/null
++++ b/convex/betterAuth/_generated/dataModel.ts
+@@ -0,0 +1,60 @@
++/* eslint-disable */
++/**
++ * Generated data model types.
++ *
++ * THIS CODE IS AUTOMATICALLY GENERATED.
++ *
++ * To regenerate, run `npx convex dev`.
++ * @module
++ */
++
++import type {
++  DataModelFromSchemaDefinition,
++  DocumentByName,
++  TableNamesInDataModel,
++  SystemTableNames,
++} from "convex/server";
++import type { GenericId } from "convex/values";
++import schema from "../schema.js";
++
++/**
++ * The names of all of your Convex tables.
++ */
++export type TableNames = TableNamesInDataModel<DataModel>;
++
++/**
++ * The type of a document stored in Convex.
++ *
++ * @typeParam TableName - A string literal type of the table name (like "users").
++ */
++export type Doc<TableName extends TableNames> = DocumentByName<
++  DataModel,
++  TableName
++>;
++
++/**
++ * An identifier for a document in Convex.
++ *
++ * Convex documents are uniquely identified by their `Id`, which is accessible
++ * on the `_id` field. To learn more, see [Document IDs](https://docs.convex.dev/using/document-ids).
++ *
++ * Documents can be loaded using `db.get(tableName, id)` in query and mutation functions.
++ *
++ * IDs are just strings at runtime, but this type can be used to distinguish them from other
++ * strings when type checking.
++ *
++ * @typeParam TableName - A string literal type of the table name (like "users").
++ */
++export type Id<TableName extends TableNames | SystemTableNames> =
++  GenericId<TableName>;
++
++/**
++ * A type describing your Convex data model.
++ *
++ * This type includes information about what tables you have, the type of
++ * documents stored in those tables, and the indexes defined on them.
++ *
++ * This type is used to parameterize methods like `queryGeneric` and
++ * `mutationGeneric` to make them type-safe.
++ */
++export type DataModel = DataModelFromSchemaDefinition<typeof schema>;
+diff --git a/convex/betterAuth/_generated/server.ts b/convex/betterAuth/_generated/server.ts
+new file mode 100644
+index 0000000..739b02f
+--- /dev/null
++++ b/convex/betterAuth/_generated/server.ts
+@@ -0,0 +1,156 @@
++/* eslint-disable */
++/**
++ * Generated utilities for implementing server-side Convex query and mutation functions.
++ *
++ * THIS CODE IS AUTOMATICALLY GENERATED.
++ *
++ * To regenerate, run `npx convex dev`.
++ * @module
++ */
++
++import type {
++  ActionBuilder,
++  HttpActionBuilder,
++  MutationBuilder,
++  QueryBuilder,
++  GenericActionCtx,
++  GenericMutationCtx,
++  GenericQueryCtx,
++  GenericDatabaseReader,
++  GenericDatabaseWriter,
++} from "convex/server";
++import {
++  actionGeneric,
++  httpActionGeneric,
++  queryGeneric,
++  mutationGeneric,
++  internalActionGeneric,
++  internalMutationGeneric,
++  internalQueryGeneric,
++} from "convex/server";
++import type { DataModel } from "./dataModel.js";
++
++/**
++ * Define a query in this Convex app's public API.
++ *
++ * This function will be allowed to read your Convex database and will be accessible from the client.
++ *
++ * @param func - The query function. It receives a {@link QueryCtx} as its first argument.
++ * @returns The wrapped query. Include this as an `export` to name it and make it accessible.
++ */
++export const query: QueryBuilder<DataModel, "public"> = queryGeneric;
++
++/**
++ * Define a query that is only accessible from other Convex functions (but not from the client).
++ *
++ * This function will be allowed to read from your Convex database. It will not be accessible from the client.
++ *
++ * @param func - The query function. It receives a {@link QueryCtx} as its first argument.
++ * @returns The wrapped query. Include this as an `export` to name it and make it accessible.
++ */
++export const internalQuery: QueryBuilder<DataModel, "internal"> =
++  internalQueryGeneric;
++
++/**
++ * Define a mutation in this Convex app's public API.
++ *
++ * This function will be allowed to modify your Convex database and will be accessible from the client.
++ *
++ * @param func - The mutation function. It receives a {@link MutationCtx} as its first argument.
++ * @returns The wrapped mutation. Include this as an `export` to name it and make it accessible.
++ */
++export const mutation: MutationBuilder<DataModel, "public"> = mutationGeneric;
++
++/**
++ * Define a mutation that is only accessible from other Convex functions (but not from the client).
++ *
++ * This function will be allowed to modify your Convex database. It will not be accessible from the client.
++ *
++ * @param func - The mutation function. It receives a {@link MutationCtx} as its first argument.
++ * @returns The wrapped mutation. Include this as an `export` to name it and make it accessible.
++ */
++export const internalMutation: MutationBuilder<DataModel, "internal"> =
++  internalMutationGeneric;
++
++/**
++ * Define an action in this Convex app's public API.
++ *
++ * An action is a function which can execute any JavaScript code, including non-deterministic
++ * code and code with side-effects, like calling third-party services.
++ * They can be run in Convex's JavaScript environment or in Node.js using the "use node" directive.
++ * They can interact with the database indirectly by calling queries and mutations using the {@link ActionCtx}.
++ *
++ * @param func - The action. It receives an {@link ActionCtx} as its first argument.
++ * @returns The wrapped action. Include this as an `export` to name it and make it accessible.
++ */
++export const action: ActionBuilder<DataModel, "public"> = actionGeneric;
++
++/**
++ * Define an action that is only accessible from other Convex functions (but not from the client).
++ *
++ * @param func - The function. It receives an {@link ActionCtx} as its first argument.
++ * @returns The wrapped function. Include this as an `export` to name it and make it accessible.
++ */
++export const internalAction: ActionBuilder<DataModel, "internal"> =
++  internalActionGeneric;
++
++/**
++ * Define an HTTP action.
++ *
++ * The wrapped function will be used to respond to HTTP requests received
++ * by a Convex deployment if the requests matches the path and method where
++ * this action is routed. Be sure to route your httpAction in `convex/http.js`.
++ *
++ * @param func - The function. It receives an {@link ActionCtx} as its first argument
++ * and a Fetch API `Request` object as its second.
++ * @returns The wrapped function. Import this function from `convex/http.js` and route it to hook it up.
++ */
++export const httpAction: HttpActionBuilder = httpActionGeneric;
++
++/**
++ * A set of services for use within Convex query functions.
++ *
++ * The query context is passed as the first argument to any Convex query
++ * function run on the server.
++ *
++ * If you're using code generation, use the `QueryCtx` type in `convex/_generated/server.d.ts` instead.
++ */
++export type QueryCtx = GenericQueryCtx<DataModel>;
++
++/**
++ * A set of services for use within Convex mutation functions.
++ *
++ * The mutation context is passed as the first argument to any Convex mutation
++ * function run on the server.
++ *
++ * If you're using code generation, use the `MutationCtx` type in `convex/_generated/server.d.ts` instead.
++ */
++export type MutationCtx = GenericMutationCtx<DataModel>;
++
++/**
++ * A set of services for use within Convex action functions.
++ *
++ * The action context is passed as the first argument to any Convex action
++ * function run on the server.
++ */
++export type ActionCtx = GenericActionCtx<DataModel>;
++
++/**
++ * An interface to read from the database within Convex query functions.
++ *
++ * The two entry points are {@link DatabaseReader.get}, which fetches a single
++ * document by its {@link Id}, or {@link DatabaseReader.query}, which starts
++ * building a query.
++ */
++export type DatabaseReader = GenericDatabaseReader<DataModel>;
++
++/**
++ * An interface to read from and write to the database within Convex mutation
++ * functions.
++ *
++ * Convex guarantees that all writes within a single mutation are
++ * executed atomically, so you never have to worry about partial writes leaving
++ * your data in an inconsistent state. See [the Convex Guide](https://docs.convex.dev/understanding/convex-fundamentals/functions#atomicity-and-optimistic-concurrency-control)
++ * for the guarantees Convex provides your functions.
++ */
++export type DatabaseWriter = GenericDatabaseWriter<DataModel>;
+diff --git a/convex/betterAuth/adapter.ts b/convex/betterAuth/adapter.ts
+new file mode 100644
+index 0000000..771d56a
+--- /dev/null
++++ b/convex/betterAuth/adapter.ts
+@@ -0,0 +1,13 @@
++import { createApi } from "@convex-dev/better-auth";
++import { createAuthOptions } from "./auth";
++import schema from "./schema";
++
++export const {
++  create,
++  findOne,
++  findMany,
++  updateOne,
++  updateMany,
++  deleteOne,
++  deleteMany,
++} = createApi(schema, createAuthOptions);
+diff --git a/convex/betterAuth/auth.ts b/convex/betterAuth/auth.ts
+new file mode 100644
+index 0000000..7af3fe6
+--- /dev/null
++++ b/convex/betterAuth/auth.ts
+@@ -0,0 +1,40 @@
++import { createClient } from "@convex-dev/better-auth";
++import { convex } from "@convex-dev/better-auth/plugins";
++import type { GenericCtx } from "@convex-dev/better-auth/utils";
++import type { BetterAuthOptions } from "better-auth";
++import { betterAuth } from "better-auth";
++import { components } from "../_generated/api";
++import type { DataModel } from "../_generated/dataModel";
++import authConfig from "../auth.config";
++import schema from "./schema";
++
++export const authComponent = createClient<DataModel, typeof schema>(
++  components.betterAuth,
++  {
++    local: { schema },
++    verbose: false,
++  },
++);
++
++export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions => {
++  return {
++    appName: "Tabulation",
++    baseURL: process.env.SITE_URL,
++    secret: process.env.BETTER_AUTH_SECRET,
++    database: authComponent.adapter(ctx),
++    emailAndPassword: { enabled: false },
++    socialProviders: {
++      google: {
++        clientId: process.env.GOOGLE_CLIENT_ID!,
++        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
++      },
++    },
++    plugins: [convex({ authConfig })],
++  };
++};
++
++export const options = createAuthOptions({} as GenericCtx<DataModel>);
++
++export const createAuth = (ctx: GenericCtx<DataModel>) => {
++  return betterAuth(createAuthOptions(ctx));
++};
+diff --git a/convex/betterAuth/convex.config.ts b/convex/betterAuth/convex.config.ts
+new file mode 100644
+index 0000000..fe8c88e
+--- /dev/null
++++ b/convex/betterAuth/convex.config.ts
+@@ -0,0 +1,5 @@
++import { defineComponent } from "convex/server";
++
++const component = defineComponent("betterAuth");
++
++export default component;
+diff --git a/convex/betterAuth/schema.ts b/convex/betterAuth/schema.ts
+new file mode 100644
+index 0000000..6231cec
+--- /dev/null
++++ b/convex/betterAuth/schema.ts
+@@ -0,0 +1,78 @@
++/**
++ * This file is auto-generated. Do not edit this file manually.
++ * To regenerate the schema, from your project root:
++ *
++ *   npx auth generate --output C:\Users\USER\Documents\data\convex\tabulation-ai-powered\convex\betterAuth\schema.ts
++ *
++ * To customize the schema, generate to an alternate file and import
++ * the table definitions to your schema file. See
++ * https://labs.convex.dev/better-auth/features/local-install#adding-custom-indexes.
++ */
++
++import { defineSchema, defineTable } from "convex/server";
++import { v } from "convex/values";
++
++export const tables = {
++  user: defineTable({
++    name: v.string(),
++    email: v.string(),
++    emailVerified: v.boolean(),
++    image: v.optional(v.union(v.null(), v.string())),
++    createdAt: v.number(),
++    updatedAt: v.number(),
++    userId: v.optional(v.union(v.null(), v.string())),
++  })
++    .index("email_name", ["email","name"])
++    .index("name", ["name"])
++    .index("userId", ["userId"]),
++  session: defineTable({
++    expiresAt: v.number(),
++    token: v.string(),
++    createdAt: v.number(),
++    updatedAt: v.number(),
++    ipAddress: v.optional(v.union(v.null(), v.string())),
++    userAgent: v.optional(v.union(v.null(), v.string())),
++    userId: v.string(),
++  })
++    .index("expiresAt", ["expiresAt"])
++    .index("expiresAt_userId", ["expiresAt","userId"])
++    .index("token", ["token"])
++    .index("userId", ["userId"]),
++  account: defineTable({
++    accountId: v.string(),
++    providerId: v.string(),
++    userId: v.string(),
++    accessToken: v.optional(v.union(v.null(), v.string())),
++    refreshToken: v.optional(v.union(v.null(), v.string())),
++    idToken: v.optional(v.union(v.null(), v.string())),
++    accessTokenExpiresAt: v.optional(v.union(v.null(), v.number())),
++    refreshTokenExpiresAt: v.optional(v.union(v.null(), v.number())),
++    scope: v.optional(v.union(v.null(), v.string())),
++    password: v.optional(v.union(v.null(), v.string())),
++    createdAt: v.number(),
++    updatedAt: v.number(),
++  })
++    .index("accountId", ["accountId"])
++    .index("accountId_providerId", ["accountId","providerId"])
++    .index("providerId_userId", ["providerId","userId"])
++    .index("userId", ["userId"]),
++  verification: defineTable({
++    identifier: v.string(),
++    value: v.string(),
++    expiresAt: v.number(),
++    createdAt: v.number(),
++    updatedAt: v.number(),
++  })
++    .index("expiresAt", ["expiresAt"])
++    .index("identifier", ["identifier"]),
++  jwks: defineTable({
++    publicKey: v.string(),
++    privateKey: v.string(),
++    createdAt: v.number(),
++    expiresAt: v.optional(v.union(v.null(), v.number())),
++  }),
++};
++
++const schema = defineSchema(tables);
++
++export default schema;
+diff --git a/convex/convex.config.ts b/convex/convex.config.ts
+new file mode 100644
+index 0000000..06f84e4
+--- /dev/null
++++ b/convex/convex.config.ts
+@@ -0,0 +1,8 @@
++import { defineApp } from "convex/server";
++import betterAuth from "./betterAuth/convex.config";
++
++const app = defineApp();
++
++app.use(betterAuth);
++
++export default app;
+diff --git a/convex/http.ts b/convex/http.ts
+new file mode 100644
+index 0000000..40b0f6b
+--- /dev/null
++++ b/convex/http.ts
+@@ -0,0 +1,8 @@
++import { httpRouter } from "convex/server";
++import { authComponent, createAuth } from "./betterAuth/auth";
++
++const http = httpRouter();
++
++authComponent.registerRoutes(http, createAuth);
++
++export default http;

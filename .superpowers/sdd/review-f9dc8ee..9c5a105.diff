@@ -1,0 +1,85 @@
+# Review package: f9dc8ee..HEAD
+
+## Commits
+9c5a105 test: add convex-test harness
+
+## Files changed
+ convex-test/sanity.test.ts | 18 ++++++++++++++++++
+ convex-test/setup.ts       | 27 +++++++++++++++++++++++++++
+ vitest.config.ts           |  3 ---
+ 3 files changed, 45 insertions(+), 3 deletions(-)
+
+## Diff
+diff --git a/convex-test/sanity.test.ts b/convex-test/sanity.test.ts
+new file mode 100644
+index 0000000..9209fc7
+--- /dev/null
++++ b/convex-test/sanity.test.ts
+@@ -0,0 +1,18 @@
++import { describe, expect, it } from "vitest";
++import { api } from "../convex/_generated/api";
++import { aliceIdentity, setupTest } from "./setup";
++
++describe("sanity", () => {
++  it("returns null for anonymous getCurrentUser", async () => {
++    const t = setupTest();
++    const result = await t.query(api.auth.getCurrentUser, {});
++    expect(result).toBeNull();
++  });
++
++  it("provisions a profile for an authenticated user", async () => {
++    const t = setupTest().withIdentity(aliceIdentity);
++    await t.mutation(api.auth.ensureUserProfile, {});
++    const result = await t.query(api.auth.getCurrentUser, {});
++    expect(result?.email).toBe("alice@example.com");
++  });
++});
+diff --git a/convex-test/setup.ts b/convex-test/setup.ts
+new file mode 100644
+index 0000000..0f99229
+--- /dev/null
++++ b/convex-test/setup.ts
+@@ -0,0 +1,27 @@
++/// <reference types="vite/client" />
++import { convexTest } from "convex-test";
++import schema from "../convex/schema";
++
++const testModules = import.meta.glob("../convex/**/*.ts");
++
++export function setupTest() {
++  return convexTest(schema, testModules);
++}
++
++export const aliceIdentity = {
++  tokenIdentifier: "alice-token",
++  subject: "alice-subject",
++  name: "Alice",
++  email: "alice@example.com",
++  pictureUrl: "https://example.com/a.png",
++  issuer: "https://tabulation.example.com",
++} as const;
++
++export const bobIdentity = {
++  tokenIdentifier: "bob-token",
++  subject: "bob-subject",
++  name: "Bob",
++  email: "bob@example.com",
++  pictureUrl: "https://example.com/b.png",
++  issuer: "https://tabulation.example.com",
++} as const;
+diff --git a/vitest.config.ts b/vitest.config.ts
+index 2d10015..e98df90 100644
+--- a/vitest.config.ts
++++ b/vitest.config.ts
+@@ -1,11 +1,8 @@
+ import { defineConfig } from "vitest/config";
+ 
+ export default defineConfig({
+   test: {
+     environment: "edge-runtime",
+     include: ["convex-test/**/*.test.ts"],
+-    alias: {
+-      convex: "convex-test/convex-shim.ts",
+-    },
+   },
+ });

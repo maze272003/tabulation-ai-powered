@@ -1,0 +1,94 @@
+# Review package: 9c5a105..HEAD
+
+## Commits
+90853c9 feat: typed error model and JSON serializers
+
+## Files changed
+ convex-test/errors.test.ts | 26 ++++++++++++++++++++++++++
+ convex/lib/errors.ts       | 31 +++++++++++++++++++++++++++++++
+ convex/lib/serializers.ts  |  7 +++++++
+ 3 files changed, 64 insertions(+)
+
+## Diff
+diff --git a/convex-test/errors.test.ts b/convex-test/errors.test.ts
+new file mode 100644
+index 0000000..ba1edd3
+--- /dev/null
++++ b/convex-test/errors.test.ts
+@@ -0,0 +1,26 @@
++import { describe, expect, it } from "vitest";
++import { appError, ErrorCode } from "../convex/lib/errors";
++import { serialize } from "../convex/lib/serializers";
++
++describe("errors", () => {
++  it("produces a ConvexError with a stable code", () => {
++    const err = appError("FORBIDDEN", "no access");
++    expect(err.data).toMatchObject({ code: "FORBIDDEN", message: "no access" });
++    expect(err.message).toBe("no access");
++  });
++
++  it("includes optional context", () => {
++    const err = appError("LIMIT_EXCEEDED", "too many", { resource: "members" });
++    expect(err.data).toMatchObject({ code: "LIMIT_EXCEEDED", context: { resource: "members" } });
++  });
++});
++
++describe("serializers", () => {
++  it("round-trips an object via JSON", () => {
++    expect(serialize({ a: 1 })).toBe('{"a":1}');
++  });
++  it("serializes null and undefined safely", () => {
++    expect(serialize(null)).toBe("null");
++    expect(serialize(undefined)).toBe("null");
++  });
++});
+diff --git a/convex/lib/errors.ts b/convex/lib/errors.ts
+new file mode 100644
+index 0000000..bddf1b1
+--- /dev/null
++++ b/convex/lib/errors.ts
+@@ -0,0 +1,31 @@
++import { ConvexError } from "convex/values";
++import type { Value } from "convex/values";
++
++export const ErrorCode = {
++  UNAUTHENTICATED: "UNAUTHENTICATED",
++  PROFILE_NOT_PROVISIONED: "PROFILE_NOT_PROVISIONED",
++  FORBIDDEN: "FORBIDDEN",
++  NOT_FOUND: "NOT_FOUND",
++  VALIDATION_ERROR: "VALIDATION_ERROR",
++  LIMIT_EXCEEDED: "LIMIT_EXCEEDED",
++  FEATURE_UNAVAILABLE: "FEATURE_UNAVAILABLE",
++  CONFLICT: "CONFLICT",
++} as const;
++
++export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
++
++export type AppErrorData = {
++  code: ErrorCode;
++  message: string;
++  context?: Record<string, Value>;
++};
++
++export function appError(
++  code: ErrorCode,
++  message: string,
++  context?: Record<string, Value>,
++): ConvexError<AppErrorData> {
++  const err = new ConvexError<AppErrorData>({ code, message, context });
++  err.message = message;
++  return err;
++}
+diff --git a/convex/lib/serializers.ts b/convex/lib/serializers.ts
+new file mode 100644
+index 0000000..118501b
+--- /dev/null
++++ b/convex/lib/serializers.ts
+@@ -0,0 +1,7 @@
++export function serialize(value: unknown): string {
++  return JSON.stringify(value ?? null);
++}
++
++export function deserialize<T = unknown>(s: string): T {
++  return JSON.parse(s) as T;
++}

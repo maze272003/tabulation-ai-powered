@@ -1,0 +1,172 @@
+# Review package: 4797828..HEAD
+
+## Commits
+91bc41f feat: entitlement, usage, and audit helpers
+
+## Files changed
+ convex-test/entitlements.test.ts | 21 +++++++++++++++
+ convex/lib/audit.ts              | 27 +++++++++++++++++++
+ convex/lib/entitlements.ts       | 56 ++++++++++++++++++++++++++++++++++++++++
+ convex/lib/usage.ts              | 31 ++++++++++++++++++++++
+ 4 files changed, 135 insertions(+)
+
+## Diff
+diff --git a/convex-test/entitlements.test.ts b/convex-test/entitlements.test.ts
+new file mode 100644
+index 0000000..9c66f52
+--- /dev/null
++++ b/convex-test/entitlements.test.ts
+@@ -0,0 +1,21 @@
++import { describe, expect, it } from "vitest";
++import { hasFeature, hasLimit } from "../convex/lib/entitlements";
++
++describe("entitlements (pure)", () => {
++  const plan = {
++    features: { canExportReports: false, canCreateEvent: true },
++    limits: { maxMembers: 5, maxEvents: 1 },
++  } as const;
++
++  it("hasFeature reads the boolean flag", () => {
++    expect(hasFeature(plan, "canCreateEvent")).toBe(true);
++    expect(hasFeature(plan, "canExportReports")).toBe(false);
++    expect(hasFeature(plan, "canUseApi")).toBe(false);
++  });
++
++  it("hasLimit is true below the ceiling, false at/over it", () => {
++    expect(hasLimit(plan, "maxMembers", 4)).toBe(true);
++    expect(hasLimit(plan, "maxMembers", 5)).toBe(false);
++    expect(hasLimit(plan, "maxMembers", 99)).toBe(false);
++  });
++});
+diff --git a/convex/lib/audit.ts b/convex/lib/audit.ts
+new file mode 100644
+index 0000000..516f4d8
+--- /dev/null
++++ b/convex/lib/audit.ts
+@@ -0,0 +1,27 @@
++import type { MutationCtx } from "../_generated/server";
++import type { Id } from "../_generated/dataModel";
++import { serialize } from "./serializers";
++
++type AuditInput = {
++  orgId: Id<"organizations"> | null;
++  actorId: Id<"userProfiles"> | null;
++  action: string;
++  resourceType: string;
++  resourceId: string;
++  before?: unknown;
++  after?: unknown;
++  reason?: string;
++};
++
++export async function writeAudit(ctx: MutationCtx, input: AuditInput): Promise<void> {
++  await ctx.db.insert("auditLogs", {
++    orgId: input.orgId,
++    actorId: input.actorId,
++    action: input.action,
++    resourceType: input.resourceType,
++    resourceId: input.resourceId,
++    before: serialize(input.before ?? null),
++    after: serialize(input.after ?? null),
++    reason: input.reason ?? null,
++  });
++}
+diff --git a/convex/lib/entitlements.ts b/convex/lib/entitlements.ts
+new file mode 100644
+index 0000000..0c79844
+--- /dev/null
++++ b/convex/lib/entitlements.ts
+@@ -0,0 +1,56 @@
++import type { MutationCtx, QueryCtx } from "../_generated/server";
++import type { Doc, Id } from "../_generated/dataModel";
++import { appError, ErrorCode } from "./errors";
++import { getUsage } from "./usage";
++
++export async function getSubscription(ctx: QueryCtx, orgId: Id<"organizations">) {
++  const sub = await ctx.db
++    .query("subscriptions")
++    .withIndex("by_org_id", (q) => q.eq("orgId", orgId))
++    .unique();
++  if (!sub) throw appError(ErrorCode.NOT_FOUND, "Subscription not found");
++  return sub;
++}
++
++export async function getPlan(ctx: QueryCtx, sub: Doc<"subscriptions">) {
++  const plan = await ctx.db.get(sub.planId);
++  if (!plan) throw appError(ErrorCode.NOT_FOUND, "Plan not found");
++  return plan;
++}
++
++export function hasFeature(plan: { features: Record<string, boolean> }, feature: string): boolean {
++  return plan.features[feature] === true;
++}
++
++export function hasLimit(plan: { limits: Record<string, number> }, resource: string, current: number): boolean {
++  const max = plan.limits[resource];
++  return typeof max === "number" && current < max;
++}
++
++export async function requireFeature(
++  ctx: QueryCtx,
++  sub: Doc<"subscriptions">,
++  feature: string,
++): Promise<void> {
++  const plan = await getPlan(ctx, sub);
++  if (!hasFeature(plan, feature)) {
++    throw appError(ErrorCode.FEATURE_UNAVAILABLE, `Feature unavailable: ${feature}`, { feature });
++  }
++}
++
++export async function requireLimit(
++  ctx: MutationCtx,
++  sub: Doc<"subscriptions">,
++  resource: string,
++): Promise<void> {
++  const plan = await getPlan(ctx, sub);
++  const current = await getUsage(ctx, sub.orgId, resource);
++  if (!hasLimit(plan, resource, current)) {
++    const limits: Record<string, number> = plan.limits;
++    throw appError(ErrorCode.LIMIT_EXCEEDED, `Limit reached: ${resource}`, {
++      resource,
++      current,
++      max: limits[resource],
++    });
++  }
++}
+diff --git a/convex/lib/usage.ts b/convex/lib/usage.ts
+new file mode 100644
+index 0000000..2748d23
+--- /dev/null
++++ b/convex/lib/usage.ts
+@@ -0,0 +1,31 @@
++import type { MutationCtx } from "../_generated/server";
++import type { Id } from "../_generated/dataModel";
++
++export async function getUsage(
++  ctx: MutationCtx,
++  orgId: Id<"organizations">,
++  resource: string,
++): Promise<number> {
++  const row = await ctx.db
++    .query("usage")
++    .withIndex("by_org_id_and_resource", (q) => q.eq("orgId", orgId).eq("resource", resource))
++    .unique();
++  return row?.count ?? 0;
++}
++
++export async function incrementUsage(
++  ctx: MutationCtx,
++  orgId: Id<"organizations">,
++  resource: string,
++  delta: number,
++): Promise<void> {
++  const existing = await ctx.db
++    .query("usage")
++    .withIndex("by_org_id_and_resource", (q) => q.eq("orgId", orgId).eq("resource", resource))
++    .unique();
++  if (existing) {
++    await ctx.db.patch(existing._id, { count: Math.max(0, existing.count + delta) });
++  } else if (delta > 0) {
++    await ctx.db.insert("usage", { orgId, resource, count: delta, periodKey: null });
++  }
++}
