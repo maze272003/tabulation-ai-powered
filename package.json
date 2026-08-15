@@ -7,9 +7,12 @@
     "typecheck": "tsc --noEmit",
     "build": "npm run typecheck && next build",
     "start": "next start",
-    "lint": "eslint . --ignore-pattern \"convex/_generated/**\"",
+    "lint": "eslint . --ignore-pattern \"convex/_generated/**\" --ignore-pattern \".graphify/**\"",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "graphify:extract": "graphify extract . --scope auto --no-description --no-label",
+    "graphify:studio": "graphify studio export .graphify/studio",
+    "graphify:build": "npm run graphify:extract && npm run graphify:studio"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

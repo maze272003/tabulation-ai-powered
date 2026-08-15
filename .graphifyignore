@@ -1,0 +1,42 @@
+# Graphify input ignore list (same syntax as .gitignore)
+# Excludes generated/heavy/secret material from the knowledge graph.
+
+node_modules/
+.next/
+out/
+build/
+coverage/
+.vercel/
+.git/
+.graphify/
+graphify-out/
+dist/
+*.tsbuildinfo
+.env*
+convex/_generated/
+convex-test/
+public/
+docs/assets/
+
+# Agent skill / assistant docs and other non-code material (keeps the graph code-focused)
+.agents/
+.claude/
+.superpowers/
+*.md
+*.mdx
+*.html
+*.txt
+*.rst
+*.svg
+*.yaml
+*.yml
+*.json
+*.lock
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.pdf
+*.csv
+*.tsv

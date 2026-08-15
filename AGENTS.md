@@ -17,6 +17,57 @@ When working on any Convex code:
 npx convex ai-files install
 ```
 
+## Graphify Context
+
+This project uses **Graphify** as a codebase knowledge graph and architectural context source.
+
+Before making significant changes to the codebase, **inspect and use the Graphify knowledge graph to understand the existing project structure, dependencies, relationships, and architecture.**
+
+### Graphify Rules
+
+1. **Always check the Graphify-generated context before making significant architectural or cross-file changes.**
+2. Use Graphify to understand:
+
+   * Project/module relationships
+   * File dependencies
+   * Convex functions and their consumers
+   * Queries, mutations, and actions relationships
+   * Components and their dependencies
+   * Shared utilities and services
+   * Data flow between frontend and backend
+   * Potentially affected files before modifying existing functionality
+3. **Do not treat Graphify output as the source of truth for implementation rules.** Convex guidelines and the actual source code remain authoritative.
+4. When Graphify context is available, use it to identify the smallest relevant area of the codebase before exploring or modifying files.
+5. If Graphify context is stale, incomplete, missing, or unavailable, inspect the actual source code instead and do not invent Graphify information.
+6. After significant architectural changes, regenerate or refresh the Graphify context when the project's Graphify workflow supports it.
+7. Avoid unnecessarily modifying files that Graphify indicates are unrelated to the requested change.
+
+### Graphify Context Priority
+
+When reasoning about this project, use the following priority:
+
+1. **Actual source code** — authoritative implementation
+2. **`convex/_generated/ai/guidelines.md`** — authoritative Convex development rules
+3. **Graphify knowledge graph** — architectural/dependency context
+4. Existing documentation/comments
+5. General framework knowledge
+
+### Graphify Inspection
+
+Before implementing a significant change:
+
+```text
+1. Inspect the relevant Graphify context.
+2. Identify affected files/modules and their relationships.
+3. Read the actual source files involved.
+4. Follow the Convex guidelines.
+5. Implement the smallest safe change.
+6. Validate the affected functionality.
+7. Refresh Graphify context if necessary.
+```
+
+Do not assume a relationship exists merely because Graphify suggests it. Verify important relationships against the actual source code.
+
 ## UI/UX Rules
 
 For any UI/UX-related task, **always use the `/ui-ux-pro-max` skill**.
@@ -66,6 +117,8 @@ Before declaring the task complete, verify that:
 * UI/UX requirements are satisfied.
 * No obvious runtime or validation issues were introduced.
 * Existing functionality has not been unnecessarily broken.
+* Relevant Graphify context has been inspected for significant changes.
+* Important architectural/dependency assumptions have been verified against the actual source code.
 
 Only declare the implementation complete when the project is in a production-ready state.
 

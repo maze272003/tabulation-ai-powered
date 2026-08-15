@@ -64,3 +64,7 @@ Task 14: complete (commits 2ace183..927e831, review clean; deviation: run() para
 
 Task 15: complete (controller-run: all 4 gates green, all 4 authz scans PASS - see task-15-report.md; smoke checklist left for human)
 
+Final whole-branch review: verdict 'With fixes' -> ONE fix subagent (commit 5daa295): canCreateTemplates gate + blank-name guards (9 endpoints) + judge IDOR test. Re-review: Verified, merge-ready. 61/61 tests, all gates green.
+Deferred to Phase 3 (tracked in review output): publish batching/threshold guard, negative-path test sweep, assignment dedup, UI polish batch, audit snapshot depth, order semantics, N+1/filter scans, scoped-judge sheet generation.
+Phase 2 execution COMPLETE: 411f391..5daa295 (15 tasks + 4 fix commits).
+
