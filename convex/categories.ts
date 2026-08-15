@@ -8,6 +8,7 @@ export const add = mutation({
   args: { orgSlug: v.string(), eventSlug: v.string(), name: v.string(), description: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.update" });
+    if (!args.name.trim()) throw appError(ErrorCode.VALIDATION_ERROR, "name must not be empty");
     const existing = await ctx.db.query("categories").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
     const id = await ctx.db.insert("categories", {
       eventId: eactx.event._id,
@@ -26,6 +27,9 @@ export const update = mutation({
   args: { orgSlug: v.string(), eventSlug: v.string(), categoryId: v.id("categories"), name: v.optional(v.string()), description: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.update" });
+    if (args.name !== undefined && !args.name.trim()) {
+      throw appError(ErrorCode.VALIDATION_ERROR, "name must not be empty");
+    }
     const cat = await ctx.db.get(args.categoryId);
     if (!cat || cat.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Category not found");
     const patch: { name?: string; description?: string } = {};

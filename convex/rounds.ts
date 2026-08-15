@@ -11,6 +11,7 @@ export const add = mutation({
   },
   handler: async (ctx, args) => {
     const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.update" });
+    if (!args.name.trim()) throw appError(ErrorCode.VALIDATION_ERROR, "name must not be empty");
     const existing = await ctx.db.query("rounds").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
     const id = await ctx.db.insert("rounds", {
       eventId: eactx.event._id,
@@ -35,6 +36,9 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.update" });
+    if (args.name !== undefined && !args.name.trim()) {
+      throw appError(ErrorCode.VALIDATION_ERROR, "name must not be empty");
+    }
     const round = await ctx.db.get(args.roundId);
     if (!round || round.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Round not found");
     const patch: Record<string, unknown> = {};

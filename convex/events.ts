@@ -87,6 +87,9 @@ export const update = mutation({
     const eactx = await requireDraftEvent(ctx, {
       orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.update",
     });
+    if (args.name !== undefined && !args.name.trim()) {
+      throw appError(ErrorCode.VALIDATION_ERROR, "name must not be empty");
+    }
     const patch: Record<string, string | number> = {};
     if (args.name !== undefined) patch.name = args.name.trim();
     if (args.description !== undefined) patch.description = args.description;

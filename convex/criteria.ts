@@ -32,6 +32,7 @@ export const add = mutation({
   },
   handler: async (ctx, args) => {
     const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.update" });
+    if (!args.name.trim()) throw appError(ErrorCode.VALIDATION_ERROR, "name must not be empty");
     await requireRoundOfEvent(ctx, args.roundId, eactx.event._id);
     validateCriterion(args.weight, args.minScore, args.maxScore, args.decimalPrecision);
     const existing = await ctx.db.query("criteria").withIndex("by_round_id", (q) => q.eq("roundId", args.roundId)).collect();
@@ -60,6 +61,9 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.update" });
+    if (args.name !== undefined && !args.name.trim()) {
+      throw appError(ErrorCode.VALIDATION_ERROR, "name must not be empty");
+    }
     const criterion = await ctx.db.get(args.criterionId);
     if (!criterion) throw appError(ErrorCode.NOT_FOUND, "Criterion not found");
     await requireRoundOfEvent(ctx, criterion.roundId, eactx.event._id);

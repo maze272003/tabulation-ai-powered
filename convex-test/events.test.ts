@@ -67,6 +67,15 @@ describe("events", () => {
     expect(ev?.name).toBe("Renamed");
   });
 
+  it("rejects an all-whitespace name on update with VALIDATION_ERROR", async () => {
+    const t = setupTest();
+    await setupOrg(t);
+    await t.withIdentity(aliceIdentity).mutation(api.events.create, { orgSlug: "acme", name: "E", slug: "e" });
+    await expect(
+      t.withIdentity(aliceIdentity).mutation(api.events.update, { orgSlug: "acme", eventSlug: "e", name: "   " }),
+    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
+  });
+
   it("eventAuthz: unknown slug NOT_FOUND; non-member get null", async () => {
     const t = setupTest();
     await setupOrg(t);

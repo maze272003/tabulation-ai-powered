@@ -15,6 +15,7 @@ export const add = mutation({
   handler: async (ctx, args) => {
     const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "contestant.manage" });
     await requireLimit(ctx, eactx.subscription, "contestants");
+    if (!args.name.trim()) throw appError(ErrorCode.VALIDATION_ERROR, "name must not be empty");
     if (!Number.isInteger(args.number) || args.number < 1) {
       throw appError(ErrorCode.VALIDATION_ERROR, "number must be a positive integer");
     }
@@ -67,6 +68,9 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "contestant.manage" });
+    if (args.name !== undefined && !args.name.trim()) {
+      throw appError(ErrorCode.VALIDATION_ERROR, "name must not be empty");
+    }
     const c = await ctx.db.get(args.contestantId);
     if (!c || c.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Contestant not found");
     const patch: Record<string, unknown> = {};

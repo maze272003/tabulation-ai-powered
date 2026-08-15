@@ -3,6 +3,7 @@ import { mutation, query } from "./_generated/server";
 import { appError, ErrorCode } from "./lib/errors";
 import { requireOrgMember, requirePermission } from "./lib/authz";
 import { requireDraftEvent } from "./lib/eventAuthz";
+import { requireFeature } from "./lib/entitlements";
 import { writeAudit } from "./lib/audit";
 
 export const list = query({
@@ -25,6 +26,7 @@ export const createFromEvent = mutation({
   args: { orgSlug: v.string(), eventSlug: v.string(), name: v.string(), description: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.create" });
+    await requireFeature(ctx, eactx.subscription, "canCreateTemplates");
     const rounds = await ctx.db.query("rounds").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
     const categories = await ctx.db.query("categories").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
     const roundsWithCriteria = await Promise.all(

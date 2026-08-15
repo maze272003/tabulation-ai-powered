@@ -34,15 +34,23 @@ describe("templates", () => {
     await t.withIdentity(aliceIdentity).mutation(api.criteria.add, {
       orgSlug: "acme", eventSlug: "gala", roundId: rounds[0]._id, name: "Tech", weight: 100, minScore: 0, maxScore: 10, decimalPrecision: 0,
     });
+    await t.withIdentity(aliceIdentity).mutation(api.subscriptions.changePlan, { orgSlug: "acme", planName: "Pro" });
     await t.withIdentity(aliceIdentity).mutation(api.templates.createFromEvent, { orgSlug: "acme", eventSlug: "gala", name: "My Solo Comp" });
     const tplId = await templateIdByName(t, "My Solo Comp");
-    await t.withIdentity(aliceIdentity).mutation(api.subscriptions.changePlan, { orgSlug: "acme", planName: "Pro" });
     const slug = await t.withIdentity(aliceIdentity).mutation(api.events.createFromTemplate, {
       orgSlug: "acme", name: "Clone", templateId: tplId,
     });
     const cloneRounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "clone" });
     expect(cloneRounds[0].name).toBe("Solo");
     expect(cloneRounds[0].criteria[0].name).toBe("Tech");
+  });
+
+  it("refuses to save a template on the Free plan", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    await expect(
+      t.withIdentity(aliceIdentity).mutation(api.templates.createFromEvent, { orgSlug: "acme", eventSlug: "gala", name: "My Solo Comp" }),
+    ).rejects.toMatchObject({ data: { code: "FEATURE_UNAVAILABLE" } });
   });
 
   it("refuses to delete a system template", async () => {

@@ -34,7 +34,7 @@ describe("judges", () => {
     ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
   });
 
-  it("adds and removes scoped assignments; IDOR on foreign judge", async () => {
+  it("adds and removes scoped assignments", async () => {
     const t = setupTest();
     await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "one" });
     const bobId = await addBobAsJudgeMember(t);
@@ -52,5 +52,18 @@ describe("judges", () => {
     });
     const cleared = await t.withIdentity(aliceIdentity).query(api.judges.listWithAssignments, { orgSlug: "acme", eventSlug: "one" });
     expect(cleared[0].assignments.length).toBe(0);
+  });
+
+  it("refuses to remove a judge scoped to another event (IDOR)", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "one" });
+    await t.withIdentity(aliceIdentity).mutation(api.subscriptions.changePlan, { orgSlug: "acme", planName: "Pro" });
+    const bobId = await addBobAsJudgeMember(t);
+    await t.withIdentity(aliceIdentity).mutation(api.judges.add, { orgSlug: "acme", eventSlug: "one", userId: bobId });
+    const judges = await t.withIdentity(aliceIdentity).query(api.judges.listWithAssignments, { orgSlug: "acme", eventSlug: "one" });
+    await t.withIdentity(aliceIdentity).mutation(api.events.create, { orgSlug: "acme", name: "Two", slug: "two" });
+    await expect(
+      t.withIdentity(aliceIdentity).mutation(api.judges.remove, { orgSlug: "acme", eventSlug: "two", judgeId: judges[0]._id }),
+    ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
   });
 });
