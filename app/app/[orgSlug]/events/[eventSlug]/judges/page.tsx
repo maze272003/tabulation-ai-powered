@@ -16,7 +16,7 @@ export default function JudgesPage({ params }: { params: Promise<{ orgSlug: stri
   const removeJudge = useMutation(api.judges.remove);
   const addAssignment = useMutation(api.judges.addAssignment);
   const [picked, setPicked] = useState<Id<"userProfiles"> | "">("");
-  const [roundPick, setRoundPick] = useState<Id<"rounds"> | "">("");
+  const [roundPicks, setRoundPicks] = useState<Record<string, Id<"rounds"> | "">>({});
 
   const onError = (err: unknown) => {
     const data = (err as { data?: { code?: string; message?: string } })?.data;
@@ -38,7 +38,9 @@ export default function JudgesPage({ params }: { params: Promise<{ orgSlug: stri
           Add judge
         </Button>
       </div>
-      {judges?.map((j) => (
+      {judges?.map((j) => {
+        const roundPick = roundPicks[j._id] ?? "";
+        return (
         <div key={j._id} className="space-y-2 rounded-lg border p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -56,7 +58,7 @@ export default function JudgesPage({ params }: { params: Promise<{ orgSlug: stri
                 {a.roundId ? rounds?.find((r) => r._id === a.roundId)?.name ?? "round" : "all rounds"}
               </span>
             ))}
-            <select className="rounded border px-2 py-0.5" value={roundPick} onChange={(e) => setRoundPick(e.target.value as Id<"rounds"> | "")}>
+            <select className="rounded border px-2 py-0.5" value={roundPick} onChange={(e) => setRoundPicks({ ...roundPicks, [j._id]: e.target.value as Id<"rounds"> | "" })}>
               <option value="">All rounds</option>
               {rounds?.map((r) => <option key={r._id} value={r._id}>{r.name}</option>)}
             </select>
@@ -66,6 +68,7 @@ export default function JudgesPage({ params }: { params: Promise<{ orgSlug: stri
               onClick={async () => {
                 try {
                   await addAssignment({ orgSlug, eventSlug, judgeId: j._id, roundId: roundPick === "" ? undefined : roundPick });
+                  setRoundPicks({ ...roundPicks, [j._id]: "" });
                 } catch (e) { onError(e); }
               }}
             >
@@ -73,7 +76,8 @@ export default function JudgesPage({ params }: { params: Promise<{ orgSlug: stri
             </Button>
           </div>
         </div>
-      ))}
+        );
+      })}
       {candidates.length === 0 && judges !== undefined && judges.length > 0 && (
         <p className="text-sm text-muted-foreground">All active members are already judges. Invite more via Members.</p>
       )}
