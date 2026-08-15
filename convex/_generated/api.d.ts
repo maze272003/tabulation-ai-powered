@@ -11,6 +11,7 @@
 import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
 import type * as categories from "../categories.js";
+import type * as criteria from "../criteria.js";
 import type * as events from "../events.js";
 import type * as http from "../http.js";
 import type * as invitations from "../invitations.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   audit: typeof audit;
   auth: typeof auth;
   categories: typeof categories;
+  criteria: typeof criteria;
   events: typeof events;
   http: typeof http;
   invitations: typeof invitations;

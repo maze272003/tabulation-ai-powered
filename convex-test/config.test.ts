@@ -29,3 +29,41 @@ describe("categories and rounds", () => {
     ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
   });
 });
+
+describe("criteria", () => {
+  it("adds criteria and validates ranges and weight bounds", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "gala", name: "R" });
+    const rounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "gala" });
+    const roundId = rounds[0]._id;
+    await t.withIdentity(aliceIdentity).mutation(api.criteria.add, {
+      orgSlug: "acme", eventSlug: "gala", roundId, name: "Beauty", weight: 50, minScore: 0, maxScore: 100, decimalPrecision: 0,
+    });
+    await expect(
+      t.withIdentity(aliceIdentity).mutation(api.criteria.add, {
+        orgSlug: "acme", eventSlug: "gala", roundId, name: "Bad", weight: 50, minScore: 100, maxScore: 0, decimalPrecision: 0,
+      }),
+    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
+    await expect(
+      t.withIdentity(aliceIdentity).mutation(api.criteria.add, {
+        orgSlug: "acme", eventSlug: "gala", roundId, name: "BadWeight", weight: 0, minScore: 0, maxScore: 10, decimalPrecision: 0,
+      }),
+    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
+  });
+
+  it("refuses criteria for a round belonging to a different event (IDOR)", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "one" });
+    await t.withIdentity(aliceIdentity).mutation(api.subscriptions.changePlan, { orgSlug: "acme", planName: "Pro" });
+    await t.withIdentity(aliceIdentity).mutation(api.events.create, { orgSlug: "acme", name: "Two", slug: "two" });
+    await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "one", name: "R1" });
+    const roundsOne = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "one" });
+    const r1 = roundsOne.find((r) => r.name === "R1")!;
+    await expect(
+      t.withIdentity(aliceIdentity).mutation(api.criteria.add, {
+        orgSlug: "acme", eventSlug: "two", roundId: r1._id, name: "X", weight: 50, minScore: 0, maxScore: 10, decimalPrecision: 0,
+      }),
+    ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
+  });
+});
