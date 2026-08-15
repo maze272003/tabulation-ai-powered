@@ -10,6 +10,7 @@
 
 import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
+import type * as categories from "../categories.js";
 import type * as events from "../events.js";
 import type * as http from "../http.js";
 import type * as invitations from "../invitations.js";
@@ -27,6 +28,7 @@ import type * as organizations from "../organizations.js";
 import type * as plans from "../plans.js";
 import type * as platform from "../platform.js";
 import type * as roles from "../roles.js";
+import type * as rounds from "../rounds.js";
 import type * as seed from "../seed.js";
 import type * as subscriptions from "../subscriptions.js";
 
@@ -39,6 +41,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   audit: typeof audit;
   auth: typeof auth;
+  categories: typeof categories;
   events: typeof events;
   http: typeof http;
   invitations: typeof invitations;
@@ -56,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   plans: typeof plans;
   platform: typeof platform;
   roles: typeof roles;
+  rounds: typeof rounds;
   seed: typeof seed;
   subscriptions: typeof subscriptions;
 }>;
