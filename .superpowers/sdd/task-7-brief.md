@@ -1,205 +1,180 @@
-## Task 7: Identity & authz helpers
+﻿## Task 7: Contestants
 
 **Files:**
-- Create: `convex/lib/auth.ts`
-- Create: `convex/lib/authz.ts`
+- Create: `convex/contestants.ts`
+- Create: `convex-test/contestants.test.ts`
 
 **Interfaces:**
-- Produces: `requireIdentity`, `requireUserProfile`, `requirePlatformOwner`, `resolveOrgBySlug`, `requireOrgMember`, `requirePermission`, `requireOrgOwner`, `requireOrgAdmin`, and the `AuthCtx` type.
+- Consumes: `requireDraftEvent` (permission `"contestant.manage"`), `requireEventMember`; `requireLimit(ctx, sub, "contestants")`; `incrementUsage`; `writeAudit`; `appError`.
+- Produces: `api.contestants.{add,list,update,remove}`. `add`: number is a positive integer unique within the event (CONFLICT on dup); category defaults to the event's first category; `maxContestants` enforced. `update`: name/photoUrl/group/status/categoryId/customFields (category verified against the event). `remove`: hard delete + usage decrement.
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Write failing tests â€” `convex-test/contestants.test.ts`**
 
-Create `convex-test/authz.test.ts`:
 ```ts
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { api } from "../convex/_generated/api";
-import { ConvexError } from "convex/values";
-import { aliceIdentity, bobIdentity, seedAndProvision, setupTest } from "./setup";
+import { aliceIdentity, createOrgAndEvent, setupTest } from "./setup";
 
-describe("authz helpers", () => {
-  let t: ReturnType<typeof setupTest>;
-  beforeEach(() => {
-    t = setupTest();
-  });
-
-  it("requireIdentity throws UNAUTHENTICATED for anonymous", async () => {
-    await expect(t.runQuery(api.__test__.whoAmI, {})).rejects.toMatchObject({
-      message: expect.stringMatching(/.*/),
-    });
-  });
-
-  it("requireOrgMember throws FORBIDDEN for non-members", async () => {
-    await seedAndProvision(t, aliceIdentity);
-    await seedAndProvision(t, bobIdentity);
-    const orgId = await t.runMutation(api.__test__.createOrgAs, { name: "Acme", slug: "acme" }, { userIdentity: aliceIdentity });
+describe("contestants", () => {
+  it("adds contestants with unique numbers and lists them", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    await t.withIdentity(aliceIdentity).mutation(api.contestants.add, { orgSlug: "acme", eventSlug: "gala", name: "Maria", number: 1 });
+    await t.withIdentity(aliceIdentity).mutation(api.contestants.add, { orgSlug: "acme", eventSlug: "gala", name: "Jo", number: 2 });
     await expect(
-      t.runQuery(api.__test__.orgMemberCount, { orgSlug: "acme" }, { userIdentity: bobIdentity }),
-    ).rejects.toMatchObject({ message: expect.any(String) });
+      t.withIdentity(aliceIdentity).mutation(api.contestants.add, { orgSlug: "acme", eventSlug: "gala", name: "Dup", number: 1 }),
+    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
+    const list = await t.withIdentity(aliceIdentity).query(api.contestants.list, { orgSlug: "acme", eventSlug: "gala" });
+    expect(list.length).toBe(2);
+  });
+
+  it("enforces maxContestants (Free = 20)", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    for (let i = 1; i <= 20; i++) {
+      await t.withIdentity(aliceIdentity).mutation(api.contestants.add, { orgSlug: "acme", eventSlug: "gala", name: `C${i}`, number: i });
+    }
+    await expect(
+      t.withIdentity(aliceIdentity).mutation(api.contestants.add, { orgSlug: "acme", eventSlug: "gala", name: "Over", number: 21 }),
+    ).rejects.toMatchObject({ data: { code: "LIMIT_EXCEEDED" } });
+  });
+
+  it("updates status and removes with usage decrement round-trip", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    await t.withIdentity(aliceIdentity).mutation(api.contestants.add, { orgSlug: "acme", eventSlug: "gala", name: "Maria", number: 1 });
+    const list = await t.withIdentity(aliceIdentity).query(api.contestants.list, { orgSlug: "acme", eventSlug: "gala" });
+    const id = list[0]._id;
+    await t.withIdentity(aliceIdentity).mutation(api.contestants.update, { orgSlug: "acme", eventSlug: "gala", contestantId: id, status: "scratched" });
+    await t.withIdentity(aliceIdentity).mutation(api.contestants.remove, { orgSlug: "acme", eventSlug: "gala", contestantId: id });
+    const after = await t.withIdentity(aliceIdentity).query(api.contestants.list, { orgSlug: "acme", eventSlug: "gala" });
+    expect(after.length).toBe(0);
+    await t.withIdentity(aliceIdentity).mutation(api.contestants.add, { orgSlug: "acme", eventSlug: "gala", name: "Back", number: 1 });
   });
 });
 ```
 
-> Note: the test uses temporary `api.__test__.*` endpoints defined in `convex/_test.ts` that wrap the helpers — these exist only for testing and are removed in the final cleanup task. Implement them in Step 3.
+- [ ] **Step 2: RED** â€” `npm test`.
 
-- [ ] **Step 2: Run — expect failure**
+- [ ] **Step 3: Implement `convex/contestants.ts`**
 
-Run: `npm test`. Expected: FAIL (`api.__test__` and `convex/lib/auth*` do not exist).
-
-- [ ] **Step 3: Implement `convex/lib/auth.ts`**
-
-Create `convex/lib/auth.ts`:
-```ts
-import type { QueryCtx } from "../_generated/server";
-import type { Doc } from "../_generated/dataModel";
-import { appError, ErrorCode } from "./errors";
-
-export async function requireIdentity(ctx: QueryCtx) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw appError(ErrorCode.UNAUTHENTICATED, "Sign in required");
-  return identity;
-}
-
-export async function requireUserProfile(ctx: QueryCtx): Promise<Doc<"userProfiles">> {
-  const identity = await requireIdentity(ctx);
-  const profile = await ctx.db
-    .query("userProfiles")
-    .withIndex("by_token_identifier", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
-    .unique();
-  if (!profile) throw appError(ErrorCode.PROFILE_NOT_PROVISIONED, "Profile not provisioned");
-  if (profile.status !== "active") throw appError(ErrorCode.FORBIDDEN, "Account not active");
-  return profile;
-}
-
-export async function requirePlatformOwner(ctx: QueryCtx): Promise<Doc<"userProfiles">> {
-  const profile = await requireUserProfile(ctx);
-  if (profile.platformRole !== "platform_owner") {
-    throw appError(ErrorCode.FORBIDDEN, "Platform owner only");
-  }
-  return profile;
-}
-```
-
-- [ ] **Step 4: Implement `convex/lib/authz.ts`**
-
-Create `convex/lib/authz.ts`:
-```ts
-import type { QueryCtx } from "../_generated/server";
-import type { Doc, Id } from "../_generated/dataModel";
-import { appError, ErrorCode } from "./errors";
-import { requireUserProfile } from "./auth";
-
-export type AuthCtx = {
-  user: Doc<"userProfiles">;
-  org: Doc<"organizations">;
-  membership: Doc<"organizationMembers">;
-  role: Doc<"roles">;
-  permissions: Set<string>;
-  subscription: Doc<"subscriptions">;
-};
-
-export async function resolveOrgBySlug(ctx: QueryCtx, slug: string) {
-  const org = await ctx.db
-    .query("organizations")
-    .withIndex("by_slug", (q) => q.eq("slug", slug))
-    .unique();
-  if (!org || org.status === "deleted") throw appError(ErrorCode.NOT_FOUND, "Organization not found");
-  return org;
-}
-
-async function loadPermissions(ctx: QueryCtx, roleId: Id<"roles">): Promise<Set<string>> {
-  const rolePermissions = await ctx.db
-    .query("rolePermissions")
-    .withIndex("by_role_id", (q) => q.eq("roleId", roleId))
-    .collect();
-  const names = await Promise.all(
-    rolePermissions.map((rp) => ctx.db.get(rp.permissionId)),
-  );
-  return new Set(names.filter(Boolean).map((p) => p!.name));
-}
-
-export async function requireOrgMember(
-  ctx: QueryCtx,
-  args: { orgSlug: string },
-): Promise<AuthCtx> {
-  const user = await requireUserProfile(ctx);
-  const org = await resolveOrgBySlug(ctx, args.orgSlug);
-  const membership = await ctx.db
-    .query("organizationMembers")
-    .withIndex("by_org_id_and_user_id", (q) => q.eq("orgId", org._id).eq("userId", user._id))
-    .unique();
-  if (!membership || membership.status !== "active") {
-    throw appError(ErrorCode.FORBIDDEN, "Not a member of this organization");
-  }
-  const role = await ctx.db.get(membership.roleId);
-  if (!role) throw appError(ErrorCode.FORBIDDEN, "Role not found");
-  const subscription = await ctx.db
-    .query("subscriptions")
-    .withIndex("by_org_id", (q) => q.eq("orgId", org._id))
-    .unique();
-  if (!subscription) throw appError(ErrorCode.FORBIDDEN, "No subscription");
-  const permissions = await loadPermissions(ctx, role._id);
-  return { user, org, membership, role, permissions, subscription };
-}
-
-export async function requirePermission(
-  ctx: QueryCtx,
-  args: { orgSlug: string; permission: string },
-): Promise<AuthCtx> {
-  const actx = await requireOrgMember(ctx, { orgSlug: args.orgSlug });
-  if (!actx.permissions.has(args.permission)) {
-    throw appError(ErrorCode.FORBIDDEN, `Missing permission: ${args.permission}`);
-  }
-  return actx;
-}
-
-export const requireOrgOwner = (ctx: QueryCtx, args: { orgSlug: string }) =>
-  requirePermission(ctx, { orgSlug: args.orgSlug, permission: "organization.update" });
-
-export const requireOrgAdmin = (ctx: QueryCtx, args: { orgSlug: string }) =>
-  requirePermission(ctx, { orgSlug: args.orgSlug, permission: "organization.members.manage" });
-```
-
-- [ ] **Step 5: Create test-only endpoints**
-
-Create `convex/_test.ts` (deleted in the final cleanup task):
 ```ts
 import { v } from "convex/values";
-import { query } from "./_generated/server";
-import { requireIdentity, requireOrgMember } from "./lib/authz-impl";
+import { mutation, query } from "./_generated/server";
+import { appError, ErrorCode } from "./lib/errors";
+import { requireDraftEvent, requireEventMember } from "./lib/eventAuthz";
+import { writeAudit } from "./lib/audit";
+import { requireLimit } from "./lib/entitlements";
+import { incrementUsage } from "./lib/usage";
 
-export const whoAmI = query({
-  args: {},
-  handler: async (ctx) => {
-    return (await requireIdentity(ctx)).tokenIdentifier;
+export const add = mutation({
+  args: {
+    orgSlug: v.string(), eventSlug: v.string(), name: v.string(), number: v.number(),
+    categoryId: v.optional(v.id("categories")), photoUrl: v.optional(v.string()),
+    group: v.optional(v.string()), customFields: v.optional(v.record(v.string(), v.string())),
+  },
+  handler: async (ctx, args) => {
+    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "contestant.manage" });
+    await requireLimit(ctx, eactx.subscription, "contestants");
+    if (!Number.isInteger(args.number) || args.number < 1) {
+      throw appError(ErrorCode.VALIDATION_ERROR, "number must be a positive integer");
+    }
+    const dup = await ctx.db
+      .query("contestants")
+      .withIndex("by_event_id_and_number", (q) => q.eq("eventId", eactx.event._id).eq("number", args.number))
+      .unique();
+    if (dup) throw appError(ErrorCode.CONFLICT, "Contestant number already used", { number: args.number });
+    let categoryId = args.categoryId;
+    if (categoryId) {
+      const cat = await ctx.db.get(categoryId);
+      if (!cat || cat.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Category not found");
+    } else {
+      const first = await ctx.db.query("categories").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).first();
+      if (!first) throw appError(ErrorCode.VALIDATION_ERROR, "Event has no categories");
+      categoryId = first._id;
+    }
+    const id = await ctx.db.insert("contestants", {
+      eventId: eactx.event._id,
+      categoryId,
+      number: args.number,
+      name: args.name.trim(),
+      photoUrl: args.photoUrl,
+      group: args.group,
+      status: "active",
+      customFields: args.customFields,
+    });
+    await incrementUsage(ctx, eactx.org._id, "contestants", 1);
+    await writeAudit(ctx, {
+      orgId: eactx.org._id, actorId: eactx.user._id, action: "contestant.added",
+      resourceType: "contestant", resourceId: id, after: { name: args.name, number: args.number },
+    });
   },
 });
 
-export const orgMemberCount = query({
-  args: { orgSlug: v.string() },
+export const list = query({
+  args: { orgSlug: v.string(), eventSlug: v.string() },
   handler: async (ctx, args) => {
-    const actx = await requireOrgMember(ctx, { orgSlug: args.orgSlug });
-    return actx.org.name;
+    const eactx = await requireEventMember(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug });
+    return await ctx.db.query("contestants").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
+  },
+});
+
+export const update = mutation({
+  args: {
+    orgSlug: v.string(), eventSlug: v.string(), contestantId: v.id("contestants"),
+    name: v.optional(v.string()), photoUrl: v.optional(v.string()), group: v.optional(v.string()),
+    status: v.optional(v.union(v.literal("active"), v.literal("scratched"), v.literal("disqualified"))),
+    categoryId: v.optional(v.id("categories")), customFields: v.optional(v.record(v.string(), v.string())),
+  },
+  handler: async (ctx, args) => {
+    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "contestant.manage" });
+    const c = await ctx.db.get(args.contestantId);
+    if (!c || c.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Contestant not found");
+    const patch: Record<string, unknown> = {};
+    if (args.name !== undefined) patch.name = args.name.trim();
+    if (args.photoUrl !== undefined) patch.photoUrl = args.photoUrl;
+    if (args.group !== undefined) patch.group = args.group;
+    if (args.status !== undefined) patch.status = args.status;
+    if (args.categoryId !== undefined) {
+      const cat = await ctx.db.get(args.categoryId);
+      if (!cat || cat.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Category not found");
+      patch.categoryId = args.categoryId;
+    }
+    if (args.customFields !== undefined) patch.customFields = args.customFields;
+    if (Object.keys(patch).length === 0) return;
+    await ctx.db.patch(args.contestantId, patch);
+    await writeAudit(ctx, {
+      orgId: eactx.org._id, actorId: eactx.user._id, action: "contestant.updated",
+      resourceType: "contestant", resourceId: args.contestantId, before: { status: c.status }, after: patch,
+    });
+  },
+});
+
+export const remove = mutation({
+  args: { orgSlug: v.string(), eventSlug: v.string(), contestantId: v.id("contestants") },
+  handler: async (ctx, args) => {
+    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "contestant.manage" });
+    const c = await ctx.db.get(args.contestantId);
+    if (!c || c.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Contestant not found");
+    await ctx.db.delete(args.contestantId);
+    await incrementUsage(ctx, eactx.org._id, "contestants", -1);
+    await writeAudit(ctx, {
+      orgId: eactx.org._id, actorId: eactx.user._id, action: "contestant.removed",
+      resourceType: "contestant", resourceId: args.contestantId, before: { name: c.name },
+    });
   },
 });
 ```
 
-> Note: `requireIdentity` is exported by `convex/lib/auth.ts`, and `requireOrgMember` by `convex/lib/authz.ts`. The import line above should be:
-> ```ts
-> import { requireIdentity } from "./lib/auth";
-> import { requireOrgMember } from "./lib/authz";
-> ```
-> Replace the placeholder import with these two lines.
-
-- [ ] **Step 6: Run — expect pass**
-
-Run: `npm test`. Expected: authz tests PASS (after Task 8 seeds roles; if `seedReferenceData` is not yet defined, these tests remain failing until Task 8 — that is expected).
-
-- [ ] **Step 7: Commit**
+- [ ] **Step 4: GREEN + commit**
 
 ```powershell
-git add convex/lib/auth.ts convex/lib/authz.ts convex/_test.ts convex-test/authz.test.ts
-git commit -m "feat: identity and authorization helpers"
+npm test
+Remove-Item -Force tsconfig.tsbuildinfo -ErrorAction SilentlyContinue; npm run typecheck
+git add convex/contestants.ts convex-test/contestants.test.ts
+git commit -m "feat: contestants with number uniqueness and plan limits"
 ```
+Expected: 47/47 tests pass; typecheck exit 0.
 
 ---
 

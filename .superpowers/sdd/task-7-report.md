@@ -1,77 +1,76 @@
-# Task 7 Report — Identity & authz helpers
+# Task 7 Report: Contestants (Phase 2 — Competition Config Engine)
 
-**Status:** DONE_WITH_CONCERNS (one naming discrepancy, resolved; see Concerns)
+**Status:** DONE
+**Commit:** `adb1d6e` — `feat: contestants with number uniqueness and plan limits`
+**Branch:** `phase2-competition-config`
 
-## Commits
+## Files
 
-- `da37d3e` — feat: identity and authorization helpers
+- Created `convex/contestants.ts` (verbatim from brief)
+- Created `convex-test/contestants.test.ts` (verbatim from brief)
+- Regenerated `convex/_generated/api.d.ts` via `npx convex codegen` (+2 lines, contestants module) — included in the commit per repo convention
 
-## Files created
+## TDD Evidence
 
-- `convex/lib/auth.ts` — `requireIdentity`, `requireUserProfile`, `requirePlatformOwner` (verbatim from brief Step 3)
-- `convex/lib/authz.ts` — `AuthCtx` type, `resolveOrgBySlug`, `loadPermissions` (private), `requireOrgMember`, `requirePermission`, `requireOrgOwner`, `requireOrgAdmin` (verbatim from brief Step 4)
-- `convex/__test__.ts` — `whoAmI` query only (per revised scope)
-- `convex-test/authz.test.ts` — single anonymous-throws test (per revised scope)
-
-## Verification
-
-- `npm test` → **7/7 pass** across 3 test files (sanity 2, errors 4, authz 1). The new `authz helpers > requireIdentity throws for anonymous callers` test passes.
-- `npm run typecheck` → **clean** (after deleting `tsconfig.tsbuildinfo`).
-
-## Org-scoped authz tests deferred to Task 10
-
-Confirmed. Cross-tenant (`requireOrgMember` throws FORBIDDEN for non-members) and permission tests need real `organizations`/`members`/`rolePermissions` rows. The brief's `createOrgAs`/`orgMemberCount` scaffolding would have been deleted in Task 13 anyway. These tests will be written in Task 10 against the real org/membership endpoints.
-
-## Security model review
-
-Layered check chain — every public helper ultimately reduces to `ctx.auth.getUserIdentity()`, which is Convex-server-trusted and not client-supplied:
+### Step 2 — RED (`npm test` after writing tests only)
 
 ```
-requireIdentity         → identity must exist
-  ↓
-requireUserProfile      → profile exists + status === "active"
-  ↓
-requirePlatformOwner    → platformRole === "platform_owner"
-  ↓                        (or, for org scope:)
-requireOrgMember        → org exists + status !== "deleted"
-                         + membership exists + status === "active"
-                         + role exists
-                         + subscription exists
-  ↓
-requirePermission       → permissions Set.has(name)
+ FAIL  convex-test/contestants.test.ts > contestants > adds contestants with unique numbers and lists them
+ FAIL  convex-test/contestants.test.ts > contestants > enforces maxContestants (Free = 20)
+ FAIL  convex-test/contestants.test.ts > contestants > updates status and removes with usage decrement round-trip
+Error: Could not find module for: "contestants"
+
+ Test Files  1 failed | 9 passed (10)
+      Tests  3 failed | 44 passed (47)
 ```
 
-**No bypass paths identified:**
+All 3 new tests failed on the missing `contestants` module; the prior 44 tests passed. RED confirmed.
 
-- `resolveOrgBySlug` accepts caller-supplied `slug` but access is still gated by the membership lookup `(orgId, userId).unique()`. A user cannot enumerate or access orgs they aren't a member of.
-- `requireOrgMember` rejects `status !== "active"` memberships, so invited/inactive members can't read data.
-- Subscription is required — orgs without a subscription record are fully inaccessible (intentional per brief).
-- All errors are `appError(...)` (typed `ConvexError<AppErrorData>`); no plain `throw new Error(...)` that would leak stack details.
-- No `args.userId` / `args.orgId` accepted from clients anywhere — identity-derived only.
+### Step 4 — GREEN (after implementing `convex/contestants.ts` + `npx convex codegen`)
 
-## Concerns
+```
+ Test Files  10 passed (10)
+      Tests  47 passed (47)
+```
 
-### 1. Filename: `convex/_test.ts` → `convex/__test__.ts` (RESOLVED, deviates from instruction)
+### Typecheck gate
 
-**Discrepancy:** The user's instructions specified `convex/_test.ts` (step 4 and step 8 staging list), but the test code in step 5 references `api.__test__.whoAmI`. Convex's codegen preserves leading underscores, so:
+```
+Remove-Item -Force tsconfig.tsbuildinfo -ErrorAction SilentlyContinue; npm run typecheck
+npm notice run tabulation-ai-powered@0.1.0 typecheck
+npm notice run tabulation-ai-powered@0.1.0 tsc --noEmit
+TYPECHECK_EXIT=0
+```
 
-- `convex/_test.ts`     → `api._test`
-- `convex/__test__.ts`  → `api.__test__`
+## Interface Verification (pre-implementation)
 
-Typecheck failed with the original `_test.ts` filename (`Property '__test__' does not exist`). The original brief exhibits the same discrepancy (`convex/_test.ts` filename + `api.__test__.*` test code), so the discrepancy propagates from the brief into the revised instructions.
+- `requireDraftEvent(ctx, { orgSlug, eventSlug, permission })` — returns `EventAuthCtx` with `user`, `org`, `subscription`, `event`; throws CONFLICT when event is not draft. Confirmed in `convex/lib/eventAuthz.ts`.
+- `requireEventMember` — used by `list`. Confirmed.
+- `requireLimit(ctx, sub, "contestants")` — maps resource `contestants` → plan limit `maxContestants` (Free = 20 in `convex/lib/constants.ts:49`); throws LIMIT_EXCEEDED. Confirmed.
+- `incrementUsage(ctx, orgId, "contestants", ±1)` — confirmed in `convex/lib/usage.ts`.
+- `writeAudit` — `resourceId: string` accepts branded `Id<"contestants">`; `before`/`after` are `unknown`. Confirmed.
+- `contestant.manage` permission exists (`constants.ts:27`) and is granted to Org Owner/Admin, Event Admin, and Staff roles; Alice (org creator → Org Owner) passes. Confirmed.
+- `PatchValue<Doc<"contestants">` accepts `Record<string, unknown>` (index-signature source vs all-optional target; same pattern as `events.ts` update, which typechecks). Verified against `convex/src/server/database.ts:477`.
 
-**Resolution taken:** Renamed the file to `convex/__test__.ts` to honor the verbatim test code. The alternative (keep `_test.ts` and rewrite the test to `api._test.whoAmI`) would have modified the test code the user provided as the corrected canonical reference.
+## Self-Review Checklist
 
-**If the user prefers the other resolution:** change `convex/__test__.ts` → `convex/_test.ts`, change the test import to `api._test.whoAmI`, and amend the commit. Trivial 2-line diff.
+- [x] Endpoints `add`/`list`/`update`/`remove` match the brief verbatim (both files copied character-for-character; no modifications needed)
+- [x] Number unique per event via `by_event_id_and_number` `.unique()` → CONFLICT on duplicate (test 1)
+- [x] Positive-integer validation: `Number.isInteger(number) && number >= 1` else VALIDATION_ERROR
+- [x] Category verified against event (NOT_FOUND on foreign/missing category) in both `add` and `update`; defaults to event's first category in `add`
+- [x] Update verifies contestant ownership (`c.eventId !== eactx.event._id` → NOT_FOUND) and category before patch
+- [x] Remove hard-deletes and decrements usage (`incrementUsage(..., -1)`); round-trip proven by test 3 (re-add succeeds after remove under Free limit)
+- [x] maxContestants enforced in `add` (test 2: 20 succeed, 21st → LIMIT_EXCEEDED)
+- [x] Object-form function syntax; validators on all 4 functions
+- [x] No `any` / `as never` (only `Record<string, unknown>`, per brief verbatim)
+- [x] No code comments
+- [x] One commit containing exactly `convex/contestants.ts`, `convex-test/contestants.test.ts`, `convex/_generated/api.d.ts`
 
-### 2. N+1 in `loadPermissions` (acknowledged, not blocking)
+## Deviations from Brief
 
-`loadPermissions` does one `.collect()` on `rolePermissions` then `ctx.db.get(permissionId)` per row. For Phase 1's small system-role permission set this is fine (caveat 2 acknowledged). If permission counts grow >100 per role in Phase 2, consider a `by_role_id` join table or batched fetch.
+None. The brief's verbatim code compiled and passed the full gate unchanged (unlike Tasks 2/4, no latent bugs found).
 
-### 3. `_test.ts` deletion chore tracked
+## Gates
 
-`convex/__test__.ts` is scaffolding slated for deletion in Task 13 (the brief says `_test.ts`, but the deletion task should catch either name via glob). Flagging here so Task 13 doesn't miss it.
-
-## Report location
-
-This file: `.superpowers/sdd/task-7-report.md`
+- `npm test`: 47/47 pass
+- `npm run typecheck` (after clearing `tsconfig.tsbuildinfo`): exit 0

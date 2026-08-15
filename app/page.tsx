@@ -11,7 +11,7 @@ export default function Home() {
           rounds, and rank participants — all in one place.
         </p>
       </div>
-      <Button size="lg" render={<Link href="/sign-in" />}>
+      <Button size="lg" nativeButton={false} render={<Link href="/sign-in" />}>
         Sign in
       </Button>
     </main>

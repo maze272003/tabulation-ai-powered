@@ -1,205 +1,108 @@
-## Task 9: Entitlements, usage & audit helpers
+﻿## Task 9: Readiness checklist
 
 **Files:**
-- Create: `convex/lib/usage.ts`
-- Create: `convex/lib/entitlements.ts`
-- Create: `convex/lib/audit.ts`
+- Modify: `convex/events.ts` (append `computeReadiness` + `readiness` query)
+- Modify: `convex-test/config.test.ts` (append readiness tests)
 
 **Interfaces:**
-- Produces: `getUsage`, `incrementUsage`, `getSubscription`, `hasFeature`, `hasLimit`, `requireFeature`, `requireLimit`, `writeAudit`.
+- Produces: exported `computeReadiness(ctx: QueryCtx, eventId: Id<"events">): Promise<ReadinessCheck[]>` where `ReadinessCheck = { item: string; passed: boolean; detail: string }` (Task 10 imports it); `api.events.readiness({ orgSlug, eventSlug }) â†’ ReadinessCheck[]`. The 7 items (ids): `rounds.exist`, `rounds.criteria`, `rounds.weights`, `criteria.ranges`, `categories.exist`, `contestants.exist`, `judges.exist`.
 
-- [ ] **Step 1: Write failing tests**
+- [ ] **Step 1: Append failing tests to `convex-test/config.test.ts`**
 
-Create `convex-test/entitlements.test.ts`:
 ```ts
-import { describe, expect, it } from "vitest";
-import { api } from "../convex/_generated/api";
-import { aliceIdentity, seedAndProvision, setupTest } from "./setup";
-
-describe("entitlements", () => {
-  it("blocks member creation beyond maxMembers on Free plan", async () => {
+describe("readiness", () => {
+  it("fails an empty event with specific items", async () => {
     const t = setupTest();
-    const ownerId = await seedAndProvision(t, aliceIdentity);
-    await t.runMutation(api.__test__.createOrgAs, { name: "Acme", slug: "acme" }, { userIdentity: aliceIdentity });
-    // Free plan maxMembers = 5 (1 owner already). Invite 4 more should succeed, 5th should fail.
-    for (let i = 0; i < 4; i++) {
-      await t.runMutation(
-        api.__test__.inviteEmailAs,
-        { orgSlug: "acme", email: `u${i}@x.com`, role: "Viewer" },
-        { userIdentity: aliceIdentity },
-      );
-    }
-    await expect(
-      t.runMutation(
-        api.__test__.inviteEmailAs,
-        { orgSlug: "acme", email: `overflow@x.com`, role: "Viewer" },
-        { userIdentity: aliceIdentity },
-      ),
-    ).rejects.toMatchObject({ message: expect.any(String) });
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    const checks = await t.withIdentity(aliceIdentity).query(api.events.readiness, { orgSlug: "acme", eventSlug: "gala" });
+    const failed = checks.filter((c) => !c.passed).map((c) => c.item);
+    expect(failed).toContain("rounds.exist");
+    expect(failed).toContain("contestants.exist");
+    expect(failed).toContain("judges.exist");
+    expect(failed).not.toContain("categories.exist");
+  });
+
+  it("flags weights that do not sum to 100", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "gala", name: "R" });
+    const rounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "gala" });
+    await t.withIdentity(aliceIdentity).mutation(api.criteria.add, {
+      orgSlug: "acme", eventSlug: "gala", roundId: rounds[0]._id, name: "A", weight: 40, minScore: 0, maxScore: 10, decimalPrecision: 0,
+    });
+    const checks = await t.withIdentity(aliceIdentity).query(api.events.readiness, { orgSlug: "acme", eventSlug: "gala" });
+    const weights = checks.find((c) => c.item === "rounds.weights");
+    expect(weights?.passed).toBe(false);
   });
 });
 ```
 
-Create `convex-test/audit.test.ts`:
-```ts
-import { describe, expect, it } from "vitest";
-import { api } from "../convex/_generated/api";
-import { aliceIdentity, seedAndProvision, setupTest } from "./setup";
+- [ ] **Step 2: RED** â€” `npm test`.
 
-describe("audit", () => {
-  it("writes an audit row on org creation", async () => {
-    const t = setupTest();
-    await seedAndProvision(t, aliceIdentity);
-    await t.runMutation(api.__test__.createOrgAs, { name: "Acme", slug: "acme" }, { userIdentity: aliceIdentity });
-    const logs = await t.runQuery(api.__test__.auditForOrg, { orgSlug: "acme" }, { userIdentity: aliceIdentity });
-    expect(logs.some((l: { action: string }) => l.action === "organization.created")).toBe(true);
+- [ ] **Step 3: Append to `convex/events.ts`**
+
+Extend the type imports at the top:
+```ts
+import type { Doc, Id } from "./_generated/dataModel";
+import type { QueryCtx } from "./_generated/server";
+```
+(`mutation, query` are already value imports â€” keep them.) Append:
+
+```ts
+export type ReadinessCheck = { item: string; passed: boolean; detail: string };
+
+export async function computeReadiness(
+  ctx: QueryCtx,
+  eventId: Id<"events">,
+): Promise<ReadinessCheck[]> {
+  const rounds = await ctx.db.query("rounds").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
+  const categories = await ctx.db.query("categories").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
+  const contestants = await ctx.db.query("contestants").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
+  const judges = await ctx.db.query("judges").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
+  const assignments = await ctx.db.query("judgeAssignments").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
+
+  const criteriaPerRound = await Promise.all(
+    rounds.map((r) => ctx.db.query("criteria").withIndex("by_round_id", (q) => q.eq("roundId", r._id)).collect()),
+  );
+
+  const emptyRounds = rounds.filter((_, i) => criteriaPerRound[i].length === 0);
+  const badSums = rounds.filter((_, i) => {
+    const total = criteriaPerRound[i].reduce((sum, c) => sum + c.weight, 0);
+    return total !== 100;
   });
+  const badRanges = criteriaPerRound.flat().filter((c) => !(c.minScore < c.maxScore));
+  const activeContestants = contestants.filter((c) => c.status === "active");
+  const judgesWithAssignments = judges.filter((j) => assignments.some((a) => a.judgeId === j._id));
+
+  return [
+    { item: "rounds.exist", passed: rounds.length >= 1, detail: `${rounds.length} round(s)` },
+    { item: "rounds.criteria", passed: emptyRounds.length === 0, detail: emptyRounds.length === 0 ? "all rounds have criteria" : `${emptyRounds.length} round(s) without criteria` },
+    { item: "rounds.weights", passed: badSums.length === 0, detail: badSums.length === 0 ? "all weights sum to 100" : `${badSums.length} round(s) with weights not summing to 100` },
+    { item: "criteria.ranges", passed: badRanges.length === 0, detail: badRanges.length === 0 ? "all ranges valid" : `${badRanges.length} criterion/criteria with invalid ranges` },
+    { item: "categories.exist", passed: categories.length >= 1, detail: `${categories.length} categor(y/ies)` },
+    { item: "contestants.exist", passed: activeContestants.length >= 1, detail: `${activeContestants.length} active contestant(s)` },
+    { item: "judges.exist", passed: judgesWithAssignments.length >= 1, detail: `${judgesWithAssignments.length} judge(s) with assignments` },
+  ];
+}
+
+export const readiness = query({
+  args: { orgSlug: v.string(), eventSlug: v.string() },
+  handler: async (ctx, args): Promise<ReadinessCheck[]> => {
+    const eactx = await requireEventMember(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug });
+    return computeReadiness(ctx, eactx.event._id);
+  },
 });
 ```
 
-- [ ] **Step 2: Run — expect failure**
-
-Run: `npm test`. Expected: FAIL.
-
-- [ ] **Step 3: Implement `usage.ts`**
-
-Create `convex/lib/usage.ts`:
-```ts
-import type { MutationCtx } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
-
-export async function getUsage(
-  ctx: MutationCtx,
-  orgId: Id<"organizations">,
-  resource: string,
-): Promise<number> {
-  const row = await ctx.db
-    .query("usage")
-    .withIndex("by_org_id_and_resource", (q) => q.eq("orgId", orgId).eq("resource", resource))
-    .unique();
-  return row?.count ?? 0;
-}
-
-export async function incrementUsage(
-  ctx: MutationCtx,
-  orgId: Id<"organizations">,
-  resource: string,
-  delta: number,
-): Promise<void> {
-  const existing = await ctx.db
-    .query("usage")
-    .withIndex("by_org_id_and_resource", (q) => q.eq("orgId", orgId).eq("resource", resource))
-    .unique();
-  if (existing) {
-    await ctx.db.patch(existing._id, { count: Math.max(0, existing.count + delta) });
-  } else if (delta > 0) {
-    await ctx.db.insert("usage", { orgId, resource, count: delta, periodKey: null });
-  }
-}
-```
-
-- [ ] **Step 4: Implement `entitlements.ts`**
-
-Create `convex/lib/entitlements.ts`:
-```ts
-import type { QueryCtx } from "../_generated/server";
-import type { Doc, Id } from "../_generated/dataModel";
-import { appError, ErrorCode } from "./errors";
-import { getUsage } from "./usage";
-
-export async function getSubscription(ctx: QueryCtx, orgId: Id<"organizations">) {
-  const sub = await ctx.db
-    .query("subscriptions")
-    .withIndex("by_org_id", (q) => q.eq("orgId", orgId))
-    .unique();
-  if (!sub) throw appError(ErrorCode.NOT_FOUND, "Subscription not found");
-  return sub;
-}
-
-export async function getPlan(ctx: QueryCtx, sub: Doc<"subscriptions">) {
-  const plan = await ctx.db.get(sub.planId);
-  if (!plan) throw appError(ErrorCode.NOT_FOUND, "Plan not found");
-  return plan;
-}
-
-export function hasFeature(plan: { features: Record<string, boolean> }, feature: string): boolean {
-  return plan.features[feature] === true;
-}
-
-export function hasLimit(plan: { limits: Record<string, number> }, resource: string, current: number): boolean {
-  const max = plan.limits[resource];
-  return typeof max === "number" && current < max;
-}
-
-export async function requireFeature(
-  ctx: QueryCtx,
-  sub: Doc<"subscriptions">,
-  feature: string,
-): Promise<void> {
-  const plan = await getPlan(ctx, sub);
-  if (!hasFeature(plan, feature)) {
-    throw appError(ErrorCode.FEATURE_UNAVAILABLE, `Feature unavailable: ${feature}`, { feature });
-  }
-}
-
-export async function requireLimit(
-  ctx: QueryCtx,
-  sub: Doc<"subscriptions">,
-  resource: string,
-): Promise<void> {
-  const plan = await getPlan(ctx, sub);
-  const current = await getUsage(ctx as never, sub.orgId, resource);
-  if (!hasLimit(plan, resource, current)) {
-    throw appError(ErrorCode.LIMIT_EXCEEDED, `Limit reached: ${resource}`, { resource, current, max: plan.limits[resource] });
-  }
-}
-```
-
-> Note: `getUsage` takes a `MutationCtx`, but `requireLimit` is often called inside a mutation (which is also valid). The `ctx as never` cast is a pragmatic workaround because `convex-test` contexts satisfy both. If your Convex version types this strictly, change `requireLimit` to accept `MutationCtx` directly and update call sites — they are all mutations.
-
-- [ ] **Step 5: Implement `audit.ts`**
-
-Create `convex/lib/audit.ts`:
-```ts
-import type { MutationCtx } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
-import { serialize } from "./serializers";
-
-type AuditInput = {
-  orgId: Id<"organizations"> | null;
-  actorId: Id<"userProfiles"> | null;
-  action: string;
-  resourceType: string;
-  resourceId: string;
-  before?: unknown;
-  after?: unknown;
-  reason?: string;
-};
-
-export async function writeAudit(ctx: MutationCtx, input: AuditInput): Promise<void> {
-  await ctx.db.insert("auditLogs", {
-    orgId: input.orgId,
-    actorId: input.actorId,
-    action: input.action,
-    resourceType: input.resourceType,
-    resourceId: input.resourceId,
-    before: serialize(input.before ?? null),
-    after: serialize(input.after ?? null),
-    reason: input.reason ?? null,
-  });
-}
-```
-
-- [ ] **Step 6: Run — expect partial pass**
-
-Run: `npm test`. Expected: errors/serializers tests pass; entitlements/audit tests still fail until `api.__test__.*` helpers are extended in Task 10–11.
-
-- [ ] **Step 7: Commit**
+- [ ] **Step 4: GREEN + commit**
 
 ```powershell
-git add convex/lib/usage.ts convex/lib/entitlements.ts convex/lib/audit.ts convex-test/entitlements.test.ts convex-test/audit.test.ts
-git commit -m "feat: entitlement, usage, and audit helpers"
+npm test
+Remove-Item -Force tsconfig.tsbuildinfo -ErrorAction SilentlyContinue; npm run typecheck
+git add convex/events.ts convex-test/config.test.ts
+git commit -m "feat: readiness checklist query"
 ```
+Expected: 52/52 tests pass; typecheck exit 0.
 
 ---
 

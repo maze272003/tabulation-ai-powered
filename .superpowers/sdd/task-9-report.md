@@ -1,73 +1,76 @@
-# Task 9 Report — Entitlements, usage & audit helpers
+# Task 9 Report: Readiness checklist
 
-## Status: DONE
+**Status:** DONE
+**Commit:** `c724a36` — `feat: readiness checklist query` (branch `phase2-competition-config`)
 
-## Commits
+## What was implemented
 
-- `91bc41f` — `feat: entitlement, usage, and audit helpers`
+Appended to `convex/events.ts` (verbatim from the brief):
 
-## Summary
+- Extended type imports at top: `import type { Doc, Id } from "./_generated/dataModel";` and `import type { QueryCtx } from "./_generated/server";` (existing value import `import { mutation, query } from "./_generated/server";` kept as-is).
+- `export type ReadinessCheck = { item: string; passed: boolean; detail: string };`
+- `export async function computeReadiness(ctx: QueryCtx, eventId: Id<"events">): Promise<ReadinessCheck[]>` — Task 10 will import this from `./events`.
+- `export const readiness = query({ args: { orgSlug: v.string(), eventSlug: v.string() }, ... })` — guarded by `requireEventMember`.
 
-`npm test`: 11/11 pass (9 pre-existing + 2 new pure-function tests); `npm run typecheck` clean (after deleting `tsconfig.tsbuildinfo`).
+Appended `describe("readiness")` block with the brief's 2 tests to `convex-test/config.test.ts`.
 
-## Files delivered
+## TDD evidence
 
-| File | Purpose |
-| --- | --- |
-| `convex/lib/usage.ts` | `getUsage`, `incrementUsage` (MutationCtx helpers over the `usage` table) |
-| `convex/lib/entitlements.ts` | `getSubscription`, `getPlan`, `hasFeature`, `hasLimit`, `requireFeature`, `requireLimit` |
-| `convex/lib/audit.ts` | `writeAudit` (serializes before/after into `auditLogs`) |
-| `convex-test/entitlements.test.ts` | Pure-function tests for `hasFeature` / `hasLimit` only |
-
-## What was implemented verbatim vs. adjusted
-
-### Verbatim from the brief
-- `convex/lib/usage.ts` — byte-for-byte from the brief.
-- `convex/lib/audit.ts` — byte-for-byte from the brief (imports `serialize` from `./serializers`, confirmed Task 6 export).
-- `getSubscription`, `getPlan`, `hasFeature`, `hasLimit`, `requireFeature` in `entitlements.ts` — verbatim.
-
-### Adjusted per task caveats
-1. **`requireLimit` ctx typing (caveat 1).** Signature changed from `(ctx: QueryCtx, ...)` with a `getUsage(ctx as never, ...)` cast to `(ctx: MutationCtx, ...)`. The `getUsage(ctx, ...)` call is now clean with no cast. Call sites are all mutations (Task 10/11), so `MutationCtx` is the correct constraint. `getPlan(ctx, ...)` still works because `MutationCtx` extends `QueryCtx`.
-2. **Dropped the brief's `entitlements.test.ts` and `audit.test.ts`** — both reference `api.__test__.*` endpoints that were never built (deferred in Task 7). Replaced with the single pure-function test file specified in caveat 5.
-3. **One unavoidable micro-adjustment in `requireLimit` for the error context.** `Doc<"plans">["limits"]` is inferred by Convex as the strict shape `{ maxContestants: number; maxEvents: number; maxJudges: number; maxMembers: number }`, which does not have a string index signature. Indexing it with `resource: string` (for the error's `max` field) failed typecheck with `TS7053`. Resolved with a typed local rather than a cast:
-
-   ```ts
-   const limits: Record<string, number> = plan.limits;
-   throw appError(ErrorCode.LIMIT_EXCEEDED, `Limit reached: ${resource}`, {
-     resource,
-     current,
-     max: limits[resource],
-   });
-   ```
-
-   This is a structural assignment (every property of `plan.limits` is `number`, so the object is assignable to `Record<string, number>`); **no `as` cast, no `any`**.
-
-## Test results
+### Step 1-2: RED (`npm test` after appending tests, before implementation)
 
 ```
-Test Files  5 passed (5)
-     Tests  11 passed (11)
+ ❯ convex-test/config.test.ts (7 tests | 2 failed) 1760ms
+     × fails an empty event with specific items 69ms
+     × flags weights that do not sum to 100 123ms
+
+ Test Files  1 failed | 10 passed (11)
+      Tests  2 failed | 50 passed (52)
+
+Error: Expected a Convex function exported from module "events" as `readiness`, but there is no such export.
 ```
 
-New tests cover:
-- `hasFeature` reads boolean flag (true / false / undefined → false).
-- `hasLimit` true below the ceiling, false at and above it (boundary tested at the exact `max`).
+Exactly the expected RED: `api.events.readiness` undefined; the prior 50 tests passed.
 
-## Self-review checklist
+### Step 3-4: GREEN (`npm test` after implementing)
 
-| Question | Result |
-| --- | --- |
-| Does `requireLimit` throw `LIMIT_EXCEEDED` with context? | Yes — `appError(ErrorCode.LIMIT_EXCEEDED, ..., { resource, current, max })` at `convex/lib/entitlements.ts:51`. |
-| Does `writeAudit` serialize before/after? | Yes — `serialize(input.before ?? null)`, `serialize(input.after ?? null)` at `convex/lib/audit.ts:24-25`. Nullish inputs normalize to `"null"`. |
-| Any `as never` / `any` casts remaining? | No. The brief's `ctx as never` is eliminated (caveat 1). The only non-strict bit is the structural `const limits: Record<string, number> = plan.limits;` local, which is an assignment, not a cast. |
-| `getPlan` reads `ctx.db.get(sub.planId)`? | Yes — `convex/lib/entitlements.ts:17`. |
-| `audit.ts` imports `serialize` from `./serializers`? | Yes — `convex/lib/audit.ts:3`. |
-| Schema indexes used exist? | Yes — `usage.by_org_id_and_resource`, `subscriptions.by_org_id`, `auditLogs` (table) all defined in `convex/schema.ts`. |
+```
+ Test Files  11 passed (11)
+      Tests  52 passed (52)
+   Duration  4.63s
+```
 
-## Deferred to Task 10/11 integration tests
+52/52 as expected.
 
-The ctx-requiring helpers — `getSubscription`, `requireFeature`, `requireLimit`, `getUsage`, `incrementUsage`, `writeAudit` — are **not covered by unit tests in this task**. They are consolidated into Task 10/11, where the real `organizations` / `members` mutations exercise them through end-to-end flows (org creation writes an audit row; member invite overflows `maxMembers` and throws `LIMIT_EXCEEDED`). This is the intended consolidation noted in the task contract, not a skip.
+## Gate results
+
+| Gate | Result |
+|---|---|
+| `npm test` | 52/52 passed (11 files) |
+| `Remove-Item tsconfig.tsbuildinfo; npm run typecheck` | exit 0 |
+| `npx convex codegen` | exit 0 |
+
+### api.d.ts note (no deviation)
+
+`npx convex codegen` ran successfully but produced **no diff** to `convex/_generated/api.d.ts`. This is expected: the generated file uses the module-passthrough form (`import type * as events from "../events.js"; ... events: typeof events;`), so `api.events.readiness` is typed automatically via `typeof events` without enumerating individual functions. The file is tracked, not ignored, and already current — I staged it in the commit per repo convention (`git add convex/events.ts convex-test/config.test.ts convex/_generated/api.d.ts`); git recorded 2 files changed since api.d.ts was byte-identical. No manual edits were made to generated files.
+
+## Self-review
+
+- 7 check items with exact ids, in order: `rounds.exist`, `rounds.criteria`, `rounds.weights`, `criteria.ranges`, `categories.exist`, `contestants.exist`, `judges.exist` — verified in `computeReadiness` return array.
+- `judges.exist` requires judges WITH assignments: `judges.filter((j) => assignments.some((a) => a.judgeId === j._id))` — a judge row without a matching `judgeAssignments` row does not satisfy the check.
+- `contestants.exist` counts ACTIVE only: `contestants.filter((c) => c.status === "active")` — scratched/disqualified contestants excluded.
+- `categories.exist` passes on a fresh event because `events.create` seeds an "Open" category (test 1 asserts `not.toContain("categories.exist")`).
+- Schema/index cross-check before implementing: `by_event_id` on `rounds`, `categories`, `contestants`, `judges`, `judgeAssignments`; `by_round_id` on `criteria`; fields `weight`/`minScore`/`maxScore` (criteria), `status` (contestants), `judgeId` (judgeAssignments) — all match schema.ts.
+
+## Constraints compliance
+
+- Object-form function syntax: yes (`query({ args, handler })`).
+- Validators on every function: yes (`v.string()` for `orgSlug`, `eventSlug`).
+- No `Date.now()` in queries: yes.
+- No `any` / `as never`: yes.
+- No code comments: yes (appended code is comment-free).
+- One commit: yes — `c724a36` contains exactly `convex/events.ts` + `convex-test/config.test.ts` (72 insertions, 1 deletion — the 1 deletion is the extended import line).
+- Brief's code used verbatim; zero TypeScript/Convex failures; no deviations.
 
 ## Concerns
 
-None. Behavior is faithful to the brief; the only deviation beyond the documented caveats is the typed-local workaround for `Doc<"plans">.limits` indexing, which is forced by Convex's strict inferred shape and is the cleanest available option without a cast.
+None.
