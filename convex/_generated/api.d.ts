@@ -16,6 +16,7 @@ import type * as criteria from "../criteria.js";
 import type * as events from "../events.js";
 import type * as http from "../http.js";
 import type * as invitations from "../invitations.js";
+import type * as judges from "../judges.js";
 import type * as lib_audit from "../lib/audit.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_authz from "../lib/authz.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   events: typeof events;
   http: typeof http;
   invitations: typeof invitations;
+  judges: typeof judges;
   "lib/audit": typeof lib_audit;
   "lib/auth": typeof lib_auth;
   "lib/authz": typeof lib_authz;
