@@ -45,19 +45,25 @@ export default function NewEventPage({ params }: { params: Promise<{ orgSlug: st
       </div>
       <div>
         <h2 className="mb-2 text-sm font-medium text-muted-foreground">Start from a template</h2>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {templates?.filter((tpl) => tpl.isSystem).map((tpl) => (
-            <button
-              key={tpl._id}
-              disabled={busy || !name}
-              className="rounded-lg border p-4 text-left hover:bg-accent disabled:opacity-50"
-              onClick={() => handle(() => createFromTemplate({ orgSlug, name, templateId: tpl._id }))}
-            >
-              <div className="font-medium">{tpl.name}</div>
-              <div className="text-sm text-muted-foreground">{tpl.description}</div>
-            </button>
-          ))}
-        </div>
+        {templates === undefined ? (
+          <p className="text-sm text-muted-foreground">Loading templates…</p>
+        ) : templates.filter((tpl) => tpl.isSystem).length === 0 ? (
+          <p className="text-sm text-muted-foreground">No templates available.</p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-3">
+            {templates.filter((tpl) => tpl.isSystem).map((tpl) => (
+              <button
+                key={tpl._id}
+                disabled={busy || !name}
+                className="rounded-lg border p-4 text-left hover:bg-accent disabled:opacity-50"
+                onClick={() => handle(() => createFromTemplate({ orgSlug, name, templateId: tpl._id }))}
+              >
+                <div className="font-medium">{tpl.name}</div>
+                <div className="text-sm text-muted-foreground">{tpl.description}</div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -45,16 +45,22 @@ export default function EventsPage({ params }: { params: Promise<{ orgSlug: stri
           Create
         </Button>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {events?.map((ev) => (
-          <Link key={ev._id} href={`/app/${orgSlug}/events/${ev.slug}/overview`} className="block">
-            <div className="rounded-lg border p-4 hover:bg-accent">
-              <div className="font-medium">{ev.name}</div>
-              <div className="text-sm text-muted-foreground">{ev.slug} - {ev.status}</div>
-            </div>
-          </Link>
-        ))}
-      </div>
+      {events === undefined ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : events.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No events yet - create your first event.</p>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {events.map((ev) => (
+            <Link key={ev._id} href={`/app/${orgSlug}/events/${ev.slug}/overview`} className="block">
+              <div className="rounded-lg border p-4 hover:bg-accent">
+                <div className="font-medium">{ev.name}</div>
+                <div className="text-sm text-muted-foreground">{ev.slug} - {ev.status}</div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
