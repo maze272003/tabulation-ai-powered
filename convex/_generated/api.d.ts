@@ -35,6 +35,7 @@ import type * as roles from "../roles.js";
 import type * as rounds from "../rounds.js";
 import type * as seed from "../seed.js";
 import type * as subscriptions from "../subscriptions.js";
+import type * as templates from "../templates.js";
 
 import type {
   ApiFromModules,
@@ -70,6 +71,7 @@ declare const fullApi: ApiFromModules<{
   rounds: typeof rounds;
   seed: typeof seed;
   subscriptions: typeof subscriptions;
+  templates: typeof templates;
 }>;
 
 /**
