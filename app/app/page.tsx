@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { UserMenu } from "@/components/UserMenu";
 
 export default function AppHome() {
   const mine = useQuery(api.organizations.listMine, {});
@@ -18,7 +19,10 @@ export default function AppHome() {
 
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-8">
-      <h1 className="text-2xl font-semibold">Your organizations</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Your organizations</h1>
+        <UserMenu />
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {mine?.map((m) => (
           <Link key={m.membership._id} href={`/app/${m.org?.slug}`} className="block">

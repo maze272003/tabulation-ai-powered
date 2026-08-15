@@ -7,6 +7,7 @@ import { requireUserProfile } from "./lib/auth";
 import { requireOrgMember, requirePermission } from "./lib/authz";
 import { writeAudit } from "./lib/audit";
 import { incrementUsage } from "./lib/usage";
+import { seedReferenceDataInternal } from "./seed";
 
 function slugify(name: string): string {
   return name
@@ -20,10 +21,17 @@ async function pickSystemRole(
   ctx: MutationCtx,
   name: string,
 ): Promise<Id<"roles">> {
-  const role = await ctx.db
+  let role = await ctx.db
     .query("roles")
     .withIndex("by_name", (q) => q.eq("name", name))
     .unique();
+  if (!role) {
+    await seedReferenceDataInternal(ctx);
+    role = await ctx.db
+      .query("roles")
+      .withIndex("by_name", (q) => q.eq("name", name))
+      .unique();
+  }
   if (!role) throw appError(ErrorCode.NOT_FOUND, `Role missing: ${name}`);
   return role._id;
 }
@@ -46,10 +54,17 @@ export const create = mutation({
     }
 
     const ownerRoleId = await pickSystemRole(ctx, "Org Owner");
-    const freePlan = await ctx.db
+    let freePlan = await ctx.db
       .query("plans")
       .withIndex("by_name", (q) => q.eq("name", "Free"))
       .unique();
+    if (!freePlan) {
+      await seedReferenceDataInternal(ctx);
+      freePlan = await ctx.db
+        .query("plans")
+        .withIndex("by_name", (q) => q.eq("name", "Free"))
+        .unique();
+    }
     if (!freePlan) {
       throw appError(ErrorCode.NOT_FOUND, "Free plan missing - run seed");
     }

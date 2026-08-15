@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { seedReferenceDataInternal } from "./seed";
 
 export const getCurrentUser = query({
   args: {},
@@ -27,6 +28,7 @@ export const ensureUserProfile = mutation({
         message: "Not signed in",
       });
     }
+    await seedReferenceDataInternal(ctx);
     const existing = await ctx.db
       .query("userProfiles")
       .withIndex("by_token_identifier", (q) =>
