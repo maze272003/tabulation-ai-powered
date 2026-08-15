@@ -1,259 +1,78 @@
-## Task 3: Client auth wiring & profile provisioning
+﻿## Task 3: Event authz helpers
 
 **Files:**
-- Create: `lib/auth-client.ts`
-- Create: `lib/auth-server.ts`
-- Modify: `components/ConvexClientProvider.tsx` (replace contents)
-- Modify: `app/layout.tsx`
-- Create: `app/api/auth/[...all]/route.ts`
-- Create: `components/Authenticated.tsx`
-- Create: `convex/auth.ts`
-- Modify: `convex/schema.ts` (add `userProfiles` table only — full schema lands in Task 4)
+- Create: `convex/lib/eventAuthz.ts`
 
 **Interfaces:**
-- Produces: `api.auth.ensureUserProfile`, `api.auth.getCurrentUser`, a working Google sign-in → profile flow.
+- Consumes: `requireOrgMember(ctx, { orgSlug })` and `AuthCtx` from `convex/lib/authz.ts`; `appError`/`ErrorCode` from `convex/lib/errors.ts`.
+- Produces: `EventAuthCtx` (= `AuthCtx & { event: Doc<"events"> }`); `requireEventMember(ctx, { orgSlug, eventSlug }): Promise<EventAuthCtx>` (NOT_FOUND if no event); `requireEventPermission(ctx, { orgSlug, eventSlug, permission }): Promise<EventAuthCtx>` (FORBIDDEN if missing); `requireDraftEvent(ctx, { orgSlug, eventSlug, permission }): Promise<EventAuthCtx>` (CONFLICT if `status !== "draft"`). Their gates are tested in Task 4+ via real endpoints â€” no new test file in this task.
 
-- [ ] **Step 1: Create the auth client**
+- [ ] **Step 1: Implement `convex/lib/eventAuthz.ts`**
 
-Create `lib/auth-client.ts`:
 ```ts
-import { convexClient } from "@convex-dev/better-auth/client/plugins";
-import { createAuthClient } from "better-auth/react";
+import type { QueryCtx } from "../_generated/server";
+import type { Doc } from "../_generated/dataModel";
+import { appError, ErrorCode } from "./errors";
+import { requireOrgMember, type AuthCtx } from "./authz";
 
-export const authClient = createAuthClient({
-  plugins: [convexClient()],
-});
+export type EventAuthCtx = AuthCtx & { event: Doc<"events"> };
 
-export const { signIn, signOut, useSession } = authClient;
-```
+export async function resolveEventBySlug(
+  ctx: QueryCtx,
+  args: { orgSlug: string; eventSlug: string },
+): Promise<{ actx: AuthCtx; event: Doc<"events"> }> {
+  const actx = await requireOrgMember(ctx, { orgSlug: args.orgSlug });
+  const event = await ctx.db
+    .query("events")
+    .withIndex("by_org_id_and_slug", (q) => q.eq("orgId", actx.org._id).eq("slug", args.eventSlug))
+    .unique();
+  if (!event) throw appError(ErrorCode.NOT_FOUND, "Event not found");
+  return { actx, event };
+}
 
-- [ ] **Step 2: Create the SSR helpers**
+export async function requireEventMember(
+  ctx: QueryCtx,
+  args: { orgSlug: string; eventSlug: string },
+): Promise<EventAuthCtx> {
+  const { actx, event } = await resolveEventBySlug(ctx, args);
+  return { ...actx, event };
+}
 
-Create `lib/auth-server.ts`:
-```ts
-import { convexBetterAuthNextJs } from "@convex-dev/better-auth/nextjs";
+export async function requireEventPermission(
+  ctx: QueryCtx,
+  args: { orgSlug: string; eventSlug: string; permission: string },
+): Promise<EventAuthCtx> {
+  const eactx = await requireEventMember(ctx, {
+    orgSlug: args.orgSlug,
+    eventSlug: args.eventSlug,
+  });
+  if (!eactx.permissions.has(args.permission)) {
+    throw appError(ErrorCode.FORBIDDEN, `Missing permission: ${args.permission}`);
+  }
+  return eactx;
+}
 
-export const {
-  handler,
-  preloadAuthQuery,
-  isAuthenticated,
-  getToken,
-  fetchAuthQuery,
-  fetchAuthMutation,
-  fetchAuthAction,
-} = convexBetterAuthNextJs({
-  convexUrl: process.env.NEXT_PUBLIC_CONVEX_URL!,
-  convexSiteUrl: process.env.NEXT_PUBLIC_CONVEX_SITE_URL!,
-});
-```
-
-- [ ] **Step 3: Replace the Convex client provider**
-
-Replace `components/ConvexClientProvider.tsx` with:
-```tsx
-"use client";
-
-import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
-import { ConvexReactClient } from "convex/react";
-import { authClient } from "@/lib/auth-client";
-
-const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
-
-export function ConvexClientProvider({
-  children,
-  initialToken,
-}: {
-  children: React.ReactNode;
-  initialToken?: string | null;
-}) {
-  return (
-    <ConvexBetterAuthProvider
-      client={convex}
-      authClient={authClient}
-      initialToken={initialToken}
-    >
-      {children}
-    </ConvexBetterAuthProvider>
-  );
+export async function requireDraftEvent(
+  ctx: QueryCtx,
+  args: { orgSlug: string; eventSlug: string; permission: string },
+): Promise<EventAuthCtx> {
+  const eactx = await requireEventPermission(ctx, args);
+  if (eactx.event.status !== "draft") {
+    throw appError(ErrorCode.CONFLICT, "Event configuration is locked");
+  }
+  return eactx;
 }
 ```
 
-- [ ] **Step 4: Update the root layout**
-
-Replace `app/layout.tsx` body contents to fetch and pass the token:
-```tsx
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import { ConvexClientProvider } from "@/components/ConvexClientProvider";
-import { getToken } from "@/lib/auth-server";
-
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
-
-export const metadata: Metadata = {
-  title: "Tabulation",
-  description: "Competition management and tabulation platform",
-};
-
-export default async function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
-  const token = await getToken();
-  return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body>
-        <ConvexClientProvider initialToken={token}>
-          {children}
-        </ConvexClientProvider>
-      </body>
-    </html>
-  );
-}
-```
-
-- [ ] **Step 5: Mount the auth route handler**
-
-Create `app/api/auth/[...all]/route.ts`:
-```ts
-import { handler } from "@/lib/auth-server";
-
-export const { GET, POST } = handler;
-```
-
-- [ ] **Step 6: Add a minimal `userProfiles` table to the schema**
-
-Replace `convex/schema.ts` contents with (full schema arrives in Task 4; this unblocks `ensureUserProfile`):
-```ts
-import { defineSchema, defineTable } from "convex/server";
-import { v } from "convex/values";
-
-export default defineSchema({
-  userProfiles: defineTable({
-    tokenIdentifier: v.string(),
-    name: v.string(),
-    email: v.string(),
-    image: v.string(),
-    platformRole: v.union(v.null(), v.literal("platform_owner")),
-    status: v.union(v.literal("active"), v.literal("inactive"), v.literal("suspended")),
-    lastLoginAt: v.number(),
-  })
-    .index("by_token_identifier", ["tokenIdentifier"])
-    .index("by_email", ["email"]),
-});
-```
-
-- [ ] **Step 7: Create `convex/auth.ts`**
-
-Create `convex/auth.ts`:
-```ts
-import { paginationOptsValidator } from "convex/server";
-import { v } from "convex/values";
-import { ConvexError } from "convex/values";
-import { query } from "./_generated/server";
-import type { Doc, Id } from "./_generated/dataModel";
-
-export const getCurrentUser = query({
-  args: {},
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-    const profile = await ctx.db
-      .query("userProfiles")
-      .withIndex("by_token_identifier", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
-      .unique();
-    return profile;
-  },
-});
-
-export const ensureUserProfile = mutation({
-  args: {},
-  handler: async (ctx): Promise<Id<"userProfiles">> => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError({ code: "UNAUTHENTICATED", message: "Not signed in" });
-    }
-    const existing = await ctx.db
-      .query("userProfiles")
-      .withIndex("by_token_identifier", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
-      .unique();
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        name: identity.name ?? existing.name,
-        email: identity.email ?? existing.email,
-        image: identity.pictureUrl ?? existing.image,
-        lastLoginAt: Date.now(),
-      });
-      return existing._id;
-    }
-    const id = await ctx.db.insert("userProfiles", {
-      tokenIdentifier: identity.tokenIdentifier,
-      name: identity.name ?? "",
-      email: identity.email ?? "",
-      image: identity.pictureUrl ?? "",
-      platformRole: null,
-      status: "active",
-      lastLoginAt: Date.now(),
-    });
-    return id;
-  },
-});
-```
-
-Add the missing import at the top of `convex/auth.ts` (the `mutation` import was omitted above):
-```ts
-import { mutation } from "./_generated/server";
-```
-(Final imports block for `convex/auth.ts`):
-```ts
-import { v } from "convex/values";
-import { ConvexError } from "convex/values";
-import { query, mutation } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
-```
-(`paginationOptsValidator` is not needed here — remove that import if you copied it.)
-
-- [ ] **Step 8: Create the `Authenticated` gate**
-
-Create `components/Authenticated.tsx`:
-```tsx
-"use client";
-
-import { useSession } from "@/lib/auth-client";
-import { useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { useEffect } from "react";
-
-export function Authenticated({ children }: { children: React.ReactNode }) {
-  const { data: session, isPending } = useSession();
-  const ensureProfile = useMutation(api.auth.ensureUserProfile);
-
-  useEffect(() => {
-    if (session) {
-      void ensureProfile({});
-    }
-  }, [session, ensureProfile]);
-
-  if (isPending) return null;
-  if (!session) return null;
-  return <>{children}</>;
-}
-```
-
-- [ ] **Step 9: Verify typecheck**
-
-Run:
-```powershell
-npm run typecheck
-```
-Expected: PASS.
-
-- [ ] **Step 10: Commit**
+- [ ] **Step 2: Verify + commit**
 
 ```powershell
-git add lib components/convexClientProvider.tsx app/layout.tsx app/api/auth convex/auth.ts convex/schema.ts
-git commit -m "feat: wire Better-Auth client + profile provisioning"
+Remove-Item -Force tsconfig.tsbuildinfo -ErrorAction SilentlyContinue; npm run typecheck
+npm test
+git add convex/lib/eventAuthz.ts
+git commit -m "feat: event-domain authorization helpers"
 ```
+Expected: typecheck exit 0; 32/32 tests pass (no new tests â€” helpers are exercised from Task 4 onward).
 
 ---
 

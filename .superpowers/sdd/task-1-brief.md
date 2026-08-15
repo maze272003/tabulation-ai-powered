@@ -1,101 +1,175 @@
-## Task 1: Project dependencies & environment
+﻿## Task 1: Schema extension
 
 **Files:**
-- Modify: `package.json` (add deps + `test` script)
-- Create: `vitest.config.ts`
+- Modify: `convex/schema.ts`
 
 **Interfaces:**
-- Produces: installed `better-auth`, `@convex-dev/better-auth`, shadcn UI deps, test deps; `npm test` runnable.
+- Produces: tables `events`, `categories`, `rounds`, `criteria`, `contestants`, `judges`, `judgeAssignments`, `scoreSheets`, `eventTemplates`; `invitations.eventId` becomes `v.union(v.null(), v.id("events"))`.
 
-- [ ] **Step 1: Install runtime dependencies**
+- [ ] **Step 1: Migrate `invitations.eventId`**
 
-Run (PowerShell):
-```powershell
-npm install better-auth @convex-dev/better-auth lucide-react class-variance-authority clsx tailwind-merge
-```
-
-- [ ] **Step 2: Install shadcn/ui prerequisite Radix primitives + sonner**
-
-Run:
-```powershell
-npm install @radix-ui/react-dialog @radix-ui/react-dropdown-menu @radix-ui/react-select @radix-ui/react-label @radix-ui/react-slot @radix-ui/react-tooltip sonner next-themes
-```
-
-- [ ] **Step 3: Install dev/test dependencies**
-
-Run:
-```powershell
-npm install -D vitest @edge-runtime/vm convex-test
-```
-
-- [ ] **Step 4: Add `test` script to package.json**
-
-Modify `package.json` `scripts` to include:
-```json
-"test": "vitest run",
-"test:watch": "vitest"
-```
-
-- [ ] **Step 5: Create `vitest.config.ts`**
-
-Create `vitest.config.ts`:
+In `convex/schema.ts`, change the `invitations` table's `eventId` line to:
 ```ts
-import { defineConfig } from "vitest/config";
-
-export default defineConfig({
-  test: {
-    environment: "edge-runtime",
-    include: ["convex-test/**/*.test.ts"],
-    alias: {
-      convex: "convex-test/convex-shim.ts",
-    },
-  },
-});
+    eventId: v.union(v.null(), v.id("events")),
 ```
+(Remove the old Phase-2 marker comment â€” the migration now lands.)
 
-Create `convex-test/convex-shim.ts` (empty placeholder; `convex-test` provides the real module mapping at runtime):
+- [ ] **Step 2: Append the 9 new tables** (inside `defineSchema({...})`, after `auditLogs`)
+
 ```ts
-// Placeholder; convex-test intercepts convex/* imports via the test setup.
-export {};
+  events: defineTable({
+    orgId: v.id("organizations"),
+    slug: v.string(),
+    name: v.string(),
+    description: v.string(),
+    logoUrl: v.optional(v.string()),
+    bannerUrl: v.optional(v.string()),
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+    venue: v.optional(v.string()),
+    timezone: v.optional(v.string()),
+    status: v.union(v.literal("draft"), v.literal("ready"), v.literal("archived")),
+    decimalPrecision: v.number(),
+    resultVisibility: v.union(v.literal("private"), v.literal("organization"), v.literal("public")),
+    branding: v.object({
+      primaryColor: v.optional(v.string()),
+      secondaryColor: v.optional(v.string()),
+    }),
+    templateId: v.optional(v.id("eventTemplates")),
+    createdById: v.id("userProfiles"),
+  })
+    .index("by_org_id_and_slug", ["orgId", "slug"])
+    .index("by_org_id_and_status", ["orgId", "status"])
+    .index("by_org_id", ["orgId"]),
+
+  categories: defineTable({
+    eventId: v.id("events"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    order: v.number(),
+  })
+    .index("by_event_id", ["eventId"]),
+
+  rounds: defineTable({
+    eventId: v.id("events"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    order: v.number(),
+    qualifiesToNextRound: v.boolean(),
+    scoringRules: v.optional(v.object({ winner: v.union(v.literal("highest"), v.literal("lowest")) })),
+  })
+    .index("by_event_id", ["eventId"]),
+
+  criteria: defineTable({
+    roundId: v.id("rounds"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    order: v.number(),
+    weight: v.number(),
+    minScore: v.number(),
+    maxScore: v.number(),
+    decimalPrecision: v.number(),
+  })
+    .index("by_round_id", ["roundId"]),
+
+  contestants: defineTable({
+    eventId: v.id("events"),
+    categoryId: v.id("categories"),
+    number: v.number(),
+    name: v.string(),
+    photoUrl: v.optional(v.string()),
+    group: v.optional(v.string()),
+    status: v.union(v.literal("active"), v.literal("scratched"), v.literal("disqualified")),
+    customFields: v.optional(v.record(v.string(), v.string())),
+  })
+    .index("by_event_id", ["eventId"])
+    .index("by_event_id_and_category_id", ["eventId", "categoryId"])
+    .index("by_event_id_and_number", ["eventId", "number"]),
+
+  judges: defineTable({
+    orgId: v.id("organizations"),
+    eventId: v.id("events"),
+    userId: v.id("userProfiles"),
+    status: v.union(v.literal("assigned"), v.literal("declined"), v.literal("confirmed")),
+  })
+    .index("by_event_id", ["eventId"])
+    .index("by_event_id_and_user_id", ["eventId", "userId"])
+    .index("by_user_id", ["userId"]),
+
+  judgeAssignments: defineTable({
+    judgeId: v.id("judges"),
+    eventId: v.id("events"),
+    roundId: v.optional(v.id("rounds")),
+    categoryId: v.optional(v.id("categories")),
+    criterionId: v.optional(v.id("criteria")),
+  })
+    .index("by_judge_id", ["judgeId"])
+    .index("by_event_id", ["eventId"]),
+
+  scoreSheets: defineTable({
+    eventId: v.id("events"),
+    roundId: v.id("rounds"),
+    judgeId: v.id("judges"),
+    contestantId: v.id("contestants"),
+    status: v.union(
+      v.literal("not_started"),
+      v.literal("in_progress"),
+      v.literal("submitted"),
+      v.literal("locked"),
+    ),
+  })
+    .index("by_event_id_and_round_id", ["eventId", "roundId"])
+    .index("by_judge_id_and_round_id", ["judgeId", "roundId"])
+    .index("by_event_id_and_round_id_and_contestant_id", ["eventId", "roundId", "contestantId"]),
+
+  eventTemplates: defineTable({
+    orgId: v.optional(v.id("organizations")),
+    name: v.string(),
+    description: v.string(),
+    configSnapshot: v.object({
+      decimalPrecision: v.number(),
+      resultVisibility: v.union(v.literal("private"), v.literal("organization"), v.literal("public")),
+      scoringRules: v.optional(v.object({ winner: v.union(v.literal("highest"), v.literal("lowest")) })),
+      categories: v.optional(v.array(v.object({ name: v.string(), order: v.number() }))),
+      rounds: v.array(
+        v.object({
+          name: v.string(),
+          order: v.number(),
+          qualifiesToNextRound: v.boolean(),
+          scoringRules: v.optional(v.object({ winner: v.union(v.literal("highest"), v.literal("lowest")) })),
+          criteria: v.array(
+            v.object({
+              name: v.string(),
+              order: v.number(),
+              weight: v.number(),
+              minScore: v.number(),
+              maxScore: v.number(),
+              decimalPrecision: v.number(),
+            }),
+          ),
+        }),
+      ),
+    }),
+    isSystem: v.boolean(),
+  })
+    .index("by_org_id", ["orgId"])
+    .index("by_name", ["name"]),
 ```
 
-- [ ] **Step 6: Set Convex environment variables**
+- [ ] **Step 3: Verify**
 
-Run (cross-platform via Convex CLI). For the secret, use `npx auth secret` which writes it for you:
 ```powershell
-npx convex env set SITE_URL http://localhost:3000
+npx convex dev --once
+Remove-Item -Force tsconfig.tsbuildinfo -ErrorAction SilentlyContinue; npm run typecheck
+npm test
 ```
+Expected: schema pushes cleanly (all existing `invitations.eventId` values are null, so the narrowing is safe â€” if the push reports a conflict, verify via the Convex dashboard that no non-null string values exist; if any do, STOP and report BLOCKED); typecheck exit 0; 31/31 tests pass.
 
-Then set Google OAuth credentials (you must create these in Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client ID; authorized redirect: `https://<your-deployment>.convex.site/api/auth/callback/google` and `http://localhost:3000/api/auth/callback/google`):
-```powershell
-npx convex env set GOOGLE_CLIENT_ID <your-client-id>
-npx convex env set GOOGLE_CLIENT_SECRET <your-client-secret>
-```
-
-Generate the Better-Auth secret:
-```powershell
-npx auth secret
-```
-(If `npx auth secret` is unavailable, generate 32 random base64 bytes and set manually: `npx convex env set BETTER_AUTH_SECRET <value>`.)
-
-Add to `.env.local` (Next.js side):
-```
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
-```
-
-- [ ] **Step 7: Verify install**
-
-Run:
-```powershell
-npm run typecheck
-```
-Expected: PASS (no type errors from the new deps).
-
-- [ ] **Step 8: Commit**
+- [ ] **Step 4: Commit**
 
 ```powershell
-git add package.json package-lock.json vitest.config.ts convex-test/convex-shim.ts .env.example
-git commit -m "chore: install auth, UI, and test dependencies"
+git add convex/schema.ts
+git commit -m "feat: Phase 2 schema - events, config, participants, sheets, templates"
 ```
 
 ---
