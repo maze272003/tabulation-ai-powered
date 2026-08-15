@@ -10,6 +10,7 @@
 
 import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
+import type * as events from "../events.js";
 import type * as http from "../http.js";
 import type * as invitations from "../invitations.js";
 import type * as lib_audit from "../lib/audit.js";
@@ -18,6 +19,7 @@ import type * as lib_authz from "../lib/authz.js";
 import type * as lib_constants from "../lib/constants.js";
 import type * as lib_entitlements from "../lib/entitlements.js";
 import type * as lib_errors from "../lib/errors.js";
+import type * as lib_eventAuthz from "../lib/eventAuthz.js";
 import type * as lib_serializers from "../lib/serializers.js";
 import type * as lib_usage from "../lib/usage.js";
 import type * as members from "../members.js";
@@ -37,6 +39,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   audit: typeof audit;
   auth: typeof auth;
+  events: typeof events;
   http: typeof http;
   invitations: typeof invitations;
   "lib/audit": typeof lib_audit;
@@ -45,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   "lib/constants": typeof lib_constants;
   "lib/entitlements": typeof lib_entitlements;
   "lib/errors": typeof lib_errors;
+  "lib/eventAuthz": typeof lib_eventAuthz;
   "lib/serializers": typeof lib_serializers;
   "lib/usage": typeof lib_usage;
   members: typeof members;

@@ -35,3 +35,20 @@ export const bobIdentity = {
   pictureUrl: "https://example.com/b.png",
   issuer: "https://tabulation.example.com",
 } as const;
+
+export async function createOrgAndEvent(
+  t: ReturnType<typeof setupTest>,
+  identity: Partial<UserIdentity>,
+  opts: { orgSlug: string; eventSlug: string; eventName?: string },
+): Promise<void> {
+  await seedAndProvision(t, identity);
+  await t.withIdentity(identity).mutation(api.organizations.create, {
+    name: opts.orgSlug,
+    slug: opts.orgSlug,
+  });
+  await t.withIdentity(identity).mutation(api.events.create, {
+    orgSlug: opts.orgSlug,
+    name: opts.eventName ?? opts.eventSlug,
+    slug: opts.eventSlug,
+  });
+}
