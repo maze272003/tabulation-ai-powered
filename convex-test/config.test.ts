@@ -67,3 +67,29 @@ describe("criteria", () => {
     ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
   });
 });
+
+describe("readiness", () => {
+  it("fails an empty event with specific items", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    const checks = await t.withIdentity(aliceIdentity).query(api.events.readiness, { orgSlug: "acme", eventSlug: "gala" });
+    const failed = checks.filter((c) => !c.passed).map((c) => c.item);
+    expect(failed).toContain("rounds.exist");
+    expect(failed).toContain("contestants.exist");
+    expect(failed).toContain("judges.exist");
+    expect(failed).not.toContain("categories.exist");
+  });
+
+  it("flags weights that do not sum to 100", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "gala", name: "R" });
+    const rounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "gala" });
+    await t.withIdentity(aliceIdentity).mutation(api.criteria.add, {
+      orgSlug: "acme", eventSlug: "gala", roundId: rounds[0]._id, name: "A", weight: 40, minScore: 0, maxScore: 10, decimalPrecision: 0,
+    });
+    const checks = await t.withIdentity(aliceIdentity).query(api.events.readiness, { orgSlug: "acme", eventSlug: "gala" });
+    const weights = checks.find((c) => c.item === "rounds.weights");
+    expect(weights?.passed).toBe(false);
+  });
+});

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
+import type { QueryCtx } from "./_generated/server";
 import { appError, ErrorCode } from "./lib/errors";
 import { requireOrgMember, requirePermission } from "./lib/authz";
 import { requireEventMember, requireDraftEvent } from "./lib/eventAuthz";
@@ -107,5 +108,49 @@ export const update = mutation({
       resourceType: "event", resourceId: eactx.event._id,
       before: { name: eactx.event.name }, after: { name: patch.name ?? eactx.event.name },
     });
+  },
+});
+
+export type ReadinessCheck = { item: string; passed: boolean; detail: string };
+
+export async function computeReadiness(
+  ctx: QueryCtx,
+  eventId: Id<"events">,
+): Promise<ReadinessCheck[]> {
+  const rounds = await ctx.db.query("rounds").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
+  const categories = await ctx.db.query("categories").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
+  const contestants = await ctx.db.query("contestants").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
+  const judges = await ctx.db.query("judges").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
+  const assignments = await ctx.db.query("judgeAssignments").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
+
+  const criteriaPerRound = await Promise.all(
+    rounds.map((r) => ctx.db.query("criteria").withIndex("by_round_id", (q) => q.eq("roundId", r._id)).collect()),
+  );
+
+  const emptyRounds = rounds.filter((_, i) => criteriaPerRound[i].length === 0);
+  const badSums = rounds.filter((_, i) => {
+    const total = criteriaPerRound[i].reduce((sum, c) => sum + c.weight, 0);
+    return total !== 100;
+  });
+  const badRanges = criteriaPerRound.flat().filter((c) => !(c.minScore < c.maxScore));
+  const activeContestants = contestants.filter((c) => c.status === "active");
+  const judgesWithAssignments = judges.filter((j) => assignments.some((a) => a.judgeId === j._id));
+
+  return [
+    { item: "rounds.exist", passed: rounds.length >= 1, detail: `${rounds.length} round(s)` },
+    { item: "rounds.criteria", passed: emptyRounds.length === 0, detail: emptyRounds.length === 0 ? "all rounds have criteria" : `${emptyRounds.length} round(s) without criteria` },
+    { item: "rounds.weights", passed: badSums.length === 0, detail: badSums.length === 0 ? "all weights sum to 100" : `${badSums.length} round(s) with weights not summing to 100` },
+    { item: "criteria.ranges", passed: badRanges.length === 0, detail: badRanges.length === 0 ? "all ranges valid" : `${badRanges.length} criterion/criteria with invalid ranges` },
+    { item: "categories.exist", passed: categories.length >= 1, detail: `${categories.length} categor(y/ies)` },
+    { item: "contestants.exist", passed: activeContestants.length >= 1, detail: `${activeContestants.length} active contestant(s)` },
+    { item: "judges.exist", passed: judgesWithAssignments.length >= 1, detail: `${judgesWithAssignments.length} judge(s) with assignments` },
+  ];
+}
+
+export const readiness = query({
+  args: { orgSlug: v.string(), eventSlug: v.string() },
+  handler: async (ctx, args): Promise<ReadinessCheck[]> => {
+    const eactx = await requireEventMember(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug });
+    return computeReadiness(ctx, eactx.event._id);
   },
 });
