@@ -31,6 +31,7 @@
   "devDependencies": {
     "@convex-dev/eslint-plugin": "^2.0.0",
     "@edge-runtime/vm": "^5.0.0",
+    "@sentropic/graphify": "^0.17.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
