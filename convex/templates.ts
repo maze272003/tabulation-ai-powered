@@ -68,7 +68,7 @@ export const remove = mutation({
     const actx = await requirePermission(ctx, { orgSlug: args.orgSlug, permission: "event.create" });
     const tpl = await ctx.db.get(args.templateId);
     if (!tpl) throw appError(ErrorCode.NOT_FOUND, "Template not found");
-    if (tpl.isSystem || tpl.orgId === null) {
+    if (tpl.isSystem) {
       throw appError(ErrorCode.FORBIDDEN, "System templates cannot be deleted");
     }
     if (tpl.orgId !== actx.org._id) throw appError(ErrorCode.NOT_FOUND, "Template not found");
