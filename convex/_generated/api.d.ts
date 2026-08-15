@@ -13,6 +13,7 @@ import type * as auth from "../auth.js";
 import type * as categories from "../categories.js";
 import type * as contestants from "../contestants.js";
 import type * as criteria from "../criteria.js";
+import type * as eventLifecycle from "../eventLifecycle.js";
 import type * as events from "../events.js";
 import type * as http from "../http.js";
 import type * as invitations from "../invitations.js";
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   categories: typeof categories;
   contestants: typeof contestants;
   criteria: typeof criteria;
+  eventLifecycle: typeof eventLifecycle;
   events: typeof events;
   http: typeof http;
   invitations: typeof invitations;
