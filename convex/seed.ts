@@ -1,5 +1,5 @@
 import { mutation } from "./_generated/server";
-import { ROLE_PERMISSIONS, SYSTEM_PERMISSIONS, SYSTEM_PLANS, SYSTEM_ROLES } from "./lib/constants";
+import { ROLE_PERMISSIONS, SYSTEM_PERMISSIONS, SYSTEM_PLANS, SYSTEM_ROLES, SYSTEM_TEMPLATES } from "./lib/constants";
 
 export const seedReferenceData = mutation({
   args: {},
@@ -56,6 +56,20 @@ export const seedReferenceData = mutation({
         .unique();
       if (!existing) {
         await ctx.db.insert("plans", { ...plan });
+      }
+    }
+    for (const tpl of SYSTEM_TEMPLATES) {
+      const existing = await ctx.db
+        .query("eventTemplates")
+        .filter((q) => q.and(q.eq(q.field("name"), tpl.name), q.eq(q.field("isSystem"), true)))
+        .first();
+      if (!existing) {
+        await ctx.db.insert("eventTemplates", {
+          name: tpl.name,
+          description: tpl.description,
+          configSnapshot: tpl.configSnapshot,
+          isSystem: true,
+        });
       }
     }
   },

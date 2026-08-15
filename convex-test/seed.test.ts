@@ -15,4 +15,14 @@ describe("seed", () => {
     const profile = await t.withIdentity(aliceIdentity).query(api.auth.getCurrentUser, {});
     expect(profile?.email).toBe("alice@example.com");
   });
+  it("seeds system templates idempotently", async () => {
+    const t = setupTest();
+    await t.mutation(api.seed.seedReferenceData, {});
+    await t.mutation(api.seed.seedReferenceData, {});
+    const count = await t.run(async (q) => {
+      const all = await q.db.query("eventTemplates").collect();
+      return all.filter((x) => x.isSystem).length;
+    });
+    expect(count).toBe(3);
+  });
 });
