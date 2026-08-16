@@ -247,6 +247,32 @@ export default defineSchema({
     .index("by_judge_id", ["judgeId"])
     .index("by_event_id", ["eventId"]),
 
+  eventAccounts: defineTable({
+    orgId: v.id("organizations"),
+    eventId: v.id("events"),
+    kind: v.union(v.literal("staff"), v.literal("judge")),
+    displayName: v.string(),
+    username: v.string(),
+    passwordHash: v.string(),
+    status: v.union(v.literal("active"), v.literal("disabled")),
+    failedAttempts: v.number(),
+    lockedUntil: v.union(v.null(), v.number()),
+    createdById: v.id("userProfiles"),
+  })
+    .index("by_event_id", ["eventId"])
+    .index("by_event_id_and_username", ["eventId", "username"])
+    .index("by_event_id_and_kind", ["eventId", "kind"]),
+
+  eventSessions: defineTable({
+    token: v.string(),
+    accountId: v.id("eventAccounts"),
+    eventId: v.id("events"),
+    expiresAt: v.number(),
+    lastSeenAt: v.number(),
+  })
+    .index("by_token", ["token"])
+    .index("by_account_id", ["accountId"]),
+
   scoreSheets: defineTable({
     eventId: v.id("events"),
     roundId: v.id("rounds"),
