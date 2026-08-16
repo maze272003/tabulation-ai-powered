@@ -1,6 +1,6 @@
 # Role-Based Auth & Event Access Refactor — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Replace the email-invitation judge workflow with username+password+event-code access for judges/staff, reserving Google SSO for organizers (single admin per org).
 
@@ -37,7 +37,7 @@
 **Interfaces:**
 - Produces: `generateEventCode(): string`; `events.eventCode` field + `by_event_code` index; `events.regenerateCode(orgSlug, eventSlug) -> string`. Later tasks and the accounts UI rely on these.
 
-- [ ] **Step 1: Write failing tests** — create `convex-test/eventCodes.test.ts`:
+- [x] **Step 1: Write failing tests** — create `convex-test/eventCodes.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -83,9 +83,9 @@ describe("event codes", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests, verify failure** — `npx convex codegen; npx vitest run convex-test/eventCodes.test.ts` -> FAIL (`eventCode` missing / `regenerateCode` not a function).
+- [x] **Step 2: Run tests, verify failure** — `npx convex codegen; npx vitest run convex-test/eventCodes.test.ts` -> FAIL (`eventCode` missing / `regenerateCode` not a function).
 
-- [ ] **Step 3: Implement.** Create `convex/lib/eventCode.ts`:
+- [x] **Step 3: Implement.** Create `convex/lib/eventCode.ts`:
 
 ```ts
 export const EVENT_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -145,9 +145,9 @@ export const regenerateCode = mutation({
 });
 ```
 
-- [ ] **Step 4: Run tests, verify pass** — `npx convex codegen; npx vitest run convex-test/eventCodes.test.ts` -> PASS. Then `npm test` (full suite stays green).
+- [x] **Step 4: Run tests, verify pass** — `npx convex codegen; npx vitest run convex-test/eventCodes.test.ts` -> PASS. Then `npm test` (full suite stays green).
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "feat: unique event codes with owner regeneration"`
+- [x] **Step 5: Commit** — `git add -A && git commit -m "feat: unique event codes with owner regeneration"`
 
 ---
 
@@ -160,7 +160,7 @@ export const regenerateCode = mutation({
 **Interfaces:**
 - Produces: `hashPassword(password: string): Promise<string>`; `verifyPassword(password: string, stored: string): Promise<boolean>`; `timingSafeDummyVerify(password: string): Promise<void>`; `MIN_PASSWORD_LENGTH = 8`; `USERNAME_PATTERN = /^[a-z0-9_.-]{3,32}$/`. Used by Tasks 3-4.
 
-- [ ] **Step 1: Write failing tests** — `convex-test/password.test.ts`:
+- [x] **Step 1: Write failing tests** — `convex-test/password.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -190,9 +190,9 @@ describe("password hashing", () => {
 });
 ```
 
-- [ ] **Step 2: Run** — `npx vitest run convex-test/password.test.ts` -> FAIL (module not found).
+- [x] **Step 2: Run** — `npx vitest run convex-test/password.test.ts` -> FAIL (module not found).
 
-- [ ] **Step 3: Implement** — `convex/lib/password.ts`:
+- [x] **Step 3: Implement** — `convex/lib/password.ts`:
 
 ```ts
 export const MIN_PASSWORD_LENGTH = 8;
@@ -251,9 +251,9 @@ export async function timingSafeDummyVerify(password: string): Promise<void> {
 }
 ```
 
-- [ ] **Step 4: Run** — `npx vitest run convex-test/password.test.ts` -> PASS.
+- [x] **Step 4: Run** — `npx vitest run convex-test/password.test.ts` -> PASS.
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "feat: PBKDF2 password hashing library"`
+- [x] **Step 5: Commit** — `git add -A && git commit -m "feat: PBKDF2 password hashing library"`
 
 ---
 
@@ -269,7 +269,7 @@ export async function timingSafeDummyVerify(password: string): Promise<void> {
 - Produces: table `eventAccounts { orgId, eventId, kind: "staff"|"judge", displayName, username, passwordHash, status: "active"|"disabled", failedAttempts, lockedUntil, createdById }` with indexes `by_event_id`, `by_event_id_and_username`, `by_event_id_and_kind`; table `eventSessions { token, accountId, eventId, expiresAt, lastSeenAt }` with `by_token`, `by_account_id`.
 - Produces: `eventAuth.login(eventCode, username, password) -> {token, kind, displayName, eventName}` (action); `eventAuth.logout(sessionToken)` (mutation); `eventAuth.sessionInfo(sessionToken) -> {kind, displayName, eventName, expiresAt} | null` (query); `requireEventSession(ctx, {sessionToken, kind?, requireReadyEvent?}) -> {account, event, session}`; `touchSession(ctx, sessionId)`.
 
-- [ ] **Step 1: Write failing tests** — `convex-test/eventAuth.test.ts`. Accounts are seeded directly via `t.run` (admin CRUD lands in Task 4):
+- [x] **Step 1: Write failing tests** — `convex-test/eventAuth.test.ts`. Accounts are seeded directly via `t.run` (admin CRUD lands in Task 4):
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -389,9 +389,9 @@ describe("eventAuth.login", () => {
 });
 ```
 
-- [ ] **Step 2: Run** — `npx convex codegen; npx vitest run convex-test/eventAuth.test.ts` -> FAIL.
+- [x] **Step 2: Run** — `npx convex codegen; npx vitest run convex-test/eventAuth.test.ts` -> FAIL.
 
-- [ ] **Step 3: Implement schema additions.** In `convex/schema.ts`, after the `judgeAssignments` table block add:
+- [x] **Step 3: Implement schema additions.** In `convex/schema.ts`, after the `judgeAssignments` table block add:
 
 ```ts
   eventAccounts: defineTable({
@@ -421,7 +421,7 @@ describe("eventAuth.login", () => {
     .index("by_account_id", ["accountId"]),
 ```
 
-- [ ] **Step 4: Implement** `convex/lib/eventSession.ts`:
+- [x] **Step 4: Implement** `convex/lib/eventSession.ts`:
 
 ```ts
 import type { QueryCtx, MutationCtx } from "../_generated/server";
@@ -465,7 +465,7 @@ export async function touchSession(ctx: MutationCtx, sessionId: Doc<"eventSessio
 }
 ```
 
-- [ ] **Step 5: Implement** `convex/eventAuth.ts`:
+- [x] **Step 5: Implement** `convex/eventAuth.ts`:
 
 ```ts
 import { v } from "convex/values";
@@ -582,9 +582,9 @@ export const createSession = internalMutation({
 });
 ```
 
-- [ ] **Step 6: Run** — `npx convex codegen; npx vitest run convex-test/eventAuth.test.ts` -> PASS. Then `npm test`.
+- [x] **Step 6: Run** — `npx convex codegen; npx vitest run convex-test/eventAuth.test.ts` -> PASS. Then `npm test`.
 
-- [ ] **Step 7: Commit** — `git add -A && git commit -m "feat: event-scoped account sessions with lockout and timing-safe login"`
+- [x] **Step 7: Commit** — `git add -A && git commit -m "feat: event-scoped account sessions with lockout and timing-safe login"`
 
 ---
 
@@ -598,7 +598,7 @@ export const createSession = internalMutation({
 - Consumes: `hashPassword`, `MIN_PASSWORD_LENGTH`, `USERNAME_PATTERN` (Task 2); `requireEventPermission`/`requireDraftEvent` (existing); `requireLimit`/`incrementUsage` (existing).
 - Produces: `accounts.create` (action) `{orgSlug, eventSlug, kind, displayName, username?, password?} -> {accountId, username, password}`; `accounts.list` (query) `{orgSlug, eventSlug}`; `accounts.resetPassword` (action) `{orgSlug, eventSlug, accountId, password?} -> {password}`; `accounts.disable`, `accounts.enable`, `accounts.deleteAccount` (mutations). `addAssignment`/`removeAssignment` land in Task 6 (schema flip). Rule: judge accounts manageable only in `draft` events; staff in `draft|ready`; both kinds consume usage `"judges"`.
 
-- [ ] **Step 1: Write failing tests** — `convex-test/accounts.test.ts`:
+- [x] **Step 1: Write failing tests** — `convex-test/accounts.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -756,9 +756,9 @@ describe("accounts admin CRUD", () => {
 
 NOTE — deferred to Task 6: the "delete is blocked when the account has score sheets" test and the `judgeAssignments` enrichment of `accounts.list` both read `judgeId` fields that are still `Id<"judges">`-typed until the Task 6 schema flip; including them here would not typecheck. Task 6 adds them.
 
-- [ ] **Step 2: Run** — `npx convex codegen; npx vitest run convex-test/accounts.test.ts` -> FAIL.
+- [x] **Step 2: Run** — `npx convex codegen; npx vitest run convex-test/accounts.test.ts` -> FAIL.
 
-- [ ] **Step 3: Implement** `convex/accounts.ts`:
+- [x] **Step 3: Implement** `convex/accounts.ts`:
 
 ```ts
 import { v } from "convex/values";
@@ -997,9 +997,9 @@ Implementation notes for the executor:
 - If TS complains that action `ctx.db`/`QueryCtx` are incompatible for `resolveEvent`/`nextAutoUsername`/`revokeSessions`, type those helpers' `ctx` parameter as `Pick<QueryCtx, "db">` — action ctx satisfies it structurally.
 - `by_judge_id_and_round_id` supports prefix equality on `judgeId` alone (index fields `[judgeId, roundId]`), which `deleteAccount` relies on.
 
-- [ ] **Step 4: Run** — `npx convex codegen; npx vitest run convex-test/accounts.test.ts` -> PASS. Then `npm test`.
+- [x] **Step 4: Run** — `npx convex codegen; npx vitest run convex-test/accounts.test.ts` -> PASS. Then `npm test`.
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "feat: admin CRUD for event-scoped staff/judge accounts"`
+- [x] **Step 5: Commit** — `git add -A && git commit -m "feat: admin CRUD for event-scoped staff/judge accounts"`
 
 ---
 
@@ -1012,14 +1012,14 @@ Implementation notes for the executor:
 **Interfaces:**
 - Consumes: nothing new. Convex modules (`api.scoring`, `api.judges`, `api.invitations`, `api.members`) stay until Task 6 — deleting only their UI consumers keeps this task's build green.
 
-- [ ] **Step 1: Delete the files** (PowerShell, from repo root):
+- [x] **Step 1: Delete the files** (PowerShell, from repo root):
 
 ```powershell
 Remove-Item -Recurse -LiteralPath "app\app\[orgSlug]\events\[eventSlug]\scoring", "app\app\[orgSlug]\events\[eventSlug]\judges", "app\app\[orgSlug]\members", "app\invite", "app\api\invitations"
 Remove-Item -LiteralPath "lib\mailer.ts"
 ```
 
-- [ ] **Step 2: Update `components/EventShell.tsx`** — the nav array becomes (removes Judges + Scoring):
+- [x] **Step 2: Update `components/EventShell.tsx`** — the nav array becomes (removes Judges + Scoring):
 
 ```ts
   const nav = [
@@ -1033,13 +1033,13 @@ Remove-Item -LiteralPath "lib\mailer.ts"
   ] as const;
 ```
 
-- [ ] **Step 3: Update `app/app/[orgSlug]/layout.tsx`** — delete this line (Members nav):
+- [x] **Step 3: Update `app/app/[orgSlug]/layout.tsx`** — delete this line (Members nav):
 
 ```tsx
           <Link href={`/app/${orgSlug}/members`} className="block rounded px-2 py-1 hover:bg-accent">Members</Link>
 ```
 
-- [ ] **Step 4: Update `middleware.ts`** — remove `/invite` from both the regex list and the matcher:
+- [x] **Step 4: Update `middleware.ts`** — remove `/invite` from both the regex list and the matcher:
 
 ```ts
 const PROTECTED = [/^\/app(\/|$)/, /^\/platform(\/|$)/];
@@ -1049,11 +1049,11 @@ const PROTECTED = [/^\/app(\/|$)/, /^\/platform(\/|$)/];
   matcher: ["/app/:path*", "/platform/:path*"],
 ```
 
-- [ ] **Step 5: Clean env examples** — delete the SMTP block from `.env.example` (the 5 `SMTP_*` lines plus the two comment lines above them). Delete the same block from `.env.local` (uncommitted housekeeping).
+- [x] **Step 5: Clean env examples** — delete the SMTP block from `.env.example` (the 5 `SMTP_*` lines plus the two comment lines above them). Delete the same block from `.env.local` (uncommitted housekeeping).
 
-- [ ] **Step 6: Validate** — `npm run build && npm run lint && npm test` -> green (no app code references the deleted pages; Convex modules untouched).
+- [x] **Step 6: Validate** — `npm run build && npm run lint && npm test` -> green (no app code references the deleted pages; Convex modules untouched).
 
-- [ ] **Step 7: Commit** — `git add -A && git commit -m "refactor: remove invitation/judge email UI and SMTP plumbing from admin app"`
+- [x] **Step 7: Commit** — `git add -A && git commit -m "refactor: remove invitation/judge email UI and SMTP plumbing from admin app"`
 
 ---
 
@@ -1070,7 +1070,7 @@ This is the core cutover; everything lands in one commit because the schema flip
 - Consumes: Tasks 1-4 outputs; `loadRoundCompute` from `convex/lib/roundCompute`.
 - Produces: `enter.scoring.myAssignments({sessionToken})`; `enter.scoring.sheetDetail({sessionToken, roundId, contestantId})`; `enter.scoring.saveDraft({sessionToken, sheetId, draftValues})`; `enter.scoring.submitSheet({sessionToken, sheetId, values})`; `accounts.addAssignment({orgSlug, eventSlug, accountId, roundId?, categoryId?, criterionId?})`; `accounts.removeAssignment({orgSlug, eventSlug, assignmentId})`; shared `checkValue(criterion, value)` in `lib/sheetValidation.ts`; setup `prepareScoredEvent` returning `{roundId, criterionIds, contestantIds, judgeIds: {bob, carol}, staffId, eventCode, tokens: {staff, bob, carol}}`.
 
-- [ ] **Step 1: Flip the schema.** In `convex/schema.ts`:
+- [x] **Step 1: Flip the schema.** In `convex/schema.ts`:
   - `judgeAssignments.judgeId`: `v.id("judges")` -> `v.id("eventAccounts")`.
   - `scoreSheets.judgeId`: `v.id("judges")` -> `v.id("eventAccounts")`.
   - `scores`: replace `submittedById: v.id("userProfiles"),` with `submittedByAccountId: v.id("eventAccounts"),`.
@@ -1078,7 +1078,7 @@ This is the core cutover; everything lands in one commit because the schema flip
   - Inside `resultVersions.snapshot`: `judgeParticipation[].judgeId` and `criterionScores[].dropped[].judgeId` change from `v.id("judges")` to `v.id("eventAccounts")`.
   - Delete the entire `judges:` table block and the entire `invitations:` table block.
 
-- [ ] **Step 2: Trim roles** in `convex/lib/constants.ts` (keep `SYSTEM_PERMISSIONS` and `SYSTEM_PLANS` unchanged):
+- [x] **Step 2: Trim roles** in `convex/lib/constants.ts` (keep `SYSTEM_PERMISSIONS` and `SYSTEM_PLANS` unchanged):
 
 ```ts
 export const SYSTEM_ROLES = [
@@ -1090,13 +1090,13 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
 };
 ```
 
-- [ ] **Step 3: Delete legacy convex modules**:
+- [x] **Step 3: Delete legacy convex modules**:
 
 ```powershell
 Remove-Item -LiteralPath "convex\judges.ts", "convex\scoring.ts", "convex\invitations.ts", "convex\members.ts"
 ```
 
-- [ ] **Step 4: Create `convex/lib/sheetValidation.ts`** (extracted verbatim from old `scoring.ts`):
+- [x] **Step 4: Create `convex/lib/sheetValidation.ts`** (extracted verbatim from old `scoring.ts`):
 
 ```ts
 import type { Doc } from "../_generated/dataModel";
@@ -1113,7 +1113,7 @@ export function checkValue(criterion: Doc<"criteria">, value: number): string | 
 }
 ```
 
-- [ ] **Step 5: Create `convex/enter/scoring.ts`** — session-auth port of the old `scoring.ts` (judge kind, own sheets only):
+- [x] **Step 5: Create `convex/enter/scoring.ts`** — session-auth port of the old `scoring.ts` (judge kind, own sheets only):
 
 ```ts
 import { v } from "convex/values";
@@ -1301,7 +1301,7 @@ export const submitSheet = mutation({
 });
 ```
 
-- [ ] **Step 6: Append assignments to `convex/accounts.ts`** (port of old `judges.addAssignment`/`removeAssignment`; add `requireDraftEvent` to the `./lib/eventAuthz` import):
+- [x] **Step 6: Append assignments to `convex/accounts.ts`** (port of old `judges.addAssignment`/`removeAssignment`; add `requireDraftEvent` to the `./lib/eventAuthz` import):
 
 ```ts
 export const addAssignment = mutation({
@@ -1355,7 +1355,7 @@ export const removeAssignment = mutation({
 });
 ```
 
-- [ ] **Step 7: Switch judge consumers to eventAccounts.**
+- [x] **Step 7: Switch judge consumers to eventAccounts.**
   - `convex/lib/eventAuthz.ts`: delete the `requireJudgeRow` function entirely.
   - `convex/accounts.ts` `list`: now that `judgeAssignments.judgeId` is `Id<"eventAccounts">`, restore the enrichment (replaces the Task 4 NOTE):
 
@@ -1436,7 +1436,7 @@ export const removeAssignment = mutation({
     - `RoundComputeResult.judgeParticipation` type: `{ judgeId: Id<"eventAccounts">; sheetsSubmitted: number; sheetsTotal: number }[]`. Where participation rows are built from judge rows, the account `_id` maps directly.
     - Narrow ctx params so session callers (Task 7) can pass `{ event }`: change `loadRoundCompute(ctx, eactx: EventAuthCtx, ...)` to `eactx: Pick<EventAuthCtx, "event">`, and in `convex/lib/eventAuthz.ts` change `loadRound(ctx, eactx: EventAuthCtx, ...)` to `eactx: Pick<EventAuthCtx, "event">` (loadRound only uses `eactx.event._id`).
 
-- [ ] **Step 8: Rework `convex-test/setup.ts`.** Keep `setupTest`, `seedAndProvision`, the three identities, `createOrgAndEvent`, and `ScoredEventOpts` unchanged. Delete the old `prepareScoredEvent` body (invitations/judges flow) and replace with:
+- [x] **Step 8: Rework `convex-test/setup.ts`.** Keep `setupTest`, `seedAndProvision`, the three identities, `createOrgAndEvent`, and `ScoredEventOpts` unchanged. Delete the old `prepareScoredEvent` body (invitations/judges flow) and replace with:
 
 ```ts
 export const ACCOUNT_PASSWORDS = { bob: "bob-judge-01", carol: "carol-judge-01", staff: "staff-enter-01" } as const;
@@ -1517,7 +1517,7 @@ export async function prepareScoredEvent(
 
 Also delete the two `ensureUserProfile` calls for bob/carol inside the old helper (bob/carol are no longer Google users). Keep the exported identities — some tests still use them as non-member Google identities.
 
-- [ ] **Step 9: Rewrite `convex-test/scoringEntry.test.ts`** — full new content:
+- [x] **Step 9: Rewrite `convex-test/scoringEntry.test.ts`** — full new content:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -1612,7 +1612,7 @@ describe("enter.scoring (judge sessions)", () => {
 });
 ```
 
-- [ ] **Step 10: Adapt the remaining test files.** Mechanical pattern — every occurrence of:
+- [x] **Step 10: Adapt the remaining test files.** Mechanical pattern — every occurrence of:
 
 ```ts
 const mine = await t.withIdentity(<identity>).query(api.scoring.myAssignments, { orgSlug: "acme", eventSlug: "gala" });
@@ -1662,7 +1662,7 @@ expect(bobMine.length).toBe(0);
   - `convex-test/reads.test.ts` + `convex-test/permissions3.test.ts`: run `npx vitest run convex-test/reads.test.ts convex-test/permissions3.test.ts` first. If green, leave untouched. If failures reference deleted modules or the 7-role seed, apply the same substitutions (role count assertions -> exactly one org role `"Org Owner"`; member reads -> `organizations.listMine`).
   - Delete `convex-test/members.test.ts` and `convex-test/judges.test.ts` (coverage replaced by `accounts.test.ts`).
 
-- [ ] **Step 11: Run the full suite** — `npx convex codegen; npm test` -> ALL PASS. Then grep for stragglers:
+- [x] **Step 11: Run the full suite** — `npx convex codegen; npm test` -> ALL PASS. Then grep for stragglers:
 
 ```powershell
 Select-String -Path "convex-test\*.ts", "app\**\*.tsx", "app\**\*.ts", "components\*.tsx" -Pattern "api\.(judges|members|invitations)\.|api\.scoring\." | Measure-Object | Select-Object -ExpandProperty Count
@@ -1670,9 +1670,9 @@ Select-String -Path "convex-test\*.ts", "app\**\*.tsx", "app\**\*.ts", "componen
 
 Expected: 0.
 
-- [ ] **Step 12: Validate** — `npm run build && npm run lint && npm test` -> green.
+- [x] **Step 12: Validate** — `npm run build && npm run lint && npm test` -> green.
 
-- [ ] **Step 13: Commit** — `git add -A && git commit -m "feat!: replace judge invitations with event-scoped accounts and session-based scoring"`
+- [x] **Step 13: Commit** — `git add -A && git commit -m "feat!: replace judge invitations with event-scoped accounts and session-based scoring"`
 
 ---
 
@@ -1686,7 +1686,7 @@ Expected: 0.
 - Consumes: `requireEventSession`/`touchSession`; `loadRoundCompute` + `buildSnapshot` from `lib/roundCompute` (now accepting `Pick<EventAuthCtx, "event">`).
 - Produces: `enter.rounds.roundsOverview({sessionToken})`; `enter.rounds.roundMonitor({sessionToken, roundId})`; `enter.rounds.closeRound({sessionToken, roundId})`; `enter.rounds.reopenRound({sessionToken, roundId})`; `enter.rounds.reviewRound({sessionToken, roundId})`; `enter.rounds.publishRound({sessionToken, roundId})`; `enter.rounds.reopenSheet({sessionToken, sheetId})`; `enter.results.eventResults({sessionToken})`; shared `computeEventResults(ctx, event)` + `latestVersion(ctx, roundId)` in `lib/eventResults.ts`.
 
-- [ ] **Step 1: Write failing tests** — `convex-test/enterStaff.test.ts`:
+- [x] **Step 1: Write failing tests** — `convex-test/enterStaff.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -1784,9 +1784,9 @@ describe("enter.rounds (staff sessions)", () => {
 
 Note: the tie test requires both contestants to have identical totals — `submitAll` submits identical values for every sheet, which achieves this. If `lib/tabulation` resolves such ties automatically (check `tieBreaks` semantics), keep values identical for both contestants AND both judges — that is the requirement; adjust only if a single-judge pattern is needed to force the tie.
 
-- [ ] **Step 2: Run** — `npx convex codegen; npx vitest run convex-test/enterStaff.test.ts` -> FAIL.
+- [x] **Step 2: Run** — `npx convex codegen; npx vitest run convex-test/enterStaff.test.ts` -> FAIL.
 
-- [ ] **Step 3: Extract `convex/lib/eventResults.ts`** — move the body of `results.ts` `eventResults` (from `const rounds = ...` through the final `return {...};`) plus the `latestVersion` helper, renaming `eactx.event` -> `event`:
+- [x] **Step 3: Extract `convex/lib/eventResults.ts`** — move the body of `results.ts` `eventResults` (from `const rounds = ...` through the final `return {...};`) plus the `latestVersion` helper, renaming `eactx.event` -> `event`:
 
 ```ts
 import type { QueryCtx } from "../_generated/server";
@@ -1822,7 +1822,7 @@ Then `convex/results.ts` `eventResults` becomes:
 
 Import `computeEventResults` from `./lib/eventResults`; remove the local `latestVersion` only if nothing else in the file uses it (check `roundResults`/`listRoundVersions` — they use inline reduces; if they don't call `latestVersion`, delete the local helper).
 
-- [ ] **Step 4: Implement `convex/enter/rounds.ts`:**
+- [x] **Step 4: Implement `convex/enter/rounds.ts`:**
 
 ```ts
 import { v } from "convex/values";
@@ -2017,7 +2017,7 @@ export const reopenSheet = mutation({
 });
 ```
 
-- [ ] **Step 5: Implement `convex/enter/results.ts`:**
+- [x] **Step 5: Implement `convex/enter/results.ts`:**
 
 ```ts
 import { v } from "convex/values";
@@ -2036,11 +2036,11 @@ export const eventResults = query({
 
 Note: admin `roundAdmin.publishRound`/`correctResults` keep setting `createdById: eactx.user._id` — the schema accepts both attribution forms.
 
-- [ ] **Step 6: Run** — `npx convex codegen; npx vitest run convex-test/enterStaff.test.ts convex-test/publishResults.test.ts convex-test/reviewDecisions.test.ts` -> PASS. Then `npm test`.
+- [x] **Step 6: Run** — `npx convex codegen; npx vitest run convex-test/enterStaff.test.ts convex-test/publishResults.test.ts convex-test/reviewDecisions.test.ts` -> PASS. Then `npm test`.
 
-- [ ] **Step 7: Validate** — `npm run build && npm run lint && npm test` -> green.
+- [x] **Step 7: Validate** — `npm run build && npm run lint && npm test` -> green.
 
-- [ ] **Step 8: Commit** — `git add -A && git commit -m "feat: staff session functions for round ops, sheet reopen, and results"`
+- [x] **Step 8: Commit** — `git add -A && git commit -m "feat: staff session functions for round ops, sheet reopen, and results"`
 
 ---
 
@@ -2056,7 +2056,7 @@ Note: admin `roundAdmin.publishRound`/`correctResults` keep setting `createdById
 - Consumes: `api.eventAuth.login`/`logout` (Task 3); `NEXT_PUBLIC_CONVEX_URL`.
 - Produces: `POST /api/auth/judge-login {eventCode, username, password} -> {ok: true, kind, displayName, eventName}` + `event_session` cookie; `POST /api/auth/judge-logout -> {ok: true}` + cleared cookie. Middleware protects `/enter/**`.
 
-- [ ] **Step 1: Create `app/api/auth/judge-login/route.ts`:**
+- [x] **Step 1: Create `app/api/auth/judge-login/route.ts`:**
 
 ```ts
 import { NextResponse } from "next/server";
@@ -2118,7 +2118,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 }
 ```
 
-- [ ] **Step 2: Create `app/api/auth/judge-logout/route.ts`:**
+- [x] **Step 2: Create `app/api/auth/judge-logout/route.ts`:**
 
 ```ts
 import { NextResponse } from "next/server";
@@ -2151,7 +2151,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 }
 ```
 
-- [ ] **Step 3: Update `middleware.ts`** — protect `/enter` with the cookie and keep `/app`/`/platform` behavior:
+- [x] **Step 3: Update `middleware.ts`** — protect `/enter` with the cookie and keep `/app`/`/platform` behavior:
 
 ```ts
 import { NextResponse, type NextRequest } from "next/server";
@@ -2182,7 +2182,7 @@ export const config = {
 };
 ```
 
-- [ ] **Step 4: Rebuild `app/sign-in/page.tsx`** as the dual-tab login:
+- [x] **Step 4: Rebuild `app/sign-in/page.tsx`** as the dual-tab login:
 
 ```tsx
 "use client";
@@ -2309,9 +2309,9 @@ export default function SignInPage() {
 }
 ```
 
-- [ ] **Step 5: Validate** — `npm run build && npm run lint && npm test` -> green.
+- [x] **Step 5: Validate** — `npm run build && npm run lint && npm test` -> green.
 
-- [ ] **Step 6: Commit** — `git add -A && git commit -m "feat: dual-tab sign-in and event-session API routes with /enter middleware"`
+- [x] **Step 6: Commit** — `git add -A && git commit -m "feat: dual-tab sign-in and event-session API routes with /enter middleware"`
 
 ---
 
@@ -2326,7 +2326,7 @@ export default function SignInPage() {
 - Consumes: `api.eventAuth.sessionInfo`, `api.enter.scoring.*`, `api.enter.rounds.*`, `api.enter.results.eventResults`; cookie `event_session` (set by Task 8); existing tabulation components (`Num`, `StatusBadge`, `StatusDot`, `EmptyState`, `TableSkeleton`, `SaveIndicator`, `sheetStatusLabel`).
 - Produces: `/enter` (role-router landing), `/enter/scoring/[roundId]/[contestantId]` (judge entry), `/enter/rounds/[roundId]` (staff monitor), `/enter/rounds/[roundId]/review` (staff review + publish + sheet reopen), `/enter/results` (staff results + print).
 
-- [ ] **Step 1: Create `app/enter/layout.tsx`** (server component; cookie gate on top of middleware):
+- [x] **Step 1: Create `app/enter/layout.tsx`** (server component; cookie gate on top of middleware):
 
 ```tsx
 import { cookies } from "next/headers";
@@ -2340,7 +2340,7 @@ export default async function EnterLayout({ children }: { children: React.ReactN
 }
 ```
 
-- [ ] **Step 2: Create `components/enter/EnterShell.tsx`** (client; provides session context):
+- [x] **Step 2: Create `components/enter/EnterShell.tsx`** (client; provides session context):
 
 ```tsx
 "use client";
@@ -2388,7 +2388,7 @@ export function EnterShell({ sessionToken, children }: { sessionToken: string; c
 }
 ```
 
-- [ ] **Step 3: Create `app/enter/page.tsx`** (role router — judge assignments or staff rounds overview):
+- [x] **Step 3: Create `app/enter/page.tsx`** (role router — judge assignments or staff rounds overview):
 
 ```tsx
 "use client";
@@ -2474,14 +2474,14 @@ export default function EnterPage() {
 }
 ```
 
-- [ ] **Step 4: Create `app/enter/scoring/[roundId]/[contestantId]/page.tsx`** — port the deleted admin score-entry page (`app/app/[orgSlug]/events/[eventSlug]/scoring/[roundId]/[contestantId]/page.tsx` from git history: `git show HEAD~<n>:...` or reuse the version removed in Task 5) with these exact substitutions:
+- [x] **Step 4: Create `app/enter/scoring/[roundId]/[contestantId]/page.tsx`** — port the deleted admin score-entry page (`app/app/[orgSlug]/events/[eventSlug]/scoring/[roundId]/[contestantId]/page.tsx` from git history: `git show HEAD~<n>:...` or reuse the version removed in Task 5) with these exact substitutions:
   - Params: only `roundId` and `contestantId` (no orgSlug/eventSlug).
   - `const sessionToken = useSessionToken();` from `@/components/enter/EnterShell`.
   - Queries/mutations: `api.enter.scoring.sheetDetail` / `myAssignments` / `saveDraft` / `submitSheet`, all called as `{ sessionToken, ... }` (no orgSlug/eventSlug args anywhere).
   - All hrefs `/app/${orgSlug}/events/${eventSlug}/scoring...` -> `/enter` (back link) and `/enter/scoring/...` (none needed beyond back).
   - Keep the autosave (800 ms debounce), validation, locked/closed views, and submit summary exactly as the original — this is a mechanical port of the file retired in Task 5.
 
-- [ ] **Step 5: Create `app/enter/rounds/[roundId]/page.tsx`** — staff monitor (port of the admin monitor page with substitutions):
+- [x] **Step 5: Create `app/enter/rounds/[roundId]/page.tsx`** — staff monitor (port of the admin monitor page with substitutions):
   - Param: only `roundId`.
   - `useQuery(api.enter.rounds.roundMonitor, { sessionToken, roundId: roundId as Id<"rounds"> })`.
   - `closeRound`/`reopenRound` -> `api.enter.rounds.closeRound` / `reopenRound` with `{ sessionToken, roundId }`.
@@ -2489,7 +2489,7 @@ export default function EnterPage() {
   - "Review & publish" link href -> `/enter/rounds/${roundId}/review`.
   - Keep the progress bar, judge-by-contestant grid, tooltips, legend, and the close confirmation dialog (`ConfirmDialog`) exactly as the original.
 
-- [ ] **Step 6: Create `app/enter/rounds/[roundId]/review/page.tsx`**:
+- [x] **Step 6: Create `app/enter/rounds/[roundId]/review/page.tsx`**:
 
 ```tsx
 "use client";
@@ -2562,7 +2562,7 @@ export default function EnterReviewPage({ params }: { params: Promise<{ roundId:
 
 Note: tie-break/override editing stays organizer-only (admin `/app` round review page) — staff sees the alert and the standings. If you also want per-sheet reopen buttons here (spec: staff reviews + reopens sheets), append a sheets section querying `api.enter.rounds.roundMonitor` and a `reopenSheet` mutation button per submitted sheet — reuse the pattern from `publish` above with `api.enter.rounds.reopenSheet({ sessionToken, sheetId })`. Sheet ids come from `roundMonitor`'s `sheets` array joined against `roundMonitor.judges`/`contestants` for labels.
 
-- [ ] **Step 7: Create `app/enter/results/page.tsx`**:
+- [x] **Step 7: Create `app/enter/results/page.tsx`**:
 
 ```tsx
 "use client";
@@ -2608,9 +2608,9 @@ export default function EnterResultsPage() {
 }
 ```
 
-- [ ] **Step 8: Validate** — `npm run build && npm run lint && npm test` -> green. Manually verify in `npm run dev` if a deployment is available: judge login lands on assignments; staff login lands on rounds overview; `/enter` without cookie redirects to `/sign-in` (middleware).
+- [x] **Step 8: Validate** — `npm run build && npm run lint && npm test` -> green. Manually verify in `npm run dev` if a deployment is available: judge login lands on assignments; staff login lands on rounds overview; `/enter` without cookie redirects to `/sign-in` (middleware).
 
-- [ ] **Step 9: Commit** — `git add -A && git commit -m "feat: /enter area for judge scoring and staff round operations"`
+- [x] **Step 9: Commit** — `git add -A && git commit -m "feat: /enter area for judge scoring and staff round operations"`
 
 ---
 
@@ -2626,7 +2626,7 @@ export default function EnterResultsPage() {
 - Consumes: `api.accounts.*` (Task 4/6), `api.events.regenerateCode` (Task 1), `api.rounds.list`.
 - Produces: Accounts management page (create staff/judge with manual or auto credentials, one-time credentials dialog, disable/enable/reset/delete, judge round assignments) and the Settings event-code panel (show/copy/regenerate).
 
-- [ ] **Step 1: Create `components/tabulation/CredentialsDialog.tsx`** — a small modal (reuse the `ConfirmDialog` visual pattern) that shows username + password once with a copy button:
+- [x] **Step 1: Create `components/tabulation/CredentialsDialog.tsx`** — a small modal (reuse the `ConfirmDialog` visual pattern) that shows username + password once with a copy button:
 
 ```tsx
 "use client";
@@ -2657,7 +2657,7 @@ export function CredentialsDialog({
 }
 ```
 
-- [ ] **Step 2: Create `app/app/[orgSlug]/events/[eventSlug]/accounts/page.tsx`**:
+- [x] **Step 2: Create `app/app/[orgSlug]/events/[eventSlug]/accounts/page.tsx`**:
 
 ```tsx
 "use client";
@@ -2836,9 +2836,9 @@ export default function AccountsPage({ params }: { params: Promise<{ orgSlug: st
 }
 ```
 
-- [ ] **Step 3: Update `components/EventShell.tsx`** — insert `["Accounts", `${base}/accounts`],` after the Contestants entry in the nav array (Task 5's version).
+- [x] **Step 3: Update `components/EventShell.tsx`** — insert `["Accounts", `${base}/accounts`],` after the Contestants entry in the nav array (Task 5's version).
 
-- [ ] **Step 4: Add the event-code panel to `app/app/[orgSlug]/events/[eventSlug]/settings/page.tsx`** — after the venue Input block, insert:
+- [x] **Step 4: Add the event-code panel to `app/app/[orgSlug]/events/[eventSlug]/settings/page.tsx`** — after the venue Input block, insert:
 
 ```tsx
       <div className="space-y-2 rounded-lg border p-4">
@@ -2875,9 +2875,9 @@ export default function AccountsPage({ params }: { params: Promise<{ orgSlug: st
 
 and add near the other hooks: `const regenerate = useMutation(api.events.regenerateCode);`.
 
-- [ ] **Step 5: Validate** — `npm run build && npm run lint && npm test` -> green.
+- [x] **Step 5: Validate** — `npm run build && npm run lint && npm test` -> green.
 
-- [ ] **Step 6: Commit** — `git add -A && git commit -m "feat: admin accounts management and event-code panel"`
+- [x] **Step 6: Commit** — `git add -A && git commit -m "feat: admin accounts management and event-code panel"`
 
 ---
 
@@ -2886,9 +2886,9 @@ and add near the other hooks: `const regenerate = useMutation(api.events.regener
 **Files:**
 - Modify: `package.json` (remove nodemailer), `.env.local` (verify no SMTP), plan checkboxes
 
-- [ ] **Step 1: Uninstall nodemailer** — `npm uninstall nodemailer @types/nodemailer` (mailer deleted in Task 5).
+- [x] **Step 1: Uninstall nodemailer** — `npm uninstall nodemailer @types/nodemailer` (mailer deleted in Task 5).
 
-- [ ] **Step 2: Verify no dangling references**:
+- [x] **Step 2: Verify no dangling references**:
 
 ```powershell
 Select-String -Path "convex\*.ts", "convex\lib\*.ts", "app\**\*.tsx", "lib\*.ts", "components\*.tsx" -Pattern "nodemailer|SMTP_|mailer|invitations|judges\.ts|api\.judges|api\.members|api\.scoring" | Measure-Object | Select-Object -ExpandProperty Count
@@ -2896,13 +2896,13 @@ Select-String -Path "convex\*.ts", "convex\lib\*.ts", "app\**\*.tsx", "lib\*.ts"
 
 Expected: 0 (run from repo root; the Select-String path wildcards may need `-Recurse` via `Get-ChildItem` piping on PowerShell 5.1 — use whatever finds the files).
 
-- [ ] **Step 3: Full gate** — `npx convex codegen; npm run build; npm run lint; npm test` -> all green.
+- [x] **Step 3: Full gate** — `npx convex codegen; npm run build; npm run lint; npm test` -> all green.
 
-- [ ] **Step 4: Refresh Graphify context** (AGENTS.md requires it after significant changes): `npm run graphify:build`.
+- [x] **Step 4: Refresh Graphify context** (AGENTS.md requires it after significant changes): `npm run graphify:build`.
 
-- [ ] **Step 5: Update this plan** — tick all checkboxes.
+- [x] **Step 5: Update this plan** — tick all checkboxes.
 
-- [ ] **Step 6: Commit** — `git add -A && git commit -m "chore: finalize role-based auth refactor, remove nodemailer, refresh graphify"`
+- [x] **Step 6: Commit** — `git add -A && git commit -m "chore: finalize role-based auth refactor, remove nodemailer, refresh graphify"`
 
 ---
 
