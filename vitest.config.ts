@@ -3,6 +3,6 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "edge-runtime",
-    include: ["convex-test/**/*.test.ts"],
+    include: ["convex-test/**/*.test.ts", "components/**/*.test.ts"],
   },
 });
