@@ -8,19 +8,45 @@ import { Button } from "@/components/ui/button";
 import { Num } from "@/components/tabulation/Num";
 import { VersionBadge } from "@/components/tabulation/VersionBadge";
 
+type StandingsRow = {
+  contestantId: string;
+  categoryId: string;
+  contestantName: string;
+  rank: number | null;
+  roundScore: number | null;
+};
+
 type RoundSummary = {
   roundId: string;
   name: string;
   order: number;
   weight: number;
   version: number;
-  standings: {
-    contestantId: string;
-    contestantName: string;
-    rank: number | null;
-    roundScore: number | null;
-  }[];
+  standings: StandingsRow[];
 };
+
+type CategoryGroup = {
+  categoryId: string;
+  name: string;
+  rows: StandingsRow[];
+};
+
+function groupByCategory(
+  rows: StandingsRow[],
+  categoryNames: Map<string, string> | undefined,
+): CategoryGroup[] {
+  const grouped = new Map<string, StandingsRow[]>();
+  for (const row of rows) {
+    const list = grouped.get(row.categoryId) ?? [];
+    list.push(row);
+    grouped.set(row.categoryId, list);
+  }
+  return [...grouped.entries()].map(([categoryId, list]) => ({
+    categoryId,
+    name: categoryNames?.get(categoryId) ?? "Category",
+    rows: [...list].sort((a, b) => (a.rank ?? 1e9) - (b.rank ?? 1e9)),
+  }));
+}
 
 export function RoundResultsCard({
   orgSlug,
@@ -28,12 +54,14 @@ export function RoundResultsCard({
   round,
   decimalPrecision,
   nameMap,
+  categoryNames,
 }: {
   orgSlug: string;
   eventSlug: string;
   round: RoundSummary;
   decimalPrecision: number;
   nameMap: Map<string, string>;
+  categoryNames?: Map<string, string>;
 }) {
   const versions = useQuery(api.results.listRoundVersions, {
     orgSlug,
@@ -57,17 +85,19 @@ export function RoundResultsCard({
     picked === null || picked === round.version || historicalQuery instanceof Error
       ? undefined
       : historicalQuery;
-  const rows =
+  const rows: StandingsRow[] =
     historical !== undefined
       ? historical.snapshot.categories.flatMap((category) =>
           category.standings.map((s) => ({
-            contestantId: s.contestantId as string,
-            contestantName: nameMap.get(s.contestantId as string) ?? "—",
-            rank: s.rank as number | null,
-            roundScore: s.roundScore as number | null,
+            contestantId: s.contestantId,
+            categoryId: category.categoryId,
+            contestantName: nameMap.get(s.contestantId) ?? "—",
+            rank: s.rank,
+            roundScore: s.roundScore,
           })),
         )
       : round.standings;
+  const groups = groupByCategory(rows, categoryNames);
 
   return (
     <section className="space-y-2 rounded-lg border p-4" aria-label={round.name}>
@@ -105,29 +135,38 @@ export function RoundResultsCard({
           </Button>
         </p>
       )}
-      <table className="w-full text-sm">
-        <caption className="sr-only">{round.name} standings</caption>
-        <thead className="text-left text-muted-foreground">
-          <tr>
-            <th className="py-1">Rank</th>
-            <th>Contestant</th>
-            <th>Round score</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.contestantId} className="border-t">
-              <td className="py-1">
-                <Num value={row.rank} />
-              </td>
-              <td>{row.contestantName}</td>
-              <td>
-                <Num value={row.roundScore} precision={decimalPrecision} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="space-y-3">
+        {groups.map((group) => (
+          <div key={group.categoryId} className="space-y-2">
+            <h4 className="text-sm font-medium">{group.name}</h4>
+            <table className="w-full text-sm">
+              <caption className="sr-only">
+                {round.name} — {group.name} standings
+              </caption>
+              <thead className="text-left text-muted-foreground">
+                <tr>
+                  <th className="py-1">Rank</th>
+                  <th>Contestant</th>
+                  <th>Round score</th>
+                </tr>
+              </thead>
+              <tbody>
+                {group.rows.map((row) => (
+                  <tr key={row.contestantId} className="border-t">
+                    <td className="py-1">
+                      <Num value={row.rank} />
+                    </td>
+                    <td>{row.contestantName}</td>
+                    <td>
+                      <Num value={row.roundScore} precision={decimalPrecision} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

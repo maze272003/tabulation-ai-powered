@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { BlackoutNotice } from "@/components/tabulation/BlackoutNotice";
 import { ConfirmDialog } from "@/components/tabulation/ConfirmDialog";
 import { Num } from "@/components/tabulation/Num";
-import { EmptyState, TableSkeleton } from "@/components/tabulation/StateBlock";
+import { EmptyState, ErrorState, TableSkeleton } from "@/components/tabulation/StateBlock";
 import { tieResolvedByLabel } from "@/components/tabulation/status";
 
 const contestantStatusLabel: Record<string, string> = {
@@ -34,16 +34,17 @@ export default function ReviewPage({
     eventSlug,
     roundId: roundId as Id<"rounds">,
   });
+  const ev = useQuery(api.events.get, { orgSlug, eventSlug });
   const categories = useQuery(api.categories.list, { orgSlug, eventSlug });
   const publishRound = useMutation(api.roundAdmin.publishRound);
   const addTieBreak = useMutation(api.roundAdmin.addTieBreak);
   const removeTieBreak = useMutation(api.roundAdmin.removeTieBreak);
   const addOverride = useMutation(api.roundAdmin.addAdvancementOverride);
   const removeOverride = useMutation(api.roundAdmin.removeAdvancementOverride);
-  const [positions, setPositions] = useState<Record<string, string>>({});
+  const [positions, setPositions] = useState<Record<string, Record<string, string>>>({});
   const [busy, setBusy] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
-  const [tieError, setTieError] = useState(false);
+  const [failedTieSignature, setFailedTieSignature] = useState<string | null>(null);
   const tiesRef = useRef<HTMLDivElement>(null);
 
   const tiedIds = useMemo(
@@ -79,7 +80,14 @@ export default function ReviewPage({
     }));
   }, [review, categories]);
 
-  if (review === undefined) return <TableSkeleton rows={6} cols={5} />;
+  const unresolvedTieSignature =
+    review && !(review instanceof Error)
+      ? review.unresolvedTies.map((t) => t.contestantIds.join(",")).join("|")
+      : "";
+  const tieError = failedTieSignature !== null && failedTieSignature === unresolvedTieSignature;
+
+  if (review === undefined || ev === undefined) return <TableSkeleton rows={6} cols={5} />;
+  if (ev === null) return <ErrorState message="Event not found." />;
   if (review instanceof Error) {
     return (
       <EmptyState
@@ -110,8 +118,9 @@ export default function ReviewPage({
     toast.error(data?.message ?? "Action failed.");
   };
 
-  const orderValid = (ids: string[]) => {
-    const nums = ids.map((id, i) => Number(positions[id] ?? String(i + 1)));
+  const orderValid = (groupId: string, ids: string[]) => {
+    const group = positions[groupId] ?? {};
+    const nums = ids.map((id, i) => Number(group[id] ?? String(i + 1)));
     const sorted = [...nums].sort((a, b) => a - b);
     return sorted.every((n, i) => n === i + 1);
   };
@@ -126,7 +135,7 @@ export default function ReviewPage({
       const data = (err as { data?: { code?: string; message?: string } })?.data;
       if (data?.code === "TIES_UNRESOLVED") {
         toast.error("Resolve the highlighted tie groups first.");
-        setTieError(true);
+        setFailedTieSignature(unresolvedTieSignature);
         tiesRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       } else {
         toast.error(data?.message ?? "Could not publish.");
@@ -234,7 +243,7 @@ export default function ReviewPage({
                           )}
                         </td>
                         <td>
-                          <Num value={row.roundScore} />
+                          <Num value={row.roundScore} precision={ev.decimalPrecision} />
                         </td>
                         <td className="text-muted-foreground">
                           {tieResolvedByLabel[row.tieResolvedBy] ?? "—"}
@@ -339,51 +348,64 @@ export default function ReviewPage({
             <h3 className={`font-medium ${tieError ? "text-destructive" : "text-warning"}`}>
               Unresolved ties — set the final order (1 = first)
             </h3>
-            {review.unresolvedTies.map((tie) => (
-              <div key={tie.contestantIds.join()} className="space-y-2">
-                <div className="flex flex-wrap gap-3">
-                  {tie.contestantIds.map((id, i) => (
-                    <label key={id} className="flex items-center gap-1 text-sm">
-                      <Input
-                        className="w-16"
-                        type="number"
-                        min={1}
-                        max={tie.contestantIds.length}
-                        aria-label={`Position of ${tie.names[i]}`}
-                        value={positions[id] ?? String(i + 1)}
-                        onChange={(e) => setPositions({ ...positions, [id]: e.target.value })}
-                      />
-                      {tie.names[i]}
-                    </label>
-                  ))}
+            {review.unresolvedTies.map((tie) => {
+              const groupId = tie.contestantIds.join(",");
+              return (
+                <div key={groupId} className="space-y-2">
+                  <div className="flex flex-wrap gap-3">
+                    {tie.contestantIds.map((id, i) => (
+                      <label key={id} className="flex items-center gap-1 text-sm">
+                        <Input
+                          className="w-16"
+                          type="number"
+                          min={1}
+                          max={tie.contestantIds.length}
+                          aria-label={`Position of ${tie.names[i]}`}
+                          value={positions[groupId]?.[id] ?? String(i + 1)}
+                          onChange={(e) =>
+                            setPositions({
+                              ...positions,
+                              [groupId]: { ...positions[groupId], [id]: e.target.value },
+                            })
+                          }
+                        />
+                        {tie.names[i]}
+                      </label>
+                    ))}
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={busy || !orderValid(groupId, tie.contestantIds)}
+                    onClick={async () => {
+                      const group = positions[groupId] ?? {};
+                      const ordered = [...tie.contestantIds].sort(
+                        (a, b) =>
+                          Number(group[a] ?? String(tie.contestantIds.indexOf(a) + 1)) -
+                          Number(group[b] ?? String(tie.contestantIds.indexOf(b) + 1)),
+                      );
+                      try {
+                        await addTieBreak({
+                          orgSlug,
+                          eventSlug,
+                          roundId: roundId as Id<"rounds">,
+                          tiedContestantIds: tie.contestantIds,
+                          orderedIds: ordered,
+                        });
+                        setPositions((prev) => {
+                          const next = { ...prev };
+                          delete next[groupId];
+                          return next;
+                        });
+                      } catch (err) {
+                        onError(err);
+                      }
+                    }}
+                  >
+                    Save tie break
+                  </Button>
                 </div>
-                <Button
-                  size="sm"
-                  disabled={busy || !orderValid(tie.contestantIds)}
-                  onClick={async () => {
-                    const ordered = [...tie.contestantIds].sort(
-                      (a, b) =>
-                        Number(positions[a] ?? String(tie.contestantIds.indexOf(a) + 1)) -
-                        Number(positions[b] ?? String(tie.contestantIds.indexOf(b) + 1)),
-                    );
-                    try {
-                      await addTieBreak({
-                        orgSlug,
-                        eventSlug,
-                        roundId: roundId as Id<"rounds">,
-                        tiedContestantIds: tie.contestantIds,
-                        orderedIds: ordered,
-                      });
-                      setPositions({});
-                    } catch (err) {
-                      onError(err);
-                    }
-                  }}
-                >
-                  Save tie break
-                </Button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

@@ -20,6 +20,7 @@ export default function ResultsPage({
   const { orgSlug, eventSlug } = use(params);
   const results = useQuery(api.results.eventResults, { orgSlug, eventSlug });
   const ev = useQuery(api.events.get, { orgSlug, eventSlug });
+  const categories = useQuery(api.categories.list, { orgSlug, eventSlug });
   const finalize = useMutation(api.results.finalizeEvent);
   const correct = useMutation(api.roundAdmin.correctResults);
   const [correctFor, setCorrectFor] = useState<string | null>(null);
@@ -37,12 +38,35 @@ export default function ResultsPage({
     return map;
   }, [results]);
 
+  const categoryNames = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!categories || categories instanceof Error) return map;
+    for (const category of categories) map.set(category._id, category.name);
+    return map;
+  }, [categories]);
+
+  const finalByCategory = useMemo(() => {
+    if (!results || results instanceof Error) return [];
+    const groups = new Map<string, typeof results.final>();
+    for (const row of results.final) {
+      const list = groups.get(row.categoryId) ?? [];
+      list.push(row);
+      groups.set(row.categoryId, list);
+    }
+    return [...groups.entries()].map(([categoryId, rows]) => ({
+      categoryId,
+      name: categoryNames.get(categoryId) ?? "Category",
+      rows,
+    }));
+  }, [results, categoryNames]);
+
   const onError = (err: unknown) => {
     const data = (err as { data?: { code?: string; message?: string } })?.data;
     toast.error(data?.message ?? "Action failed.");
   };
 
-  if (results === undefined || ev === undefined) return <TableSkeleton rows={6} cols={4} />;
+  if (results === undefined || ev === undefined || categories === undefined)
+    return <TableSkeleton rows={6} cols={4} />;
   if (results instanceof Error) {
     return <ErrorState message="Results are not available." />;
   }
@@ -80,6 +104,7 @@ export default function ResultsPage({
             round={round}
             decimalPrecision={ev.decimalPrecision}
             nameMap={nameMap}
+            categoryNames={categoryNames}
           />
           {canManage && (
             <div className="flex justify-end">
@@ -100,37 +125,42 @@ export default function ResultsPage({
       ))}
 
       {results.rounds.length > 0 && (
-        <section className="space-y-2 rounded-lg border p-4" aria-label="Final standings">
+        <section className="space-y-3 rounded-lg border p-4" aria-label="Final standings">
           <h3 className="font-medium">Final standings</h3>
-          <table className="w-full text-sm">
-            <caption className="sr-only">Event final standings</caption>
-            <thead className="text-left text-muted-foreground">
-              <tr>
-                <th className="py-1">Rank</th>
-                <th>Contestant</th>
-                <th>Total</th>
-                <th>Eliminated in round</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.final.map((row) => (
-                <tr key={row.contestantId} className="border-t">
-                  <td className="py-1">
-                    <Num value={row.rank} />
-                  </td>
-                  <td>{row.contestantName}</td>
-                  <td>
-                    <Num value={row.totalScore} precision={ev.decimalPrecision} />
-                  </td>
-                  <td className="text-muted-foreground">
-                    {row.eliminatedInRoundOrder === null
-                      ? "—"
-                      : `round ${row.eliminatedInRoundOrder}`}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {finalByCategory.map((group) => (
+            <div key={group.categoryId} className="space-y-2">
+              <h4 className="text-sm font-medium">{group.name}</h4>
+              <table className="w-full text-sm">
+                <caption className="sr-only">{group.name} final standings</caption>
+                <thead className="text-left text-muted-foreground">
+                  <tr>
+                    <th className="py-1">Rank</th>
+                    <th>Contestant</th>
+                    <th>Total</th>
+                    <th>Eliminated in round</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {group.rows.map((row) => (
+                    <tr key={row.contestantId} className="border-t">
+                      <td className="py-1">
+                        <Num value={row.rank} />
+                      </td>
+                      <td>{row.contestantName}</td>
+                      <td>
+                        <Num value={row.totalScore} precision={ev.decimalPrecision} />
+                      </td>
+                      <td className="text-muted-foreground">
+                        {row.eliminatedInRoundOrder === null
+                          ? "—"
+                          : `round ${row.eliminatedInRoundOrder}`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
         </section>
       )}
 
@@ -143,6 +173,7 @@ export default function ResultsPage({
         description="A new result version will supersede the current one. Submitted scores are never edited."
         confirmLabel="Record correction"
         busy={busy}
+        confirmDisabled={!reason.trim()}
         onConfirm={async () => {
           if (correctFor === null) return;
           setBusy(true);

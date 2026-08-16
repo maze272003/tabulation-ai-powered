@@ -127,6 +127,7 @@ export const eventResults = query({
         roundId: s.roundId, name, order: s.order, weight: s.weight, version,
         standings: s.standings.map((row) => ({
           contestantId: row.contestantId,
+          categoryId: row.categoryId,
           contestantName: contestants.find((k) => k._id === row.contestantId)?.name ?? "",
           rank: row.rank, roundScore: row.roundScore,
         })),
