@@ -22,6 +22,7 @@ export function EventShell({
   const base = `/app/${orgSlug}/events/${eventSlug}`;
   const nav = [
     ["Overview", `${base}/overview`],
+    ["Accounts", `${base}/accounts`],
     ["Rounds", `${base}/rounds`],
     ["Categories", `${base}/categories`],
     ["Contestants", `${base}/contestants`],
