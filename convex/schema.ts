@@ -316,6 +316,7 @@ export default defineSchema({
           contestantId: v.id("contestants"),
           action: v.string(),
           createdById: v.id("userProfiles"),
+          source: v.optional(v.union(v.literal("persisted"), v.literal("correction"))),
         })),
       }),
     }),

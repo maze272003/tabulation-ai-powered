@@ -16,10 +16,11 @@ export type RoundComputeResult = {
   judgeParticipation: { judgeId: Id<"judges">; sheetsSubmitted: number; sheetsTotal: number }[];
   tieBreaks: Doc<"tieBreaks">[];
   overrides: Doc<"advancementOverrides">[];
-  effectiveOverrides: {
+  overrideDecisions: {
     contestantId: Id<"contestants">;
     action: "force_advance" | "force_cut";
     createdById: Id<"userProfiles">;
+    source: "persisted" | "correction";
   }[];
 };
 
@@ -92,11 +93,17 @@ export async function loadRoundCompute(
     percent: round.advancement.percent ?? null,
     allowOverride: round.advancement.allowOverride,
   };
-  const effectiveOverrides: RoundComputeResult["effectiveOverrides"] = [
-    ...overrideDocs.map((o) => ({ contestantId: o.contestantId, action: o.action, createdById: o.createdById })),
-    ...extraOverrides.map((o) => ({ contestantId: o.contestantId, action: o.action, createdById: eactx.user._id })),
+  const overrideDecisions: RoundComputeResult["overrideDecisions"] = [
+    ...overrideDocs.map((o) => ({
+      contestantId: o.contestantId, action: o.action, createdById: o.createdById,
+      source: "persisted" as const,
+    })),
+    ...extraOverrides.map((o) => ({
+      contestantId: o.contestantId, action: o.action, createdById: eactx.user._id,
+      source: "correction" as const,
+    })),
   ];
-  const overrides: AdvancementOverrideRow[] = effectiveOverrides.map((o) => ({
+  const overrides: AdvancementOverrideRow[] = overrideDecisions.map((o) => ({
     contestantId: o.contestantId, action: o.action,
   }));
   const advancement = applyAdvancement(standings, advancementConfig, overrides);
@@ -110,7 +117,7 @@ export async function loadRoundCompute(
   });
   return {
     round, standings, unresolvedTies, advancement, advancementConfig,
-    judgeParticipation, tieBreaks, overrides: overrideDocs, effectiveOverrides,
+    judgeParticipation, tieBreaks, overrides: overrideDocs, overrideDecisions,
   };
 }
 
@@ -141,8 +148,8 @@ export function buildSnapshot(result: RoundComputeResult, now: number, decimalPr
       tieBreaks: result.tieBreaks.map((b) => ({
         tiedContestantIds: b.tiedContestantIds, orderedIds: b.orderedIds, createdById: b.createdById,
       })),
-      advancementOverrides: result.effectiveOverrides.map((o) => ({
-        contestantId: o.contestantId, action: o.action, createdById: o.createdById,
+      advancementOverrides: result.overrideDecisions.map((o) => ({
+        contestantId: o.contestantId, action: o.action, createdById: o.createdById, source: o.source,
       })),
     },
   };

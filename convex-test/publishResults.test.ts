@@ -129,8 +129,8 @@ describe("publish, results, corrections, finalize", () => {
     });
     expect(result.version).toBe(2);
     expect(result.snapshot.decisions.advancementOverrides).toEqual([
-      { contestantId: ids.contestantIds[0], action: "force_cut", createdById: aliceProfileId },
-      { contestantId: ids.contestantIds[1], action: "force_advance", createdById: aliceProfileId },
+      { contestantId: ids.contestantIds[0], action: "force_cut", createdById: aliceProfileId, source: "correction" },
+      { contestantId: ids.contestantIds[1], action: "force_advance", createdById: aliceProfileId, source: "correction" },
     ]);
     const standings = result.snapshot.categories[0].standings;
     const maria = standings.find((s: { contestantId: string }) => s.contestantId === ids.contestantIds[0])!;
