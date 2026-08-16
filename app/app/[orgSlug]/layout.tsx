@@ -26,7 +26,6 @@ export default function OrgLayout({
         <OrgSwitcher currentSlug={orgSlug} />
         <nav className="space-y-1 text-sm">
           <Link href={`/app/${orgSlug}/overview`} className="block rounded px-2 py-1 hover:bg-accent">Overview</Link>
-          <Link href={`/app/${orgSlug}/members`} className="block rounded px-2 py-1 hover:bg-accent">Members</Link>
           <Link href={`/app/${orgSlug}/settings`} className="block rounded px-2 py-1 hover:bg-accent">Settings</Link>
           <Link href={`/app/${orgSlug}/billing`} className="block rounded px-2 py-1 hover:bg-accent">Billing</Link>
           <Link href={`/app/${orgSlug}/events`} className="block rounded px-2 py-1 hover:bg-accent">Events</Link>

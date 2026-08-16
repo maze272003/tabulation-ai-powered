@@ -25,8 +25,6 @@ export function EventShell({
     ["Rounds", `${base}/rounds`],
     ["Categories", `${base}/categories`],
     ["Contestants", `${base}/contestants`],
-    ["Judges", `${base}/judges`],
-    ["Scoring", `${base}/scoring`],
     ["Readiness", `${base}/readiness`],
     ["Settings", `${base}/settings`],
     ["Results", `${base}/results`],

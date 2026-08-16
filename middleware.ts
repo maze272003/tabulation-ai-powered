@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
-const PROTECTED = [/^\/app(\/|$)/, /^\/platform(\/|$)/, /^\/invite\//];
+const PROTECTED = [/^\/app(\/|$)/, /^\/platform(\/|$)/];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -15,5 +15,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/app/:path*", "/platform/:path*", "/invite/:path*"],
+  matcher: ["/app/:path*", "/platform/:path*"],
 };
