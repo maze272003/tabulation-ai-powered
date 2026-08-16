@@ -13,7 +13,7 @@ export type RoundComputeResult = {
   unresolvedTies: UnresolvedTie[];
   advancement: Map<Id<"contestants">, boolean | null>;
   advancementConfig: AdvancementConfig;
-  judgeParticipation: { judgeId: Id<"judges">; sheetsSubmitted: number; sheetsTotal: number }[];
+  judgeParticipation: { judgeId: Id<"eventAccounts">; sheetsSubmitted: number; sheetsTotal: number }[];
   tieBreaks: Doc<"tieBreaks">[];
   overrides: Doc<"advancementOverrides">[];
   overrideDecisions: {
@@ -50,8 +50,8 @@ export async function loadRoundCompute(
       q.eq("eventId", eactx.event._id).eq("roundId", round._id))
     .collect();
   const judges = await ctx.db
-    .query("judges")
-    .withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id))
+    .query("eventAccounts")
+    .withIndex("by_event_id_and_kind", (q) => q.eq("eventId", eactx.event._id).eq("kind", "judge"))
     .collect();
   const tieBreaks = await ctx.db
     .query("tieBreaks")

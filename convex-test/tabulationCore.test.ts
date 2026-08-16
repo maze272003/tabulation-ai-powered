@@ -5,7 +5,7 @@ import {
 } from "../convex/lib/tabulation";
 import { computeRoundStandings, type RoundComputeInput } from "../convex/lib/tabulation";
 
-const j = (s: string) => s as Id<"judges">;
+const j = (s: string) => s as Id<"eventAccounts">;
 const c = (s: string) => s as Id<"criteria">;
 const p = (s: string) => s as Id<"contestants">;
 

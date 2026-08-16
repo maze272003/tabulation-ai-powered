@@ -62,18 +62,9 @@ export async function requireReadyEvent(
   return eactx;
 }
 
-export async function requireJudgeRow(ctx: QueryCtx, eactx: EventAuthCtx): Promise<Doc<"judges">> {
-  const judge = await ctx.db
-    .query("judges")
-    .withIndex("by_event_id_and_user_id", (q) => q.eq("eventId", eactx.event._id).eq("userId", eactx.user._id))
-    .unique();
-  if (!judge) throw appError(ErrorCode.NOT_FOUND, "No judge record for this event");
-  return judge;
-}
-
 export async function loadRound(
   ctx: QueryCtx,
-  eactx: EventAuthCtx,
+  eactx: Pick<EventAuthCtx, "event">,
   roundId: Id<"rounds">,
 ): Promise<Doc<"rounds">> {
   const round = await ctx.db.get(roundId);

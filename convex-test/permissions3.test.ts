@@ -3,12 +3,6 @@ import { aliceIdentity, seedAndProvision, setupTest } from "./setup";
 
 const EXPECTED: Record<string, string[]> = {
   "Org Owner": ["score.manage", "result.view"],
-  "Org Admin": ["score.manage", "result.view"],
-  "Event Admin": ["score.manage", "result.view"],
-  Tabulator: ["score.manage", "result.view"],
-  Judge: ["score.enter", "result.view"],
-  Staff: ["result.view"],
-  Viewer: ["result.view"],
 };
 
 describe("score permissions wiring", () => {

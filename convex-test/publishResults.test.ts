@@ -1,19 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
-import { aliceIdentity, bobIdentity, carolIdentity, prepareScoredEvent, setupTest } from "./setup";
+import { aliceIdentity, bobIdentity, prepareScoredEvent, setupTest } from "./setup";
 
 async function submitJudgeScores(
   t: ReturnType<typeof setupTest>,
-  identity: typeof bobIdentity | typeof carolIdentity,
+  sessionToken: string,
   ids: Awaited<ReturnType<typeof prepareScoredEvent>>,
   perContestant: number[][],
 ) {
-  const mine = await t.withIdentity(identity).query(api.scoring.myAssignments, { orgSlug: "acme", eventSlug: "gala" });
+  const mine = await t.query(api.enter.scoring.myAssignments, { sessionToken });
   const sheets = [...mine.rounds[0].sheets].sort((a, b) => a.contestantNumber - b.contestantNumber);
   for (const [i, sheet] of sheets.entries()) {
-    await t.withIdentity(identity).mutation(api.scoring.submitSheet, {
-      orgSlug: "acme", eventSlug: "gala", sheetId: sheet.sheetId,
+    await t.mutation(api.enter.scoring.submitSheet, {
+      sessionToken,
+      sheetId: sheet.sheetId,
       values: Object.fromEntries(ids.criterionIds.map((id, k) => [id, perContestant[i][k]])),
     });
   }
@@ -28,8 +29,8 @@ describe("publish, results, corrections, finalize", () => {
   it("publish is blocked by unresolved ties, then succeeds after a manual break", async () => {
     const t = setupTest();
     const ids = await prepareScoredEvent(t);
-    await submitJudgeScores(t, bobIdentity, ids, [[7, 7], [7, 7]]);
-    await submitJudgeScores(t, carolIdentity, ids, [[7, 7], [7, 7]]);
+    await submitJudgeScores(t, ids.judgeSessions.bob, ids, [[7, 7], [7, 7]]);
+    await submitJudgeScores(t, ids.judgeSessions.carol, ids, [[7, 7], [7, 7]]);
     await t.withIdentity(aliceIdentity).mutation(api.roundAdmin.closeRound, { orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId });
     await expect(
       t.withIdentity(aliceIdentity).mutation(api.roundAdmin.publishRound, { orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId }),
@@ -54,28 +55,29 @@ describe("publish, results, corrections, finalize", () => {
   it("private results are for score.manage holders only; organization visibility opens them up", async () => {
     const t = setupTest();
     const ids = await prepareScoredEvent(t);
-    await submitJudgeScores(t, bobIdentity, ids, [[8, 6], [5, 5]]);
-    await submitJudgeScores(t, carolIdentity, ids, [[9, 7], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.bob, ids, [[8, 6], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.carol, ids, [[9, 7], [5, 5]]);
     await closeAndPublish(t, ids.roundId);
+    await t.withIdentity(bobIdentity).mutation(api.auth.ensureUserProfile, {});
     await expect(
       t.withIdentity(bobIdentity).query(api.results.roundResults, { orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId }),
     ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
     const t2 = setupTest();
     const ids2 = await prepareScoredEvent(t2, { resultVisibility: "organization" });
-    await submitJudgeScores(t2, bobIdentity, ids2, [[8, 6], [5, 5]]);
-    await submitJudgeScores(t2, carolIdentity, ids2, [[9, 7], [5, 5]]);
+    await submitJudgeScores(t2, ids2.judgeSessions.bob, ids2, [[8, 6], [5, 5]]);
+    await submitJudgeScores(t2, ids2.judgeSessions.carol, ids2, [[9, 7], [5, 5]]);
     await closeAndPublish(t2, ids2.roundId);
-    const asJudge = await t2.withIdentity(bobIdentity).query(api.results.roundResults, {
+    const asOwner = await t2.withIdentity(aliceIdentity).query(api.results.roundResults, {
       orgSlug: "acme", eventSlug: "gala", roundId: ids2.roundId,
     });
-    expect(asJudge.snapshot.categories[0].standings.length).toBe(2);
+    expect(asOwner.snapshot.categories[0].standings.length).toBe(2);
   });
 
   it("corrections create version 2; finalization locks the event", async () => {
     const t = setupTest();
     const ids = await prepareScoredEvent(t);
-    await submitJudgeScores(t, bobIdentity, ids, [[8, 6], [5, 5]]);
-    await submitJudgeScores(t, carolIdentity, ids, [[9, 7], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.bob, ids, [[8, 6], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.carol, ids, [[9, 7], [5, 5]]);
     await closeAndPublish(t, ids.roundId);
     await expect(
       t.withIdentity(aliceIdentity).mutation(api.roundAdmin.correctResults, {
@@ -112,11 +114,11 @@ describe("publish, results, corrections, finalize", () => {
       qualifiesToNextRound: true,
       advancement: { mode: "top_count", count: 1, allowOverride: true },
     });
-    await submitJudgeScores(t, bobIdentity, ids, [[8, 6], [5, 5]]);
-    await submitJudgeScores(t, carolIdentity, ids, [[9, 7], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.bob, ids, [[8, 6], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.carol, ids, [[9, 7], [5, 5]]);
     await closeAndPublish(t, ids.roundId);
-    const members = await t.withIdentity(aliceIdentity).query(api.members.list, { orgSlug: "acme" });
-    const aliceProfileId = members.find((m: { email: string }) => m.email === "alice@example.com")!.userId;
+    const aliceProfile = await t.withIdentity(aliceIdentity).query(api.auth.getCurrentUser, {});
+    const aliceProfileId = aliceProfile!._id;
     await t.withIdentity(aliceIdentity).mutation(api.roundAdmin.correctResults, {
       orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId, reason: "override reversal",
       overrides: [
@@ -142,8 +144,8 @@ describe("publish, results, corrections, finalize", () => {
   it("sequential publish and corrections allocate versions 1, 2, 3 without duplicates", async () => {
     const t = setupTest();
     const ids = await prepareScoredEvent(t);
-    await submitJudgeScores(t, bobIdentity, ids, [[8, 6], [5, 5]]);
-    await submitJudgeScores(t, carolIdentity, ids, [[9, 7], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.bob, ids, [[8, 6], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.carol, ids, [[9, 7], [5, 5]]);
     await closeAndPublish(t, ids.roundId);
     await t.withIdentity(aliceIdentity).mutation(api.roundAdmin.correctResults, {
       orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId, reason: "first correction",
@@ -167,18 +169,18 @@ describe("publish, results, corrections, finalize", () => {
     await expect(
       t.withIdentity(aliceIdentity).mutation(api.roundAdmin.publishRound, { orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId }),
     ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
-    await submitJudgeScores(t, bobIdentity, ids, [[8, 6], [5, 5]]);
-    await submitJudgeScores(t, carolIdentity, ids, [[9, 7], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.bob, ids, [[8, 6], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.carol, ids, [[9, 7], [5, 5]]);
     await closeAndPublish(t, ids.roundId);
-    const mine = await t.withIdentity(bobIdentity).query(api.scoring.myAssignments, { orgSlug: "acme", eventSlug: "gala" });
+    const mine = await t.query(api.enter.scoring.myAssignments, { sessionToken: ids.judgeSessions.bob });
     expect(mine.rounds[0].status).toBe("published");
   });
 
   it("eventResults computes weighted final standings", async () => {
     const t = setupTest();
     const ids = await prepareScoredEvent(t);
-    await submitJudgeScores(t, bobIdentity, ids, [[8, 6], [5, 5]]);
-    await submitJudgeScores(t, carolIdentity, ids, [[9, 7], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.bob, ids, [[8, 6], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.carol, ids, [[9, 7], [5, 5]]);
     await closeAndPublish(t, ids.roundId);
     const results = await t.withIdentity(aliceIdentity).query(api.results.eventResults, {
       orgSlug: "acme", eventSlug: "gala",

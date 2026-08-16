@@ -75,14 +75,14 @@ export async function prepareScoredEvent(
   t: ReturnType<typeof setupTest>,
   opts: ScoredEventOpts = {},
 ): Promise<{
+  eventCode: string;
   roundId: Id<"rounds">;
   criterionIds: Id<"criteria">[];
   contestantIds: Id<"contestants">[];
-  judgeIds: { bob: Id<"judges">; carol: Id<"judges"> };
+  judgeIds: { bob: Id<"eventAccounts">; carol: Id<"eventAccounts"> };
+  judgeSessions: { bob: string; carol: string };
 }> {
   await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
-  await t.withIdentity(bobIdentity).mutation(api.auth.ensureUserProfile, {});
-  await t.withIdentity(carolIdentity).mutation(api.auth.ensureUserProfile, {});
   const eventPatch: Record<string, unknown> = {};
   if (opts.dropHighLow !== undefined) eventPatch.scoringRules = { dropHighLow: opts.dropHighLow };
   if (opts.eliminationEnabled !== undefined) eventPatch.eliminationEnabled = opts.eliminationEnabled;
@@ -104,32 +104,47 @@ export async function prepareScoredEvent(
   }
   await t.withIdentity(aliceIdentity).mutation(api.contestants.add, { orgSlug: "acme", eventSlug: "gala", name: "Maria", number: 1 });
   await t.withIdentity(aliceIdentity).mutation(api.contestants.add, { orgSlug: "acme", eventSlug: "gala", name: "Nina", number: 2 });
-  for (const identity of [bobIdentity, carolIdentity]) {
-    await t.withIdentity(aliceIdentity).mutation(api.invitations.create, { orgSlug: "acme", email: identity.email, roleName: "Judge" });
-    const pending = await t.withIdentity(identity).query(api.invitations.listForUser, {});
-    await t.withIdentity(identity).mutation(api.invitations.accept, { token: pending[0].token });
-  }
-  const members = await t.withIdentity(aliceIdentity).query(api.members.list, { orgSlug: "acme" });
-  const bobId = members.find((m: { email: string }) => m.email === "bob@example.com")!.userId;
-  const carolId = members.find((m: { email: string }) => m.email === "carol@example.com")!.userId;
-  for (const userId of [bobId, carolId]) {
-    await t.withIdentity(aliceIdentity).mutation(api.judges.add, { orgSlug: "acme", eventSlug: "gala", userId });
-  }
-  const judges = await t.withIdentity(aliceIdentity).query(api.judges.listWithAssignments, { orgSlug: "acme", eventSlug: "gala" });
-  for (const judge of judges) {
-    await t.withIdentity(aliceIdentity).mutation(api.judges.addAssignment, { orgSlug: "acme", eventSlug: "gala", judgeId: judge._id });
-  }
+  
+  const bobAcc = await t.withIdentity(aliceIdentity).action(api.accounts.create, {
+    orgSlug: "acme", eventSlug: "gala", kind: "judge", displayName: "Bob", username: "bob", password: "password123",
+  });
+  const carolAcc = await t.withIdentity(aliceIdentity).action(api.accounts.create, {
+    orgSlug: "acme", eventSlug: "gala", kind: "judge", displayName: "Carol", username: "carol", password: "password123",
+  });
+  await t.withIdentity(aliceIdentity).mutation(api.accounts.addAssignment, {
+    orgSlug: "acme", eventSlug: "gala", accountId: bobAcc.accountId,
+  });
+  await t.withIdentity(aliceIdentity).mutation(api.accounts.addAssignment, {
+    orgSlug: "acme", eventSlug: "gala", accountId: carolAcc.accountId,
+  });
+
   await t.withIdentity(aliceIdentity).mutation(api.eventLifecycle.publish, { orgSlug: "acme", eventSlug: "gala" });
+
+  const eventDoc = await t.withIdentity(aliceIdentity).query(api.events.get, { orgSlug: "acme", eventSlug: "gala" });
+  const eventCode = eventDoc!.eventCode;
+
+  const bobLogin = await t.action(api.eventAuth.login, {
+    eventCode, username: "bob", password: "password123",
+  });
+  const carolLogin = await t.action(api.eventAuth.login, {
+    eventCode, username: "carol", password: "password123",
+  });
+
   const after = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "gala" });
   const contestants = await t.withIdentity(aliceIdentity).query(api.contestants.list, { orgSlug: "acme", eventSlug: "gala" });
   const orderedContestants = [...contestants].sort((a, b) => a.number - b.number);
   return {
+    eventCode,
     roundId,
     criterionIds: after[0].criteria.map((c) => c._id as Id<"criteria">),
     contestantIds: orderedContestants.map((k) => k._id as Id<"contestants">),
     judgeIds: {
-      bob: judges.find((j: { userId: string }) => j.userId === bobId)!._id,
-      carol: judges.find((j: { userId: string }) => j.userId === carolId)!._id,
+      bob: bobAcc.accountId,
+      carol: carolAcc.accountId,
+    },
+    judgeSessions: {
+      bob: bobLogin.token,
+      carol: carolLogin.token,
     },
   };
 }

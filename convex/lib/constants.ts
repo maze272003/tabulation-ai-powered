@@ -2,12 +2,6 @@ import type { Doc } from "../_generated/dataModel";
 
 export const SYSTEM_ROLES = [
   { name: "Org Owner", description: "Full control over the organization" },
-  { name: "Org Admin", description: "Manage members and configuration" },
-  { name: "Event Admin", description: "Create and manage events" },
-  { name: "Tabulator", description: "Run tabulation and finalize results" },
-  { name: "Judge", description: "Enter scores for assigned contestants" },
-  { name: "Staff", description: "Assist with event operations" },
-  { name: "Viewer", description: "Read-only access" },
 ] as const;
 
 export const SYSTEM_PERMISSIONS = [
@@ -33,12 +27,6 @@ export const SYSTEM_PERMISSIONS = [
 
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   "Org Owner": ["organization.view", "organization.update", "organization.members.manage", "organization.delete", "audit.view", "subscription.view", "subscription.manage", "event.create", "event.view", "event.update", "event.delete", "event.publish", "event.archive", "contestant.manage", "judge.manage", "score.manage", "result.view"],
-  "Org Admin": ["organization.view", "organization.update", "organization.members.manage", "audit.view", "subscription.view", "event.create", "event.view", "event.update", "event.delete", "event.publish", "event.archive", "contestant.manage", "judge.manage", "score.manage", "result.view"],
-  "Event Admin": ["organization.view", "subscription.view", "event.create", "event.view", "event.update", "event.publish", "event.archive", "contestant.manage", "judge.manage", "score.manage", "result.view"],
-  "Tabulator": ["organization.view", "event.view", "score.manage", "result.view"],
-  "Judge": ["organization.view", "event.view", "score.enter", "result.view"],
-  "Staff": ["organization.view", "event.view", "contestant.manage", "result.view"],
-  "Viewer": ["organization.view", "event.view", "result.view"],
 };
 
 export const SYSTEM_PLANS = [

@@ -1,20 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { api } from "../convex/_generated/api";
-import { aliceIdentity, bobIdentity, carolIdentity, createOrgAndEvent, prepareScoredEvent, setupTest } from "./setup";
+import { aliceIdentity, bobIdentity, createOrgAndEvent, prepareScoredEvent, setupTest } from "./setup";
 
 async function submitJudgeScores(
   t: ReturnType<typeof setupTest>,
-  identity: typeof bobIdentity,
+  sessionToken: string,
   ids: Awaited<ReturnType<typeof prepareScoredEvent>>,
   perContestant: number[][],
 ) {
-  const mine = await t.withIdentity(identity).query(api.scoring.myAssignments, { orgSlug: "acme", eventSlug: "gala" });
+  const mine = await t.query(api.enter.scoring.myAssignments, { sessionToken });
   const sheets = [...mine.rounds[0].sheets].sort(
     (a, b) => a.contestantNumber - b.contestantNumber,
   );
   for (const [i, sheet] of sheets.entries()) {
-    await t.withIdentity(identity).mutation(api.scoring.submitSheet, {
-      orgSlug: "acme", eventSlug: "gala", sheetId: sheet.sheetId,
+    await t.mutation(api.enter.scoring.submitSheet, {
+      sessionToken,
+      sheetId: sheet.sheetId,
       values: Object.fromEntries(ids.criterionIds.map((id, k) => [id, perContestant[i][k]])),
     });
   }
@@ -24,7 +25,7 @@ describe("round lifecycle", () => {
   it("monitor shows statuses without any score payload", async () => {
     const t = setupTest();
     const ids = await prepareScoredEvent(t);
-    await submitJudgeScores(t, bobIdentity, ids, [[8, 6], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.bob, ids, [[8, 6], [5, 5]]);
     const monitor = await t.withIdentity(aliceIdentity).query(api.roundAdmin.roundMonitor, {
       orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId,
     });
@@ -38,25 +39,26 @@ describe("round lifecycle", () => {
   it("closing blocks submits; reopening re-allows them", async () => {
     const t = setupTest();
     const ids = await prepareScoredEvent(t);
-    await submitJudgeScores(t, bobIdentity, ids, [[8, 6], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.bob, ids, [[8, 6], [5, 5]]);
     await t.withIdentity(aliceIdentity).mutation(api.roundAdmin.closeRound, { orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId });
-    const carolMine = await t.withIdentity(carolIdentity).query(api.scoring.myAssignments, { orgSlug: "acme", eventSlug: "gala" });
+    const carolMine = await t.query(api.enter.scoring.myAssignments, { sessionToken: ids.judgeSessions.carol });
     const sheet = carolMine.rounds[0].sheets[0];
     const values = Object.fromEntries(ids.criterionIds.map((id) => [id, 7]));
     await expect(
-      t.withIdentity(carolIdentity).mutation(api.scoring.submitSheet, {
-        orgSlug: "acme", eventSlug: "gala", sheetId: sheet.sheetId, values,
+      t.mutation(api.enter.scoring.submitSheet, {
+        sessionToken: ids.judgeSessions.carol, sheetId: sheet.sheetId, values,
       }),
     ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
     await t.withIdentity(aliceIdentity).mutation(api.roundAdmin.reopenRound, { orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId });
-    await t.withIdentity(carolIdentity).mutation(api.scoring.submitSheet, {
-      orgSlug: "acme", eventSlug: "gala", sheetId: sheet.sheetId, values,
+    await t.mutation(api.enter.scoring.submitSheet, {
+      sessionToken: ids.judgeSessions.carol, sheetId: sheet.sheetId, values,
     });
   });
 
   it("only score.manage holders run the round lifecycle", async () => {
     const t = setupTest();
     const ids = await prepareScoredEvent(t);
+    await t.withIdentity(bobIdentity).mutation(api.auth.ensureUserProfile, {});
     await expect(
       t.withIdentity(bobIdentity).mutation(api.roundAdmin.closeRound, { orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId }),
     ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });

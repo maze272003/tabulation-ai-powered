@@ -152,7 +152,10 @@ export async function computeReadiness(
   const rounds = await ctx.db.query("rounds").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
   const categories = await ctx.db.query("categories").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
   const contestants = await ctx.db.query("contestants").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
-  const judges = await ctx.db.query("judges").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
+  const judges = await ctx.db
+    .query("eventAccounts")
+    .withIndex("by_event_id_and_kind", (q) => q.eq("eventId", eventId).eq("kind", "judge"))
+    .collect();
   const assignments = await ctx.db.query("judgeAssignments").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
 
   const criteriaPerRound = await Promise.all(

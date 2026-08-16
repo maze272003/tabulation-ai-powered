@@ -9,7 +9,7 @@ export type CoreContestant = {
 };
 
 export type CoreScoreRow = {
-  judgeId: Id<"judges">;
+  judgeId: Id<"eventAccounts">;
   contestantId: Id<"contestants">;
   criterionId: Id<"criteria">;
   value: number;
@@ -19,7 +19,7 @@ export type CriterionResult = {
   criterionId: Id<"criteria">;
   avgRaw: number;
   contribution: number;
-  dropped: { judgeId: Id<"judges">; value: number }[];
+  dropped: { judgeId: Id<"eventAccounts">; value: number }[];
 };
 
 export function roundToPrecision(value: number, precision: number): number {
@@ -28,12 +28,12 @@ export function roundToPrecision(value: number, precision: number): number {
 }
 
 export function aggregateJudgeValues(
-  entries: { judgeId: Id<"judges">; value: number }[],
+  entries: { judgeId: Id<"eventAccounts">; value: number }[],
   dropHighLow: boolean,
-): { avg: number; dropped: { judgeId: Id<"judges">; value: number }[] } {
+): { avg: number; dropped: { judgeId: Id<"eventAccounts">; value: number }[] } {
   const sorted = [...entries].sort((a, b) => a.value - b.value || (a.judgeId < b.judgeId ? -1 : 1));
   let used = sorted;
-  let dropped: { judgeId: Id<"judges">; value: number }[] = [];
+  let dropped: { judgeId: Id<"eventAccounts">; value: number }[] = [];
   if (dropHighLow && sorted.length >= 3) {
     dropped = [sorted[0], sorted[sorted.length - 1]];
     used = sorted.slice(1, -1);
@@ -96,7 +96,7 @@ function judgeFirsts(
   winner: "highest" | "lowest",
 ): Map<Id<"contestants">, number> {
   const totals = new Map<string, number>();
-  const judges = new Set<Id<"judges">>();
+  const judges = new Set<Id<"eventAccounts">>();
   for (const s of scores) {
     if (!tied.includes(s.contestantId)) continue;
     judges.add(s.judgeId);

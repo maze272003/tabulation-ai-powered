@@ -1,19 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
-import { aliceIdentity, bobIdentity, carolIdentity, prepareScoredEvent, setupTest } from "./setup";
+import { aliceIdentity, bobIdentity, prepareScoredEvent, setupTest } from "./setup";
 
 async function submitJudgeScores(
   t: ReturnType<typeof setupTest>,
-  identity: typeof bobIdentity | typeof carolIdentity,
+  sessionToken: string,
   ids: Awaited<ReturnType<typeof prepareScoredEvent>>,
   perContestant: number[][],
 ) {
-  const mine = await t.withIdentity(identity).query(api.scoring.myAssignments, { orgSlug: "acme", eventSlug: "gala" });
+  const mine = await t.query(api.enter.scoring.myAssignments, { sessionToken });
   const sheets = [...mine.rounds[0].sheets].sort((a, b) => a.contestantNumber - b.contestantNumber);
   for (const [i, sheet] of sheets.entries()) {
-    await t.withIdentity(identity).mutation(api.scoring.submitSheet, {
-      orgSlug: "acme", eventSlug: "gala", sheetId: sheet.sheetId,
+    await t.mutation(api.enter.scoring.submitSheet, {
+      sessionToken,
+      sheetId: sheet.sheetId,
       values: Object.fromEntries(ids.criterionIds.map((id, k) => [id, perContestant[i][k]])),
     });
   }
@@ -27,8 +28,8 @@ describe("review & decisions", () => {
   it("review refuses while the round is open, works when closed", async () => {
     const t = setupTest();
     const ids = await prepareScoredEvent(t);
-    await submitJudgeScores(t, bobIdentity, ids, [[8, 6], [5, 5]]);
-    await submitJudgeScores(t, carolIdentity, ids, [[9, 7], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.bob, ids, [[8, 6], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.carol, ids, [[9, 7], [5, 5]]);
     await expect(
       t.withIdentity(aliceIdentity).query(api.roundAdmin.roundReview, { orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId }),
     ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
@@ -49,6 +50,7 @@ describe("review & decisions", () => {
     const t = setupTest();
     const ids = await prepareScoredEvent(t);
     await closeRound(t, ids.roundId);
+    await t.withIdentity(bobIdentity).mutation(api.auth.ensureUserProfile, {});
     await expect(
       t.withIdentity(bobIdentity).query(api.roundAdmin.roundReview, { orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId }),
     ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
@@ -57,8 +59,8 @@ describe("review & decisions", () => {
   it("identical scores surface an unresolved tie; a manual break resolves it", async () => {
     const t = setupTest();
     const ids = await prepareScoredEvent(t);
-    await submitJudgeScores(t, bobIdentity, ids, [[7, 7], [7, 7]]);
-    await submitJudgeScores(t, carolIdentity, ids, [[7, 7], [7, 7]]);
+    await submitJudgeScores(t, ids.judgeSessions.bob, ids, [[7, 7], [7, 7]]);
+    await submitJudgeScores(t, ids.judgeSessions.carol, ids, [[7, 7], [7, 7]]);
     await closeRound(t, ids.roundId);
     const before = await t.withIdentity(aliceIdentity).query(api.roundAdmin.roundReview, { orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId });
     expect(before.unresolvedTies.length).toBe(1);
@@ -100,8 +102,8 @@ describe("review & decisions", () => {
   it("rejects an overlapping tie break for already-covered contestants", async () => {
     const t = setupTest();
     const ids = await prepareScoredEvent(t);
-    await submitJudgeScores(t, bobIdentity, ids, [[7, 7], [7, 7]]);
-    await submitJudgeScores(t, carolIdentity, ids, [[7, 7], [7, 7]]);
+    await submitJudgeScores(t, ids.judgeSessions.bob, ids, [[7, 7], [7, 7]]);
+    await submitJudgeScores(t, ids.judgeSessions.carol, ids, [[7, 7], [7, 7]]);
     await closeRound(t, ids.roundId);
     await t.withIdentity(aliceIdentity).mutation(api.roundAdmin.addTieBreak, {
       orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId,
@@ -142,8 +144,16 @@ describe("review & decisions", () => {
     const roster = await t.withIdentity(aliceIdentity).query(api.contestants.list, { orgSlug: "acme", eventSlug: "gala" });
     const omar = roster.find((k: { name: string }) => k.name === "Omar")!._id as Id<"contestants">;
     const pat = roster.find((k: { name: string }) => k.name === "Pat")!._id as Id<"contestants">;
-    await submitJudgeScores(t, bobIdentity, ids, [[7, 7], [7, 7], [3, 3], [4, 4]]);
-    await submitJudgeScores(t, carolIdentity, ids, [[7, 7], [7, 7], [3, 3], [4, 4]]);
+    
+    // Login after publish creates new sheets/session:
+    const bobLogin = await t.action(api.eventAuth.login, {
+      eventCode: ids.eventCode, username: "bob", password: "password123",
+    });
+    const carolLogin = await t.action(api.eventAuth.login, {
+      eventCode: ids.eventCode, username: "carol", password: "password123",
+    });
+    await submitJudgeScores(t, bobLogin.token, ids, [[7, 7], [7, 7], [3, 3], [4, 4]]);
+    await submitJudgeScores(t, carolLogin.token, ids, [[7, 7], [7, 7], [3, 3], [4, 4]]);
     await closeRound(t, ids.roundId);
     const [maria, nina] = ids.contestantIds;
     const addBreak = (tiedContestantIds: Id<"contestants">[], orderedIds: Id<"contestants">[]) =>
@@ -173,8 +183,8 @@ describe("review & decisions", () => {
       qualifiesToNextRound: true,
       advancement: { mode: "top_count", count: 1, allowOverride: true },
     });
-    await submitJudgeScores(t, bobIdentity, ids, [[8, 6], [5, 5]]);
-    await submitJudgeScores(t, carolIdentity, ids, [[9, 7], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.bob, ids, [[8, 6], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.carol, ids, [[9, 7], [5, 5]]);
     await closeRound(t, ids.roundId);
     const review = await t.withIdentity(aliceIdentity).query(api.roundAdmin.roundReview, { orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId });
     expect(review.standings.find((s: { contestantName: string }) => s.contestantName === "Maria")?.advancement).toBe(true);
@@ -198,7 +208,7 @@ describe("review & decisions", () => {
       qualifiesToNextRound: true,
       advancement: { mode: "top_count", count: 1, allowOverride: false },
     });
-    await submitJudgeScores(t, bobIdentity, ids, [[8, 6], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.bob, ids, [[8, 6], [5, 5]]);
     await closeRound(t, ids.roundId);
     await expect(
       t.withIdentity(aliceIdentity).mutation(api.roundAdmin.addAdvancementOverride, {
@@ -212,7 +222,7 @@ describe("review & decisions", () => {
       qualifiesToNextRound: true,
       advancement: { mode: "top_count", count: 1, allowOverride: true },
     });
-    await submitJudgeScores(t2, bobIdentity, ids2, [[8, 6], [5, 5]]);
+    await submitJudgeScores(t2, ids2.judgeSessions.bob, ids2, [[8, 6], [5, 5]]);
     await closeRound(t2, ids2.roundId);
     await expect(
       t2.withIdentity(aliceIdentity).mutation(api.roundAdmin.addAdvancementOverride, {
@@ -225,8 +235,8 @@ describe("review & decisions", () => {
   it("publish and corrections allocate strictly increasing versions without duplicates", async () => {
     const t = setupTest();
     const ids = await prepareScoredEvent(t);
-    await submitJudgeScores(t, bobIdentity, ids, [[8, 6], [5, 5]]);
-    await submitJudgeScores(t, carolIdentity, ids, [[9, 7], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.bob, ids, [[8, 6], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.carol, ids, [[9, 7], [5, 5]]);
     await closeRound(t, ids.roundId);
     await t.withIdentity(aliceIdentity).mutation(api.roundAdmin.publishRound, {
       orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId,
@@ -249,11 +259,11 @@ describe("review & decisions", () => {
       qualifiesToNextRound: true,
       advancement: { mode: "top_count", count: 1, allowOverride: true },
     });
-    await submitJudgeScores(t, bobIdentity, ids, [[8, 6], [5, 5]]);
-    await submitJudgeScores(t, carolIdentity, ids, [[9, 7], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.bob, ids, [[8, 6], [5, 5]]);
+    await submitJudgeScores(t, ids.judgeSessions.carol, ids, [[9, 7], [5, 5]]);
     await closeRound(t, ids.roundId);
-    const members = await t.withIdentity(aliceIdentity).query(api.members.list, { orgSlug: "acme" });
-    const aliceProfileId = members.find((m: { email: string }) => m.email === "alice@example.com")!.userId;
+    const aliceProfile = await t.withIdentity(aliceIdentity).query(api.auth.getCurrentUser, {});
+    const aliceProfileId = aliceProfile!._id;
     await t.withIdentity(aliceIdentity).mutation(api.roundAdmin.addAdvancementOverride, {
       orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId,
       contestantId: ids.contestantIds[1], action: "force_advance",

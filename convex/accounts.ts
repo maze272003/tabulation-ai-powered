@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { appError, ErrorCode } from "./lib/errors";
-import { requireEventPermission } from "./lib/eventAuthz";
+import { requireDraftEvent, requireEventPermission } from "./lib/eventAuthz";
 import { writeAudit } from "./lib/audit";
 import { requireLimit } from "./lib/entitlements";
 import { incrementUsage } from "./lib/usage";
@@ -131,16 +131,20 @@ export const list = query({
       .query("eventAccounts")
       .withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id))
       .collect();
-    // NOTE: judgeAssignments enrichment is added in Task 6, after judgeAssignments.judgeId
-    // is flipped to Id<"eventAccounts">.
-    return accounts.map((a) => ({
-      _id: a._id,
-      kind: a.kind,
-      displayName: a.displayName,
-      username: a.username,
-      status: a.status,
-      lockedUntil: a.lockedUntil,
-    }));
+    return Promise.all(
+      accounts.map(async (a) => ({
+        _id: a._id,
+        kind: a.kind,
+        displayName: a.displayName,
+        username: a.username,
+        status: a.status,
+        lockedUntil: a.lockedUntil,
+        assignments: await ctx.db
+          .query("judgeAssignments")
+          .withIndex("by_judge_id", (q) => q.eq("judgeId", a._id))
+          .collect(),
+      })),
+    );
   },
 });
 
@@ -238,11 +242,14 @@ export const deleteAccount = mutation({
     });
     const account = await ctx.db.get(args.accountId);
     if (!account || account.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Account not found");
-    // NOTE: the scoreSheets guard is added in Task 6, after scoreSheets.judgeId
-    // is flipped to Id<"eventAccounts">.
+    const sheet = await ctx.db
+      .query("scoreSheets")
+      .withIndex("by_judge_id_and_round_id", (q) => q.eq("judgeId", args.accountId))
+      .first();
+    if (sheet) throw appError(ErrorCode.CONFLICT, "Account has score sheets and cannot be deleted");
     const assignments = await ctx.db
       .query("judgeAssignments")
-      .withIndex("by_judge_id", (q) => q.eq("judgeId", args.accountId as unknown as Id<"judges">))
+      .withIndex("by_judge_id", (q) => q.eq("judgeId", args.accountId))
       .collect();
     for (const a of assignments) await ctx.db.delete(a._id);
     await revokeSessions(ctx, args.accountId);
@@ -258,3 +265,67 @@ export const deleteAccount = mutation({
     });
   },
 });
+
+export const addAssignment = mutation({
+  args: {
+    orgSlug: v.string(),
+    eventSlug: v.string(),
+    accountId: v.id("eventAccounts"),
+    roundId: v.optional(v.id("rounds")),
+    categoryId: v.optional(v.id("categories")),
+    criterionId: v.optional(v.id("criteria")),
+  },
+  handler: async (ctx, args) => {
+    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "judge.manage" });
+    const account = await ctx.db.get(args.accountId);
+    if (!account || account.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Account not found");
+    if (account.kind !== "judge") throw appError(ErrorCode.VALIDATION_ERROR, "Assignments apply to judge accounts only");
+    if (args.roundId) {
+      const r = await ctx.db.get(args.roundId);
+      if (!r || r.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Round not found");
+    }
+    if (args.categoryId) {
+      const c = await ctx.db.get(args.categoryId);
+      if (!c || c.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Category not found");
+    }
+    if (args.criterionId) {
+      const cr = await ctx.db.get(args.criterionId);
+      if (!cr) throw appError(ErrorCode.NOT_FOUND, "Criterion not found");
+      const r = await ctx.db.get(cr.roundId);
+      if (!r || r.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Criterion not found");
+    }
+    const id = await ctx.db.insert("judgeAssignments", {
+      judgeId: args.accountId,
+      eventId: eactx.event._id,
+      roundId: args.roundId,
+      categoryId: args.categoryId,
+      criterionId: args.criterionId,
+    });
+    await writeAudit(ctx, {
+      orgId: eactx.org._id,
+      actorId: eactx.user._id,
+      action: "judge.assignment.added",
+      resourceType: "judgeAssignment",
+      resourceId: id,
+      after: { accountId: args.accountId, roundId: args.roundId ?? null, categoryId: args.categoryId ?? null },
+    });
+  },
+});
+
+export const removeAssignment = mutation({
+  args: { orgSlug: v.string(), eventSlug: v.string(), assignmentId: v.id("judgeAssignments") },
+  handler: async (ctx, args) => {
+    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "judge.manage" });
+    const a = await ctx.db.get(args.assignmentId);
+    if (!a || a.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Assignment not found");
+    await ctx.db.delete(args.assignmentId);
+    await writeAudit(ctx, {
+      orgId: eactx.org._id,
+      actorId: eactx.user._id,
+      action: "judge.assignment.removed",
+      resourceType: "judgeAssignment",
+      resourceId: args.assignmentId,
+    });
+  },
+});
+

@@ -63,27 +63,6 @@ export default defineSchema({
     .index("by_role_id", ["roleId"])
     .index("by_permission_id", ["permissionId"]),
 
-  invitations: defineTable({
-    orgId: v.id("organizations"),
-    email: v.string(),
-    roleId: v.id("roles"),
-    eventId: v.union(v.null(), v.id("events")),
-    token: v.string(),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("accepted"),
-      v.literal("expired"),
-      v.literal("revoked"),
-    ),
-    expiresAt: v.number(),
-    createdById: v.id("userProfiles"),
-    acceptedById: v.union(v.null(), v.id("userProfiles")),
-    acceptedAt: v.union(v.null(), v.number()),
-  })
-    .index("by_token", ["token"])
-    .index("by_email", ["email"])
-    .index("by_org_id_and_email", ["orgId", "email"]),
-
   plans: defineTable({
     name: v.string(),
     sortOrder: v.number(),
@@ -227,18 +206,8 @@ export default defineSchema({
     .index("by_event_id_and_category_id", ["eventId", "categoryId"])
     .index("by_event_id_and_number", ["eventId", "number"]),
 
-  judges: defineTable({
-    orgId: v.id("organizations"),
-    eventId: v.id("events"),
-    userId: v.id("userProfiles"),
-    status: v.union(v.literal("assigned"), v.literal("declined"), v.literal("confirmed")),
-  })
-    .index("by_event_id", ["eventId"])
-    .index("by_event_id_and_user_id", ["eventId", "userId"])
-    .index("by_user_id", ["userId"]),
-
   judgeAssignments: defineTable({
-    judgeId: v.id("judges"),
+    judgeId: v.id("eventAccounts"),
     eventId: v.id("events"),
     roundId: v.optional(v.id("rounds")),
     categoryId: v.optional(v.id("categories")),
@@ -276,7 +245,7 @@ export default defineSchema({
   scoreSheets: defineTable({
     eventId: v.id("events"),
     roundId: v.id("rounds"),
-    judgeId: v.id("judges"),
+    judgeId: v.id("eventAccounts"),
     contestantId: v.id("contestants"),
     status: v.union(
       v.literal("not_started"),
@@ -294,12 +263,12 @@ export default defineSchema({
     sheetId: v.id("scoreSheets"),
     eventId: v.id("events"),
     roundId: v.id("rounds"),
-    judgeId: v.id("judges"),
+    judgeId: v.id("eventAccounts"),
     contestantId: v.id("contestants"),
     criterionId: v.id("criteria"),
     value: v.number(),
     submittedAt: v.number(),
-    submittedById: v.id("userProfiles"),
+    submittedByAccountId: v.id("eventAccounts"),
   })
     .index("by_sheet_id", ["sheetId"])
     .index("by_event_id_and_round_id", ["eventId", "roundId"])
@@ -323,14 +292,14 @@ export default defineSchema({
             criterionId: v.id("criteria"),
             avgRaw: v.number(),
             contribution: v.number(),
-            dropped: v.array(v.object({ judgeId: v.id("judges"), value: v.number() })),
+            dropped: v.array(v.object({ judgeId: v.id("eventAccounts"), value: v.number() })),
           })),
           tieResolvedBy: v.union(v.literal("none"), v.literal("criteria_cascade"), v.literal("judge_firsts"), v.literal("manual")),
           advanced: v.union(v.null(), v.boolean()),
         })),
       })),
       judgeParticipation: v.array(v.object({
-        judgeId: v.id("judges"),
+        judgeId: v.id("eventAccounts"),
         sheetsSubmitted: v.number(),
         sheetsTotal: v.number(),
       })),
@@ -348,7 +317,8 @@ export default defineSchema({
         })),
       }),
     }),
-    createdById: v.id("userProfiles"),
+    createdById: v.union(v.null(), v.id("userProfiles")),
+    createdByAccountId: v.optional(v.id("eventAccounts")),
     createdAt: v.number(),
     reason: v.optional(v.string()),
   })

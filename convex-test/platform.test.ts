@@ -92,7 +92,7 @@ describe("platform admin — organizations", () => {
 
     // Owner (a member) is locked out of org-scoped functions.
     await expect(
-      t.withIdentity(aliceIdentity).query(api.members.list, { orgSlug: "acme" }),
+      t.withIdentity(aliceIdentity).query(api.subscriptions.getForOrg, { orgSlug: "acme" }),
     ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
 
     // Idempotency guard.
@@ -109,10 +109,10 @@ describe("platform admin — organizations", () => {
       status: "active",
       reason: "Resolved",
     });
-    const members = await t.withIdentity(aliceIdentity).query(api.members.list, {
+    const sub = await t.withIdentity(aliceIdentity).query(api.subscriptions.getForOrg, {
       orgSlug: "acme",
     });
-    expect(members.length).toBeGreaterThanOrEqual(1);
+    expect(sub).toBeDefined();
 
     // The suspend/resume pair is audited on the org's trail.
     const audit = await t.withIdentity(aliceIdentity).query(api.platform.audit.list, {

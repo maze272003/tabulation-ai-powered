@@ -1,23 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { api } from "../convex/_generated/api";
-import { aliceIdentity, bobIdentity, createOrgAndEvent, setupTest } from "./setup";
+import { aliceIdentity, createOrgAndEvent, setupTest } from "./setup";
 
 async function configureValidEvent(t: ReturnType<typeof setupTest>) {
-  await t.withIdentity(bobIdentity).mutation(api.auth.ensureUserProfile, {});
   await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "gala", name: "R" });
   const rounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "gala" });
   const roundId = rounds[0]._id;
   await t.withIdentity(aliceIdentity).mutation(api.criteria.add, { orgSlug: "acme", eventSlug: "gala", roundId, name: "A", weight: 60, minScore: 0, maxScore: 10, decimalPrecision: 0 });
   await t.withIdentity(aliceIdentity).mutation(api.criteria.add, { orgSlug: "acme", eventSlug: "gala", roundId, name: "B", weight: 40, minScore: 0, maxScore: 10, decimalPrecision: 0 });
   await t.withIdentity(aliceIdentity).mutation(api.contestants.add, { orgSlug: "acme", eventSlug: "gala", name: "Maria", number: 1 });
-  await t.withIdentity(aliceIdentity).mutation(api.invitations.create, { orgSlug: "acme", email: "bob@example.com", roleName: "Judge" });
-  const pending = await t.withIdentity(bobIdentity).query(api.invitations.listForUser, {});
-  await t.withIdentity(bobIdentity).mutation(api.invitations.accept, { token: pending[0].token });
-  const members = await t.withIdentity(aliceIdentity).query(api.members.list, { orgSlug: "acme" });
-  const bobId = members.find((m: { email: string }) => m.email === "bob@example.com")!.userId;
-  await t.withIdentity(aliceIdentity).mutation(api.judges.add, { orgSlug: "acme", eventSlug: "gala", userId: bobId });
-  const judges = await t.withIdentity(aliceIdentity).query(api.judges.listWithAssignments, { orgSlug: "acme", eventSlug: "gala" });
-  await t.withIdentity(aliceIdentity).mutation(api.judges.addAssignment, { orgSlug: "acme", eventSlug: "gala", judgeId: judges[0]._id });
+  const judgeAcc = await t.withIdentity(aliceIdentity).action(api.accounts.create, {
+    orgSlug: "acme", eventSlug: "gala", kind: "judge", displayName: "Bob", username: "bob", password: "password123",
+  });
+  await t.withIdentity(aliceIdentity).mutation(api.accounts.addAssignment, {
+    orgSlug: "acme", eventSlug: "gala", accountId: judgeAcc.accountId,
+  });
 }
 
 describe("lifecycle", () => {

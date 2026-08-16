@@ -18,7 +18,10 @@ export const publish = mutation({
       throw appError(ErrorCode.VALIDATION_ERROR, "Event is not ready to publish", { failures });
     }
     const rounds = await ctx.db.query("rounds").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
-    const judges = await ctx.db.query("judges").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
+    const judges = await ctx.db
+      .query("eventAccounts")
+      .withIndex("by_event_id_and_kind", (q) => q.eq("eventId", eactx.event._id).eq("kind", "judge"))
+      .collect();
     const contestants = await ctx.db.query("contestants").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
     const active = contestants.filter((c) => c.status === "active");
     let generated = 0;

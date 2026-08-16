@@ -14,8 +14,8 @@ export const roundMonitor = query({
     });
     const round = await loadRound(ctx, eactx, args.roundId);
     const judges = await ctx.db
-      .query("judges")
-      .withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id))
+      .query("eventAccounts")
+      .withIndex("by_event_id_and_kind", (q) => q.eq("eventId", eactx.event._id).eq("kind", "judge"))
       .collect();
     const contestants = await ctx.db
       .query("contestants")
@@ -26,10 +26,9 @@ export const roundMonitor = query({
       .withIndex("by_event_id_and_round_id", (q) =>
         q.eq("eventId", eactx.event._id).eq("roundId", round._id))
       .collect();
-    const judgesOut: { judgeId: Id<"judges">; name: string }[] = [];
+    const judgesOut: { judgeId: Id<"eventAccounts">; name: string }[] = [];
     for (const j of judges) {
-      const user = await ctx.db.get(j.userId);
-      judgesOut.push({ judgeId: j._id, name: user?.name ?? "" });
+      judgesOut.push({ judgeId: j._id, name: j.displayName });
     }
     return {
       roundStatus: round.status,
