@@ -195,7 +195,7 @@ export function computeRoundStandings(input: RoundComputeInput): {
           if (a.manualRank !== b.manualRank) return a.manualRank - b.manualRank;
           return a.contestantId < b.contestantId ? -1 : 1;
         });
-        let separatedBy: WorkRow["tieResolvedBy"] = "manual";
+        const pairTiers: WorkRow["tieResolvedBy"][] = [];
         let anySeparation = group.length > 1;
         for (let i = 1; i < group.length; i += 1) {
           const a = group[i - 1];
@@ -213,13 +213,13 @@ export function computeRoundStandings(input: RoundComputeInput): {
             anySeparation = false;
             break;
           }
-          separatedBy = tier;
+          pairTiers.push(tier);
         }
         if (anySeparation) {
-          for (const g of group) {
-            g.rank = index + group.indexOf(g) + 1;
-            g.tieResolvedBy = separatedBy;
-          }
+          group.forEach((g, i) => {
+            g.rank = index + i + 1;
+            g.tieResolvedBy = pairTiers[i === 0 ? 0 : i - 1];
+          });
         } else {
           unresolvedTies.push({ categoryId, contestantIds: group.map((g) => g.contestantId).sort() });
           for (const g of group) {
@@ -336,9 +336,16 @@ export function computeEventFinal(rounds: RoundStandingSummary[], decimalPrecisi
         (b.eliminated ?? 0) - (a.eliminated ?? 0) ||
         b.total - a.total,
     );
-    list.forEach((row, i) => {
-      row.rank = i + 1;
-    });
+    const sameStandingKey = (a: Work, b: Work): boolean => a.eliminated === b.eliminated && a.total === b.total;
+    let index = 0;
+    while (index < list.length) {
+      let end = index;
+      while (end + 1 < list.length && sameStandingKey(list[end + 1], list[index])) end += 1;
+      for (let i = index; i <= end; i += 1) {
+        list[i].rank = index + 1;
+      }
+      index = end + 1;
+    }
   }
   return rows.map((r) => ({
     contestantId: r.contestantId,

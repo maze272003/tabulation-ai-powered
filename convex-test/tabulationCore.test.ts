@@ -102,6 +102,18 @@ function fixture(marks: { k1: [number, number]; k2: [number, number] }): RoundCo
   };
 }
 
+function threeWayInput(scores: RoundComputeInput["scores"]): RoundComputeInput {
+  return {
+    ...fixture({ k1: [0, 0], k2: [0, 0] }),
+    contestants: [
+      { id: p("k1"), categoryId: cat("A"), status: "active" as const },
+      { id: p("k2"), categoryId: cat("A"), status: "active" as const },
+      { id: p("k3"), categoryId: cat("A"), status: "active" as const },
+    ],
+    scores,
+  };
+}
+
 describe("ranking & ties", () => {
   it("ranks by weighted score, highest first", () => {
     const { standings, unresolvedTies } = computeRoundStandings(fixture({ k1: [9, 9], k2: [5, 5] }));
@@ -215,6 +227,71 @@ describe("ranking & ties", () => {
     const b = computeRoundStandings(input);
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   });
+
+  it("labels each row of a resolved tie group by its own separating rule", () => {
+    const input = threeWayInput([
+      { judgeId: j("j1"), contestantId: p("k1"), criterionId: c("cr1"), value: 10 },
+      { judgeId: j("j1"), contestantId: p("k1"), criterionId: c("cr2"), value: 5 },
+      { judgeId: j("j2"), contestantId: p("k1"), criterionId: c("cr1"), value: 10 },
+      { judgeId: j("j2"), contestantId: p("k1"), criterionId: c("cr2"), value: 5 },
+      { judgeId: j("j3"), contestantId: p("k1"), criterionId: c("cr1"), value: 10 },
+      { judgeId: j("j3"), contestantId: p("k1"), criterionId: c("cr2"), value: 5 },
+      { judgeId: j("j1"), contestantId: p("k2"), criterionId: c("cr1"), value: 10 },
+      { judgeId: j("j1"), contestantId: p("k2"), criterionId: c("cr2"), value: 10 },
+      { judgeId: j("j2"), contestantId: p("k2"), criterionId: c("cr1"), value: 10 },
+      { judgeId: j("j2"), contestantId: p("k2"), criterionId: c("cr2"), value: 10 },
+      { judgeId: j("j3"), contestantId: p("k2"), criterionId: c("cr1"), value: 4 },
+      { judgeId: j("j3"), contestantId: p("k2"), criterionId: c("cr2"), value: 4 },
+      { judgeId: j("j1"), contestantId: p("k3"), criterionId: c("cr1"), value: 8 },
+      { judgeId: j("j1"), contestantId: p("k3"), criterionId: c("cr2"), value: 8 },
+      { judgeId: j("j2"), contestantId: p("k3"), criterionId: c("cr1"), value: 8 },
+      { judgeId: j("j2"), contestantId: p("k3"), criterionId: c("cr2"), value: 8 },
+      { judgeId: j("j3"), contestantId: p("k3"), criterionId: c("cr1"), value: 8 },
+      { judgeId: j("j3"), contestantId: p("k3"), criterionId: c("cr2"), value: 8 },
+    ]);
+    const { standings, unresolvedTies } = computeRoundStandings(input);
+    expect(unresolvedTies).toEqual([]);
+    const k1 = standings.find((s) => s.contestantId === p("k1"))!;
+    const k2 = standings.find((s) => s.contestantId === p("k2"))!;
+    const k3 = standings.find((s) => s.contestantId === p("k3"))!;
+    expect(k1.roundScore).toBe(80);
+    expect(k2.roundScore).toBe(80);
+    expect(k3.roundScore).toBe(80);
+    expect(k1.rank).toBe(1);
+    expect(k1.tieResolvedBy).toBe("criteria_cascade");
+    expect(k2.rank).toBe(2);
+    expect(k2.tieResolvedBy).toBe("criteria_cascade");
+    expect(k3.rank).toBe(3);
+    expect(k3.tieResolvedBy).toBe("judge_firsts");
+  });
+
+  it("keeps a whole tie group unresolved when one adjacent pair cannot be separated", () => {
+    const input = threeWayInput([
+      { judgeId: j("j1"), contestantId: p("k1"), criterionId: c("cr1"), value: 10 },
+      { judgeId: j("j1"), contestantId: p("k1"), criterionId: c("cr2"), value: 5 },
+      { judgeId: j("j2"), contestantId: p("k1"), criterionId: c("cr1"), value: 10 },
+      { judgeId: j("j2"), contestantId: p("k1"), criterionId: c("cr2"), value: 5 },
+      { judgeId: j("j3"), contestantId: p("k1"), criterionId: c("cr1"), value: 10 },
+      { judgeId: j("j3"), contestantId: p("k1"), criterionId: c("cr2"), value: 5 },
+      { judgeId: j("j1"), contestantId: p("k2"), criterionId: c("cr1"), value: 8 },
+      { judgeId: j("j1"), contestantId: p("k2"), criterionId: c("cr2"), value: 8 },
+      { judgeId: j("j2"), contestantId: p("k2"), criterionId: c("cr1"), value: 8 },
+      { judgeId: j("j2"), contestantId: p("k2"), criterionId: c("cr2"), value: 8 },
+      { judgeId: j("j3"), contestantId: p("k2"), criterionId: c("cr1"), value: 8 },
+      { judgeId: j("j3"), contestantId: p("k2"), criterionId: c("cr2"), value: 8 },
+      { judgeId: j("j1"), contestantId: p("k3"), criterionId: c("cr1"), value: 8 },
+      { judgeId: j("j1"), contestantId: p("k3"), criterionId: c("cr2"), value: 8 },
+      { judgeId: j("j2"), contestantId: p("k3"), criterionId: c("cr1"), value: 8 },
+      { judgeId: j("j2"), contestantId: p("k3"), criterionId: c("cr2"), value: 8 },
+      { judgeId: j("j3"), contestantId: p("k3"), criterionId: c("cr1"), value: 8 },
+      { judgeId: j("j3"), contestantId: p("k3"), criterionId: c("cr2"), value: 8 },
+    ]);
+    const { standings, unresolvedTies } = computeRoundStandings(input);
+    expect(unresolvedTies.length).toBe(1);
+    expect([...unresolvedTies[0].contestantIds].sort()).toEqual([p("k1"), p("k2"), p("k3")].sort());
+    expect(standings.every((s) => s.rank === 1)).toBe(true);
+    expect(standings.every((s) => s.tieResolvedBy === "none")).toBe(true);
+  });
 });
 
 import { applyAdvancement, computeEventFinal, type StandingRow } from "../convex/lib/tabulation";
@@ -319,5 +396,61 @@ describe("event final", () => {
     expect(final[0].rank).toBe(1);
     expect(final[0].contestantId).toBe(p("k1"));
     expect(final.every((f) => f.eliminatedInRoundOrder === null)).toBe(true);
+  });
+
+  it("tied survivors share a rank and the next rank skips by the tie size", () => {
+    const rounds = [{
+      roundId: rd("rd1"), order: 0, weight: 100,
+      standings: [standingRow("k1", 1), standingRow("k2", 1), standingRow("k3", 3)],
+      advancement: {},
+    }];
+    const final = computeEventFinal(rounds, 2);
+    expect(final.find((f) => f.contestantId === p("k1"))?.rank).toBe(1);
+    expect(final.find((f) => f.contestantId === p("k2"))?.rank).toBe(1);
+    expect(final.find((f) => f.contestantId === p("k3"))?.rank).toBe(3);
+  });
+
+  it("eliminated in the same round with equal totals share a rank", () => {
+    const rounds = [{
+      roundId: rd("rd1"), order: 0, weight: 100,
+      standings: [standingRow("k1", 2), standingRow("k2", 2), standingRow("k3", 4)],
+      advancement: { [p("k1")]: false, [p("k2")]: false, [p("k3")]: false },
+    }];
+    const final = computeEventFinal(rounds, 2);
+    expect(final.find((f) => f.contestantId === p("k1"))?.rank).toBe(1);
+    expect(final.find((f) => f.contestantId === p("k2"))?.rank).toBe(1);
+    expect(final.find((f) => f.contestantId === p("k3"))?.rank).toBe(3);
+  });
+
+  it("eliminated in different rounds never share a rank despite equal totals", () => {
+    const rounds = [
+      {
+        roundId: rd("rd1"), order: 0, weight: 100,
+        standings: [standingRow("k1", 1), standingRow("k2", 2), standingRow("k3", 100)],
+        advancement: { [p("k1")]: true, [p("k2")]: false, [p("k3")]: true },
+      },
+      {
+        roundId: rd("rd2"), order: 1, weight: 100,
+        standings: [standingRow("k1", 1), standingRow("k3", 2)],
+        advancement: { [p("k1")]: true, [p("k3")]: false },
+      },
+    ];
+    const final = computeEventFinal(rounds, 2);
+    const k2 = final.find((f) => f.contestantId === p("k2"))!;
+    const k3 = final.find((f) => f.contestantId === p("k3"))!;
+    expect(k2.totalScore).toBe(k3.totalScore);
+    expect(k2.eliminatedInRoundOrder).toBe(0);
+    expect(k3.eliminatedInRoundOrder).toBe(1);
+    expect(k3.rank).toBe(2);
+    expect(k2.rank).toBe(3);
+  });
+
+  it("final ranking is deterministic across repeated runs", () => {
+    const rounds = [{
+      roundId: rd("rd1"), order: 0, weight: 100,
+      standings: [standingRow("k1", 1), standingRow("k2", 1), standingRow("k3", 3)],
+      advancement: {},
+    }];
+    expect(JSON.stringify(computeEventFinal(rounds, 2))).toBe(JSON.stringify(computeEventFinal(rounds, 2)));
   });
 });
