@@ -20,6 +20,7 @@ export function ConfirmDialog({
   confirmLabel,
   busy = false,
   destructive = false,
+  confirmDisabled = false,
   onConfirm,
   children,
 }: {
@@ -30,6 +31,7 @@ export function ConfirmDialog({
   confirmLabel: string;
   busy?: boolean;
   destructive?: boolean;
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   children?: ReactNode;
 }) {
@@ -52,7 +54,7 @@ export function ConfirmDialog({
           </Button>
           <Button
             variant={destructive ? "destructive" : "default"}
-            disabled={busy}
+            disabled={busy || confirmDisabled}
             onClick={onConfirm}
             autoFocus={!destructive}
           >

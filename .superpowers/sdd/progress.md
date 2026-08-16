@@ -1,70 +1,50 @@
-# Phase 2 SDD Progress Ledger
+# Phase 3 SDD Progress Ledger
 
-Plan: docs/superpowers/plans/2026-08-13-phase2-competition-config.md
+Plans: engine (2026-08-16-phase3-tabulation-engine.md) Tasks 2-11 + modules (2026-08-16-phase3-ui-ux-modules.md) Tasks 1-10
 Branch: phase2-competition-config
-Pre-flight resolution: Task 13 uses Id<...>-typed select state (NO `as never` casts) — user decision 2026-08-15.
+Engine Task 1 (Phase 2 UI gate): complete per Phase 2 ledger
+Engine Tasks 12-14: SUPERSEDED by modules plan
+Mode: parallel waves of 5 (disjoint file sets), controller gates + commits between waves
+NEVER stage: AGENTS.md (user WIP)
 
 ## Completed tasks
 
-Task 1: complete (commits 411f391..e34a8a3, review clean)
-- Minor (final-review triage): task-1-report.md claims 20 new indexes; actual 19 (report-only, code correct)
+Wave 1 complete (base dc35971, gate green: typecheck/lint/build/79 tests):
+Engine Task 2: complete (ed1c6c8; 2 justified deviations: template test +Pro plan step, dead snapshot scoringRules replaced)
+Engine Task 4: complete (2d4d281)
+Engine Task 5: complete (031aa45)
+Modules Task 1: complete (1e29e84)
+Modules Task 3: complete (f70f622)
 
-Task 2: complete (commits e34a8a3..02b5762, review clean; 3 justified deviations from brief code: orgId omission, q.and() filter, typed SYSTEM_TEMPLATES annotation - verified by reviewer)
-- Minor (final-review triage): task-2-report.md stat line +75/-8 vs actual +82/-7 (report-only)
+Wave 2 complete (gate green: typecheck/lint/build/98 tests):
+Engine Task 3: complete (adjudicated fix: invalid-advancement test seeds via t.run db.patch)
+Engine Task 6: complete (adjudicated: strict judge firsts - no first on per-judge total ties; test-5 data rebuilt 3-judge 2-1 majority; Minor deferred: whole-group separatedBy tier label)
+Engine Task 8: complete (codegen run for api.scoring)
+Modules Task 2: complete
+Modules Task 9: complete (controller fix: advancementPatch fallback + NonNullable typing; Minor deferred: pages skip instanceof Error branching)
+Controller gate fixes: setup.ts Id typing, fixture RoundComputeInput annotation, merged duplicate import
 
-Task 3: complete (commits 02b5762..ea08453, review clean)
+Wave 3 complete (gate green: typecheck/lint/build/110 tests):
+Engine Task 7: complete (applyAdvancement ignores allowOverride by design - roundAdmin enforces)
+Engine Task 9: complete (deviation: NOT_FOUND test uses foreign roundId, malformed id rejected by convex-test validation)
+Modules Task 4: complete
+Modules Task 5: complete (controller fix: scoring.ts literal status unions + Id casts at query boundary; Minor deferred: instanceof Error branching on scoring pages)
 
-Task 4: complete (commits ea08453..27a82e3, review clean; deviation: dup-slug check before requireLimit - brief code unpassable otherwise; codegen api.d.ts committed per repo convention)
-- Minor (final-review triage): update() accepts all-whitespace name patching to empty string (plan-inherited)
-- Minor (final-review triage): update audit records only name before/after for non-name edits (plan-inherited)
+Wave 4 complete (gate green: typecheck/lint/build/116 tests):
+Engine Task 10: complete (deviation: eliminationEnabled patch via conditional pattern in setup)
+Modules Task 6: complete (controller fixes: dialog stays open on error via run() boolean, Button render={Link} nesting, Error data cast)
+Controller gate fixes: reviewDecisions identity-union + Id typing
 
-Task 5: complete (commits 27a82e3..520cfce, review clean; 42/42 verified by controller)
-- Minor (final-review triage): order field duplicates possible after delete (plan-mandated order: existing.length)
-- Minor (final-review triage): no direct tests for categories.remove CONFLICT path / rounds criteria cascade (plan-scoped gap)
-- Minor (final-review triage): rounds.list N+1 criteria queries (plan-mandated, fine at config scale)
+Wave 5 complete (gate green: typecheck/lint/build/122 tests):
+Engine Task 11: complete
+Modules Task 7: complete (Minor deferred: tieError never resets, shared positions state across tie groups)
+Modules Task 8: complete (controller fix: historical version Error guarded; Minor deferred: correct dialog relies on server-side reason validation)
+Controller gate fixes: publishResults Id typing
 
-Task 6: complete (commits 520cfce..6f9a242, review clean; NOTE-mandated changePlan correction applied)
-- Minor (final-review triage): criteria add audit logs untrimmed name (plan-mandated)
-- Minor (final-review triage): criteria update audit records only weight before/after (plan-mandated)
-- Minor (final-review triage): update/remove IDOR paths + update merged-validation untested (plan-scoped)
+Modules Task 10: complete (controller-run: final gate green, no hardcoded hex, 6 token definitions, engine tasks 12-14 marked superseded)
+All 20 tasks complete. Range dc35971..HEAD.
 
-Task 7: complete (commits 6f9a242..adb1d6e, review clean, verbatim)
-- Minor (final-review triage): contestants add accepts all-whitespace name (plan-inherited)
-- Minor (final-review triage): contestants update audit before-snapshot only status (plan-inherited)
-
-Task 8: complete (commits adb1d6e..f9c9d9a, review clean; test-helper deviation: ensureUserProfile for Bob - verified legit; NOTE-mandated corrected test applied)
-- Minor (final-review triage): judge IDOR negative paths untested despite test title (plan-scoped)
-- Minor (final-review triage): addAssignment audit omits criterionId (plan-inherited)
-
-Task 9: complete (commits f9c9d9a..c724a36, review clean, verbatim)
-- Minor (final-review triage): empty round fails both rounds.criteria and rounds.weights (co-occurring failures, plan design)
-
-Task 10: complete (commits c724a36..cc66eb3, review clean; test-helper deviation: ensureUserProfile for Bob - same as Task 8)
-- Minor (final-review triage): publish generates sheets via sequential inserts in triple loop (plan-mandated, scale consideration)
-
-Task 11: complete (commits cc66eb3..2c745a7 impl + 6cc3253 fix, re-review clean; user-approved fix: dropped dead orgId===null clause)
-- Minor (final-review triage): event-level scoringRules not captured in template snapshots (plan-acknowledged)
-- Minor (final-review triage): templates.list unindexed filter scan for system templates (plan-mandated, scale note)
-
-Task 12: complete (commits 6cc3253..06ce68b impl + 2c2a6cd fix, re-review clean; user-approved fix: grid loading/empty states; NOTE: controller failed to regen task-12 brief pre-dispatch - implementer regenerated correctly; user WIP in tree: app/graphify/, package.json graphify scripts, .graphifyignore - NEVER stage)
-- Minor (final-review triage): overview Visibility card renders static 'See settings' stub + dead capitalize class (plan-mandated)
-- Minor (final-review triage): EventShell 'return notFound()' vs bare call (plan-verbatim)
-
-Task 13: complete (commits 2c2a6cd..7632b94 impl + 2ace183 fix, re-review clean; user-approved: typed Id select state (no as never) + per-judge roundPicks state; NOTE: user committed ad52efa docs Phase 3 spec mid-session - not ours)
-- Minor (final-review triage): editors lack client-side empty-field guards (plan-mandated, server toasts backstop)
-- Minor (final-review triage): selects lack aria-labels; inputs placeholder-only (plan-mandated)
-- Minor (final-review triage): locked gating flashes edit controls while events.get loads (plan-mandated, server CONFLICT backstop)
-- Minor (final-review triage): rounds/categories/contestants lists lack loading/empty messaging (plan-mandated)
-
-Task 14: complete (commits 2ace183..927e831, review clean; deviation: run() param Promise<unknown> - brief's Promise<void> failed typecheck)
-- Minor (final-review triage): readiness page empty ul while loading (plan-mandated)
-- Minor (final-review triage): publish button briefly enabled while readiness loads (plan-mandated)
-- Minor (final-review triage): settings Save ignores venue-only changes (plan-mandated)
-- Minor (final-review triage): settings/templates inputs unlabeled (plan-mandated a11y)
-
-Task 15: complete (controller-run: all 4 gates green, all 4 authz scans PASS - see task-15-report.md; smoke checklist left for human)
-
-Final whole-branch review: verdict 'With fixes' -> ONE fix subagent (commit 5daa295): canCreateTemplates gate + blank-name guards (9 endpoints) + judge IDOR test. Re-review: Verified, merge-ready. 61/61 tests, all gates green.
-Deferred to Phase 3 (tracked in review output): publish batching/threshold guard, negative-path test sweep, assignment dedup, UI polish batch, audit snapshot depth, order semantics, N+1/filter scans, scoped-judge sheet generation.
-Phase 2 execution COMPLETE: 411f391..5daa295 (15 tasks + 4 fix commits).
+Final whole-branch review: verdict 'With fixes' -> ONE fix subagent (4e99062): scoring home Error branch, zero-score contestants unrankable (no NaN), sheetDetail event-scope guards. Re-verified by controller; gate green: typecheck/lint/build/125 tests.
+Minor findings deferred to Phase 4+ (see final-review.md): review precision, cross-category rank display, version race guard, correction overrides snapshot fidelity, overlapping tie-break rows, tieError reset, shared positions state, correct-dialog client validation, separatedBy tier label.
+Phase 3 execution COMPLETE: dc35971..4e99062 (20 tasks + fix commits, 5 waves of parallel agents).
 

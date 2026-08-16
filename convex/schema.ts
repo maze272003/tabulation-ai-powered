@@ -12,7 +12,8 @@ export default defineSchema({
     lastLoginAt: v.number(),
   })
     .index("by_token_identifier", ["tokenIdentifier"])
-    .index("by_email", ["email"]),
+    .index("by_email", ["email"])
+    .index("by_platform_role", ["platformRole"]),
 
   organizations: defineTable({
     slug: v.string(),

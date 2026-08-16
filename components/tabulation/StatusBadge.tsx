@@ -11,7 +11,7 @@ import {
   type Tone,
 } from "./status";
 
-const toneClasses: Record<Tone, string> = {
+export const toneClasses: Record<Tone, string> = {
   muted: "bg-muted text-muted-foreground",
   info: "bg-info-muted text-info",
   success: "bg-success-muted text-success",
