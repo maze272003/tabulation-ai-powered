@@ -1,8 +1,8 @@
-import type { MutationCtx } from "../_generated/server";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 
 export async function getUsage(
-  ctx: MutationCtx,
+  ctx: QueryCtx,
   orgId: Id<"organizations">,
   resource: string,
 ): Promise<number> {

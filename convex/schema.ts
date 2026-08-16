@@ -12,7 +12,8 @@ export default defineSchema({
     lastLoginAt: v.number(),
   })
     .index("by_token_identifier", ["tokenIdentifier"])
-    .index("by_email", ["email"]),
+    .index("by_email", ["email"])
+    .index("by_platform_role", ["platformRole"]),
 
   organizations: defineTable({
     slug: v.string(),
@@ -156,9 +157,11 @@ export default defineSchema({
     endDate: v.optional(v.number()),
     venue: v.optional(v.string()),
     timezone: v.optional(v.string()),
-    status: v.union(v.literal("draft"), v.literal("ready"), v.literal("archived")),
+    status: v.union(v.literal("draft"), v.literal("ready"), v.literal("finalized"), v.literal("archived")),
     decimalPrecision: v.number(),
     resultVisibility: v.union(v.literal("private"), v.literal("organization"), v.literal("public")),
+    scoringRules: v.object({ dropHighLow: v.boolean() }),
+    eliminationEnabled: v.boolean(),
     branding: v.object({
       primaryColor: v.optional(v.string()),
       secondaryColor: v.optional(v.string()),
@@ -185,6 +188,14 @@ export default defineSchema({
     order: v.number(),
     qualifiesToNextRound: v.boolean(),
     scoringRules: v.optional(v.object({ winner: v.union(v.literal("highest"), v.literal("lowest")) })),
+    weight: v.number(),
+    status: v.union(v.literal("open"), v.literal("closed"), v.literal("published")),
+    advancement: v.object({
+      mode: v.union(v.literal("none"), v.literal("top_count"), v.literal("top_percent"), v.literal("manual")),
+      count: v.optional(v.number()),
+      percent: v.optional(v.number()),
+      allowOverride: v.boolean(),
+    }),
   })
     .index("by_event_id", ["eventId"]),
 
@@ -245,10 +256,97 @@ export default defineSchema({
       v.literal("submitted"),
       v.literal("locked"),
     ),
+    draftValues: v.optional(v.record(v.string(), v.number())),
   })
     .index("by_event_id_and_round_id", ["eventId", "roundId"])
     .index("by_judge_id_and_round_id", ["judgeId", "roundId"])
     .index("by_event_id_and_round_id_and_contestant_id", ["eventId", "roundId", "contestantId"]),
+
+  scores: defineTable({
+    sheetId: v.id("scoreSheets"),
+    eventId: v.id("events"),
+    roundId: v.id("rounds"),
+    judgeId: v.id("judges"),
+    contestantId: v.id("contestants"),
+    criterionId: v.id("criteria"),
+    value: v.number(),
+    submittedAt: v.number(),
+    submittedById: v.id("userProfiles"),
+  })
+    .index("by_sheet_id", ["sheetId"])
+    .index("by_event_id_and_round_id", ["eventId", "roundId"])
+    .index("by_event_id_and_round_id_and_contestant_id", ["eventId", "roundId", "contestantId"]),
+
+  resultVersions: defineTable({
+    eventId: v.id("events"),
+    roundId: v.id("rounds"),
+    version: v.number(),
+    snapshot: v.object({
+      computedAt: v.number(),
+      decimalPrecision: v.number(),
+      categories: v.array(v.object({
+        categoryId: v.id("categories"),
+        standings: v.array(v.object({
+          contestantId: v.id("contestants"),
+          status: v.union(v.literal("active"), v.literal("scratched"), v.literal("disqualified")),
+          rank: v.union(v.null(), v.number()),
+          roundScore: v.union(v.null(), v.number()),
+          criterionScores: v.array(v.object({
+            criterionId: v.id("criteria"),
+            avgRaw: v.number(),
+            contribution: v.number(),
+            dropped: v.array(v.object({ judgeId: v.id("judges"), value: v.number() })),
+          })),
+          tieResolvedBy: v.union(v.literal("none"), v.literal("criteria_cascade"), v.literal("judge_firsts"), v.literal("manual")),
+          advanced: v.union(v.null(), v.boolean()),
+        })),
+      })),
+      judgeParticipation: v.array(v.object({
+        judgeId: v.id("judges"),
+        sheetsSubmitted: v.number(),
+        sheetsTotal: v.number(),
+      })),
+      decisions: v.object({
+        tieBreaks: v.array(v.object({
+          tiedContestantIds: v.array(v.id("contestants")),
+          orderedIds: v.array(v.id("contestants")),
+          createdById: v.id("userProfiles"),
+        })),
+        advancementOverrides: v.array(v.object({
+          contestantId: v.id("contestants"),
+          action: v.string(),
+          createdById: v.id("userProfiles"),
+        })),
+      }),
+    }),
+    createdById: v.id("userProfiles"),
+    createdAt: v.number(),
+    reason: v.optional(v.string()),
+  })
+    .index("by_round_id", ["roundId"])
+    .index("by_event_id", ["eventId"]),
+
+  advancementOverrides: defineTable({
+    eventId: v.id("events"),
+    roundId: v.id("rounds"),
+    contestantId: v.id("contestants"),
+    action: v.union(v.literal("force_advance"), v.literal("force_cut")),
+    createdById: v.id("userProfiles"),
+    createdAt: v.number(),
+  })
+    .index("by_round_id", ["roundId"])
+    .index("by_event_id_and_contestant_id", ["eventId", "contestantId"]),
+
+  tieBreaks: defineTable({
+    eventId: v.id("events"),
+    roundId: v.id("rounds"),
+    tiedContestantIds: v.array(v.id("contestants")),
+    orderedIds: v.array(v.id("contestants")),
+    createdById: v.id("userProfiles"),
+    createdAt: v.number(),
+  })
+    .index("by_round_id", ["roundId"])
+    .index("by_event_id", ["eventId"]),
 
   eventTemplates: defineTable({
     orgId: v.optional(v.id("organizations")),
@@ -257,7 +355,8 @@ export default defineSchema({
     configSnapshot: v.object({
       decimalPrecision: v.number(),
       resultVisibility: v.union(v.literal("private"), v.literal("organization"), v.literal("public")),
-      scoringRules: v.optional(v.object({ winner: v.union(v.literal("highest"), v.literal("lowest")) })),
+      eliminationEnabled: v.optional(v.boolean()),
+      scoringRules: v.optional(v.object({ dropHighLow: v.boolean() })),
       categories: v.optional(v.array(v.object({ name: v.string(), order: v.number() }))),
       rounds: v.array(
         v.object({
@@ -265,6 +364,13 @@ export default defineSchema({
           order: v.number(),
           qualifiesToNextRound: v.boolean(),
           scoringRules: v.optional(v.object({ winner: v.union(v.literal("highest"), v.literal("lowest")) })),
+          weight: v.optional(v.number()),
+          advancement: v.optional(v.object({
+            mode: v.union(v.literal("none"), v.literal("top_count"), v.literal("top_percent"), v.literal("manual")),
+            count: v.optional(v.number()),
+            percent: v.optional(v.number()),
+            allowOverride: v.boolean(),
+          })),
           criteria: v.array(
             v.object({
               name: v.string(),

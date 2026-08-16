@@ -3114,6 +3114,8 @@ export const finalizeEvent = mutation({
 
 ## Task 12: Judge UI — scoring home + entry form
 
+> **SUPERSEDED** by `2026-08-16-phase3-ui-ux-modules.md` Tasks 4–5 — do not execute.
+
 **Files:**
 - Modify: `components/EventShell.tsx`
 - Create: `app/app/[orgSlug]/events/[eventSlug]/scoring/page.tsx`
@@ -3349,6 +3351,8 @@ Expected: all green (UI-only addition).
 ---
 
 ## Task 13: Tabulator UI — monitor + review
+
+> **SUPERSEDED** by `2026-08-16-phase3-ui-ux-modules.md` Tasks 6–7 — do not execute.
 
 **Files:**
 - Create: `app/app/[orgSlug]/events/[eventSlug]/rounds/[roundId]/monitor/page.tsx`
@@ -3645,6 +3649,8 @@ git commit -m "feat: tabulator monitor and review/publish UI"
 ---
 
 ## Task 14: Results UI + config editor extensions
+
+> **SUPERSEDED** by `2026-08-16-phase3-ui-ux-modules.md` Tasks 8–9 — do not execute.
 
 **Files:**
 - Create: `app/app/[orgSlug]/events/[eventSlug]/results/page.tsx`
