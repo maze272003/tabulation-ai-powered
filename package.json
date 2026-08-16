@@ -7,9 +7,12 @@
     "typecheck": "tsc --noEmit",
     "build": "npm run typecheck && next build",
     "start": "next start",
-    "lint": "eslint . --ignore-pattern \"convex/_generated/**\"",
+    "lint": "eslint . --ignore-pattern \"convex/_generated/**\" --ignore-pattern \".graphify/**\"",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "graphify:extract": "graphify extract . --scope auto --no-description --no-label",
+    "graphify:studio": "graphify studio export .graphify/studio",
+    "graphify:build": "npm run graphify:extract && npm run graphify:studio"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -31,6 +34,7 @@
   "devDependencies": {
     "@convex-dev/eslint-plugin": "^2.0.0",
     "@edge-runtime/vm": "^5.0.0",
+    "@sentropic/graphify": "^0.17.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",

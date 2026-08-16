@@ -1,93 +1,85 @@
-# Task 4 Report: Core schema
+# Task 4 Report: Events CRUD (Phase 2 — Competition Config Engine)
 
-**Status:** DONE_WITH_CONCERNS
+**Status:** DONE_WITH_CONCERNS (one minimal, flagged deviation from the brief's verbatim code — see Deviation 1)
+**Commit:** `27a82e3` — `feat: events create/get/listByOrg/update with limits and audit`
+**Branch:** `phase2-competition-config`
 
-## Commits
+## Files
 
-- `f9dc8ee` — `feat: define core Phase-1 schema`
+- **Created** `convex/events.ts` — `create` / `get` / `listByOrg` / `update` mutations & queries
+- **Created** `convex-test/events.test.ts` — 7 tests, verbatim from the brief
+- **Modified** `convex-test/setup.ts` — appended `createOrgAndEvent` (existing exports untouched, verbatim from brief)
+- **Modified** `convex/_generated/api.d.ts` — regenerated via `npx convex codegen` (see Deviation 2)
 
-## What was done
+## TDD Evidence
 
-Replaced `convex/schema.ts` with the full 11-table Phase-1 schema as specified in the brief:
+### Step 2 — RED (`npm test` after writing only the test file)
 
-1. `userProfiles` (carried over from Task 3, unchanged definition)
-2. `organizations`
-3. `organizationMembers`
-4. `roles`
-5. `permissions`
-6. `rolePermissions`
-7. `invitations`
-8. `plans`
-9. `subscriptions`
-10. `usage`
-11. `auditLogs`
-
-## Verification
-
-| Check                                  | Result                                                         |
-| -------------------------------------- | ------------------------------------------------------------- |
-| `tsconfig.tsbuildinfo` cleared         | Removed before each typecheck (only one existed, at repo root)|
-| `npm run typecheck` (clean)            | **PASS — 0 errors** (`tsc --noEmit`, exit 0)                  |
-| `npx convex dev --once` (schema push)  | **PASS — schema pushed cleanly**, 11 tables, 5.49s            |
-| `npm run lint`                         | PASS (0 errors; 2 pre-existing warnings in betterAuth/_generated, unrelated) |
-
-## Critical caveat — `invitations.eventId`
-
-The brief's code block shows `eventId: v.union(v.null(), v.id("events"))`, which would fail schema validation because the `events` table does not exist until Phase 2. As instructed, I used the Phase-1 form:
-
-```ts
-eventId: v.union(v.null(), v.string()), // Phase 2: change to v.id("events") when the events table lands
+```
+ ❯ convex-test/events.test.ts (7 tests | 7 failed) 1275ms
+     × creates an event in draft with default settings 447ms
+     × rejects duplicate slug within the org with CONFLICT 217ms
+     × refuses event.create for a Viewer member 211ms
+     × get returns null for a non-member (cross-org) 102ms
+     × enforces maxEvents limit (Free plan = 1) 88ms
+     × updates name while draft 109ms
+     × eventAuthz: unknown slug NOT_FOUND; non-member get null 93ms
+ Test Files  1 failed | 7 passed (8)
+      Tests  7 failed | 32 passed (39)
 ```
 
-Confirmed: `invitations.eventId` is the `v.string()` Phase-1 form. The trailing comment is left as a migration marker for Phase 2 (the brief's one explicit exception to the no-comments rule).
+All 7 failures were `Error: Could not find module for: "events"` (i.e. `api.events` undefined), and the prior 32 tests passed — exactly the RED state the brief predicted.
 
-## Concern: deviation from brief on `auditLogs.by_org_id_and_creation_time`
+### Intermediate — first GREEN attempt after implementing brief-verbatim code
 
-The brief (caveat #4) claims `_creationTime` (a system field) can be indexed explicitly for time-ordered audit reads:
-
-```ts
-.index("by_org_id_and_creation_time", ["orgId", "_creationTime"])
+```
+ ❯ convex-test/events.test.ts (7 tests | 1 failed) 1262ms
+     × rejects duplicate slug within the org with CONFLICT 220ms
+ Test Files  1 failed | 7 passed (8)
+      Tests  1 failed | 38 passed (39)
 ```
 
-**This is incorrect.** Convex rejects this with a schema validation error on push:
+Failure detail: `expected ConvexError: Limit reached: events ... "code": "LIMIT_EXCEEDED"` — this exposed the latent ordering bug in the brief's verbatim `create` (Deviation 1 below).
 
-> `_creationTime` is automatically added to the end of each index. It should not be added explicitly in the index definition.
+### Step 5 — GREEN (after the minimal fix)
 
-The deployment push fails with `400 IndexFieldsContainCreationTime`.
-
-### Fix applied
-
-Dropped `_creationTime` from the index fields array, kept the index name unchanged:
-
-```ts
-.index("by_org_id_and_creation_time", ["orgId"]) // _creationTime is auto-appended by Convex; explicit listing is rejected by schema validation
-.index("by_actor", ["actorId"]),
+```
+ Test Files  8 passed (8)
+      Tests  39 passed (39)
+   Start at  23:27:34
 ```
 
-### Why this preserves the brief's intent
+Final gate re-run (post-codegen, both in one shell):
 
-Per the Convex guidelines (`convex/_generated/ai/guidelines.md:343`):
+```
+ Test Files  8 passed (8)
+      Tests  39 passed (39)
+TEST_EXIT=0
+... (Remove-Item tsconfig.tsbuildinfo; npm run typecheck → no output)
+TSC_EXIT=0
+```
 
-> Convex appends `_creationTime` as the final column of every database index. An index on `["points"]` therefore orders by `points`, then `_creationTime`.
+- `npm test`: **39/39 passed**, exit 0
+- `Remove-Item -Force tsconfig.tsbuildinfo; npm run typecheck`: **exit 0**, no errors
 
-So the index `["orgId"]` is actually implemented on the backend as `(orgId, _creationTime)` — exactly the ordering the brief wanted. Time-ordered audit reads within an org work identically: `.withIndex("by_org_id_and_creation_time", q => q.eq("orgId", orgId).gte("_creationTime", since))` will continue to work, and `.order("desc")` returns newest-first within the org. The index name still accurately describes its logical sort key (including the implicit `_creationTime` tiebreak), so any later task that references `by_org_id_and_creation_time` by name will work without modification.
+## Deviations from the brief (flagged, minimal)
 
-### Phase-2 / later-task impact
+### Deviation 1 (required — brief's verbatim code could not pass its own tests)
 
-None expected. The deviation is purely mechanical (omit `_creationTime` from the fields array); the index name, the table, the queries it supports, and the resulting ordering are all unchanged.
+`convex/events.ts` `create`: the brief ordered the checks as `requirePermission → requireLimit → slugify → duplicate-slug check`. With the Free plan's `maxEvents = 1` (the same fact the brief's own limit test asserts), any *second* event creation in an org — including a duplicate-slug attempt — trips `LIMIT_EXCEEDED` before the duplicate check ever runs. The brief's verbatim test "rejects duplicate slug within the org with CONFLICT" is therefore unpassable with the brief's verbatim implementation (observed: 38/39, that test failing with `LIMIT_EXCEEDED`).
+
+**Minimal fix:** moved the duplicate-slug (`CONFLICT`) check before `requireLimit`. Net ordering: `requirePermission → slugify/validate → duplicate check → requireLimit → insert`. No other logic changed. Both affected tests pass:
+- duplicate-slug test: `CONFLICT` (duplicate found before limit check)
+- limit test: distinct slug `"two"` clears the duplicate check, then `requireLimit` throws `LIMIT_EXCEEDED` (usage=1, max=1)
+
+### Deviation 2 (required — regenerated codegen committed alongside)
+
+The brief's commit step lists only `convex/events.ts convex-test/events.test.ts convex-test/setup.ts`, but `npm run typecheck` failed with `TS2339: Property 'events' does not exist` (14 errors) until `npx convex codegen` regenerated `convex/_generated/api.d.ts`. The repo's own convention (commit `8462fd6`) commits regenerated `_generated/api.d.ts` with the functions that changed it; omitting it leaves a dirty tree and breaks typecheck on fresh checkout. I included it in the single commit. Everything else staged matched the brief exactly.
 
 ## Self-review checklist
 
-- [x] All 11 Phase-1 tables present
-- [x] All indexes named per `by_<field>[_and_<field>]` convention
-- [x] `invitations.eventId` uses `v.union(v.null(), v.string())` — the Phase-1 form
-- [x] No `v.any()` anywhere
-- [x] All `v.id("tableName")` references point to tables defined in this schema (no dangling `v.id("events")`)
-- [x] `auditLogs.by_org_id_and_creation_time` field list conforms to Convex's `_creationTime` rule
-- [x] `npm run typecheck` passes clean (0 errors) after `tsconfig.tsbuildinfo` deletion
-- [x] `npx convex dev --once` pushes schema with no validation errors
-- [x] Single commit with the brief's exact message: `feat: define core Phase-1 schema`
-
-## Report file
-
-`C:\Users\USER\Documents\data\convex\tabulation-ai-powered\.superpowers\sdd\task-4-report.md`
+- Endpoints match the brief verbatim (args validators, handlers, return types) — sole exception is Deviation 1's reordering, which preserves every error code and behavior except which code wins when both a duplicate slug and a limit would apply (CONFLICT now takes precedence, which the brief's own test demands).
+- Tests are the brief's verbatim and genuinely assert behavior (draft status, precision default, error codes, null-on-non-member, rename round-trip).
+- Constraints honored: object-form `{ args, handler }` syntax; validators on every function; identity always derived server-side (no `userId` auth arg); no `Date.now()` in queries; no `any` / `as never`; no code comments; exactly one commit.
+- `createOrgAndEvent` appended after existing exports; existing exports (`setupTest`, `seedAndProvision`, `aliceIdentity`, `bobIdentity`) byte-identical to before.
+- Pre-existing dirty files (`.gitignore`, `.superpowers/sdd/*`, `.graphify*`) were left untouched and uncommitted.

@@ -1,3 +1,5 @@
+import type { Doc } from "../_generated/dataModel";
+
 export const SYSTEM_ROLES = [
   { name: "Org Owner", description: "Full control over the organization" },
   { name: "Org Admin", description: "Manage members and configuration" },
@@ -16,16 +18,27 @@ export const SYSTEM_PERMISSIONS = [
   { name: "audit.view", category: "audit", description: "View audit logs" },
   { name: "subscription.view", category: "subscription", description: "View subscription" },
   { name: "subscription.manage", category: "subscription", description: "Change subscription plan" },
+  { name: "event.create", category: "event", description: "Create events" },
+  { name: "event.view", category: "event", description: "View events" },
+  { name: "event.update", category: "event", description: "Update event configuration" },
+  { name: "event.delete", category: "event", description: "Delete events" },
+  { name: "event.publish", category: "event", description: "Publish and reopen events" },
+  { name: "event.archive", category: "event", description: "Archive events" },
+  { name: "contestant.manage", category: "contestant", description: "Manage contestants" },
+  { name: "judge.manage", category: "judge", description: "Manage judges and assignments" },
+  { name: "score.enter", category: "score", description: "Enter and submit own score sheets" },
+  { name: "score.manage", category: "score", description: "Run rounds, publish results, finalize events" },
+  { name: "result.view", category: "result", description: "View published results" },
 ] as const;
 
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
-  "Org Owner": ["organization.view", "organization.update", "organization.members.manage", "organization.delete", "audit.view", "subscription.view", "subscription.manage"],
-  "Org Admin": ["organization.view", "organization.update", "organization.members.manage", "audit.view", "subscription.view"],
-  "Event Admin": ["organization.view", "subscription.view"],
-  "Tabulator": ["organization.view"],
-  "Judge": ["organization.view"],
-  "Staff": ["organization.view"],
-  "Viewer": ["organization.view"],
+  "Org Owner": ["organization.view", "organization.update", "organization.members.manage", "organization.delete", "audit.view", "subscription.view", "subscription.manage", "event.create", "event.view", "event.update", "event.delete", "event.publish", "event.archive", "contestant.manage", "judge.manage", "score.manage", "result.view"],
+  "Org Admin": ["organization.view", "organization.update", "organization.members.manage", "audit.view", "subscription.view", "event.create", "event.view", "event.update", "event.delete", "event.publish", "event.archive", "contestant.manage", "judge.manage", "score.manage", "result.view"],
+  "Event Admin": ["organization.view", "subscription.view", "event.create", "event.view", "event.update", "event.publish", "event.archive", "contestant.manage", "judge.manage", "score.manage", "result.view"],
+  "Tabulator": ["organization.view", "event.view", "score.manage", "result.view"],
+  "Judge": ["organization.view", "event.view", "score.enter", "result.view"],
+  "Staff": ["organization.view", "event.view", "contestant.manage", "result.view"],
+  "Viewer": ["organization.view", "event.view", "result.view"],
 };
 
 export const SYSTEM_PLANS = [
@@ -60,3 +73,68 @@ export const SYSTEM_PLANS = [
     isSystem: true,
   },
 ] as const;
+
+export const SYSTEM_TEMPLATES: { name: string; description: string; configSnapshot: Doc<"eventTemplates">["configSnapshot"] }[] = [
+  {
+    name: "Pageant",
+    description: "Classic beauty pageant with a weighted preliminary round",
+    configSnapshot: {
+      decimalPrecision: 2,
+      resultVisibility: "private",
+      rounds: [
+        {
+          name: "Preliminary",
+          order: 0,
+          qualifiesToNextRound: false,
+          criteria: [
+            { name: "Beauty", order: 0, weight: 30, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+            { name: "Personality", order: 1, weight: 20, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+            { name: "Talent", order: 2, weight: 20, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+            { name: "Q&A", order: 3, weight: 30, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    name: "Singing",
+    description: "Singing competition with a weighted final round",
+    configSnapshot: {
+      decimalPrecision: 2,
+      resultVisibility: "private",
+      rounds: [
+        {
+          name: "Final",
+          order: 0,
+          qualifiesToNextRound: false,
+          criteria: [
+            { name: "Vocal Quality", order: 0, weight: 40, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+            { name: "Stage Presence", order: 1, weight: 20, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+            { name: "Musicality", order: 2, weight: 20, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+            { name: "Audience Impact", order: 3, weight: 20, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    name: "Quiz",
+    description: "Quiz bee with correctness-weighted scoring",
+    configSnapshot: {
+      decimalPrecision: 0,
+      resultVisibility: "private",
+      rounds: [
+        {
+          name: "Quiz Bee",
+          order: 0,
+          qualifiesToNextRound: false,
+          criteria: [
+            { name: "Correct Answers", order: 0, weight: 70, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+            { name: "Speed", order: 1, weight: 20, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+            { name: "Bonus", order: 2, weight: 10, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+          ],
+        },
+      ],
+    },
+  },
+];

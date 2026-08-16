@@ -1,228 +1,178 @@
-## Task 10: Organizations
+﻿## Task 10: Lifecycle â€” publish, reopen, archive
 
 **Files:**
-- Create: `convex/organizations.ts`
-- Modify: `convex/_test.ts` (add `createOrgAs`, `auditForOrg`)
+- Create: `convex/eventLifecycle.ts`
+- Create: `convex-test/lifecycle.test.ts`
 
 **Interfaces:**
-- Produces: `api.organizations.create` (seeds subscription + owner membership + audit + usage), `get`, `listMine`, `update`.
+- Consumes: `requireEventPermission` from `./lib/eventAuthz`; `computeReadiness` from `./events`; `writeAudit`; `appError`.
+- Produces: `api.eventLifecycle.publish({ orgSlug, eventSlug })` (draftâ†’ready; readiness failures â†’ VALIDATION_ERROR with `{ failures }` context; generates scoreSheets for judges Ã— rounds Ã— active contestants, status `not_started`); `api.eventLifecycle.reopen({ orgSlug, eventSlug })` (readyâ†’draft; deletes ALL event scoreSheets); `api.eventLifecycle.archive({ orgSlug, eventSlug })` (readyâ†’archived).
 
-- [ ] **Step 1: Write failing test**
+- [ ] **Step 1: Write failing tests â€” `convex-test/lifecycle.test.ts`**
 
-Create `convex-test/organizations.test.ts`:
 ```ts
 import { describe, expect, it } from "vitest";
 import { api } from "../convex/_generated/api";
-import { aliceIdentity, bobIdentity, seedAndProvision, setupTest } from "./setup";
+import { aliceIdentity, bobIdentity, createOrgAndEvent, setupTest } from "./setup";
 
-describe("organizations", () => {
-  it("creates an org with owner membership and free subscription", async () => {
+async function configureValidEvent(t: ReturnType<typeof setupTest>) {
+  await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "gala", name: "R" });
+  const rounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "gala" });
+  const roundId = rounds[0]._id;
+  await t.withIdentity(aliceIdentity).mutation(api.criteria.add, { orgSlug: "acme", eventSlug: "gala", roundId, name: "A", weight: 60, minScore: 0, maxScore: 10, decimalPrecision: 0 });
+  await t.withIdentity(aliceIdentity).mutation(api.criteria.add, { orgSlug: "acme", eventSlug: "gala", roundId, name: "B", weight: 40, minScore: 0, maxScore: 10, decimalPrecision: 0 });
+  await t.withIdentity(aliceIdentity).mutation(api.contestants.add, { orgSlug: "acme", eventSlug: "gala", name: "Maria", number: 1 });
+  await t.withIdentity(aliceIdentity).mutation(api.invitations.create, { orgSlug: "acme", email: "bob@example.com", roleName: "Judge" });
+  const pending = await t.withIdentity(bobIdentity).query(api.invitations.listForUser, {});
+  await t.withIdentity(bobIdentity).mutation(api.invitations.accept, { token: pending[0].token });
+  const members = await t.withIdentity(aliceIdentity).query(api.members.list, { orgSlug: "acme" });
+  const bobId = members.find((m: { email: string }) => m.email === "bob@example.com")!.userId;
+  await t.withIdentity(aliceIdentity).mutation(api.judges.add, { orgSlug: "acme", eventSlug: "gala", userId: bobId });
+  const judges = await t.withIdentity(aliceIdentity).query(api.judges.listWithAssignments, { orgSlug: "acme", eventSlug: "gala" });
+  await t.withIdentity(aliceIdentity).mutation(api.judges.addAssignment, { orgSlug: "acme", eventSlug: "gala", judgeId: judges[0]._id });
+}
+
+describe("lifecycle", () => {
+  it("blocks publish when readiness fails", async () => {
     const t = setupTest();
-    await seedAndProvision(t, aliceIdentity);
-    const slug = await t.runMutation(
-      api.organizations.create,
-      { name: "Acme", slug: "acme" },
-      { userIdentity: aliceIdentity },
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    await expect(
+      t.withIdentity(aliceIdentity).mutation(api.eventLifecycle.publish, { orgSlug: "acme", eventSlug: "gala" }),
+    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
+  });
+
+  it("publishes a valid event, generates sheets, freezes config; reopen deletes sheets", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    await configureValidEvent(t);
+    await t.withIdentity(aliceIdentity).mutation(api.eventLifecycle.publish, { orgSlug: "acme", eventSlug: "gala" });
+    const ev = await t.withIdentity(aliceIdentity).query(api.events.get, { orgSlug: "acme", eventSlug: "gala" });
+    expect(ev?.status).toBe("ready");
+    const sheetCount = await t.run(async (q) =>
+      (await q.db.query("scoreSheets").collect()).filter((s) => s.eventId === ev!._id).length,
     );
-    expect(slug).toBe("acme");
-    const mine = await t.runQuery(api.organizations.listMine, {}, { userIdentity: aliceIdentity });
-    expect(mine.length).toBe(1);
-    expect(mine[0].org.slug).toBe("acme");
-    expect(mine[0].role.name).toBe("Org Owner");
+    expect(sheetCount).toBe(1);
+    await expect(
+      t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "gala", name: "Late" }),
+    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
+    await t.withIdentity(aliceIdentity).mutation(api.eventLifecycle.reopen, { orgSlug: "acme", eventSlug: "gala" });
+    const after = await t.withIdentity(aliceIdentity).query(api.events.get, { orgSlug: "acme", eventSlug: "gala" });
+    expect(after?.status).toBe("draft");
+    const sheetsAfter = await t.run(async (q) =>
+      (await q.db.query("scoreSheets").collect()).filter((s) => s.eventId === after!._id).length,
+    );
+    expect(sheetsAfter).toBe(0);
   });
 
-  it("rejects duplicate slug", async () => {
+  it("archives a ready event", async () => {
     const t = setupTest();
-    await seedAndProvision(t, aliceIdentity);
-    await t.runMutation(api.organizations.create, { name: "Acme", slug: "acme" }, { userIdentity: aliceIdentity });
-    await expect(
-      t.runMutation(api.organizations.create, { name: "Other", slug: "acme" }, { userIdentity: aliceIdentity }),
-    ).rejects.toMatchObject({ message: expect.any(String) });
-  });
-
-  it("prevents cross-org access by slug", async () => {
-    const t = setupTest();
-    await seedAndProvision(t, aliceIdentity);
-    await seedAndProvision(t, bobIdentity);
-    await t.runMutation(api.organizations.create, { name: "Acme", slug: "acme" }, { userIdentity: aliceIdentity });
-    await expect(
-      t.runQuery(api.organizations.get, { orgSlug: "acme" }, { userIdentity: bobIdentity }),
-    ).rejects.toMatchObject({ message: expect.any(String) });
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    await configureValidEvent(t);
+    await t.withIdentity(aliceIdentity).mutation(api.eventLifecycle.publish, { orgSlug: "acme", eventSlug: "gala" });
+    await t.withIdentity(aliceIdentity).mutation(api.eventLifecycle.archive, { orgSlug: "acme", eventSlug: "gala" });
+    const ev = await t.withIdentity(aliceIdentity).query(api.events.get, { orgSlug: "acme", eventSlug: "gala" });
+    expect(ev?.status).toBe("archived");
   });
 });
 ```
 
-- [ ] **Step 2: Run — expect failure**
+- [ ] **Step 2: RED** â€” `npm test`.
 
-Run: `npm test`. Expected: FAIL (`api.organizations.*` undefined).
+- [ ] **Step 3: Implement `convex/eventLifecycle.ts`**
 
-- [ ] **Step 3: Implement `convex/organizations.ts`**
-
-Create `convex/organizations.ts`:
 ```ts
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import type { Doc, Id } from "./_generated/dataModel";
+import { mutation } from "./_generated/server";
 import { appError, ErrorCode } from "./lib/errors";
-import { requireIdentity, requireOrgMember, requirePermission } from "./lib/auth";
+import { requireEventPermission } from "./lib/eventAuthz";
+import { computeReadiness } from "./events";
 import { writeAudit } from "./lib/audit";
-import { incrementUsage } from "./lib/usage";
 
-function slugify(name: string): string {
-  return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-}
-
-export const create = mutation({
-  args: { name: v.string(), slug: v.optional(v.string()) },
-  handler: async (ctx, args): Promise<string> => {
-    const identity = await requireIdentity(ctx);
-    const profile = await ctx.db
-      .query("userProfiles")
-      .withIndex("by_token_identifier", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
-      .unique();
-    if (!profile) throw appError(ErrorCode.PROFILE_NOT_PROVISIONED, "Profile not provisioned");
-
-    const slug = slugify(args.slug ?? args.name);
-    const existing = await ctx.db
-      .query("organizations")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
-      .unique();
-    if (existing) throw appError(ErrorCode.CONFLICT, "Slug already taken", { slug });
-
-    const ownerRoleId = await pickSystemRole(ctx, "Org Owner");
-    const freePlan = await ctx.db
-      .query("plans")
-      .withIndex("by_name", (q) => q.eq("name", "Free"))
-      .unique();
-    if (!freePlan) throw appError(ErrorCode.NOT_FOUND, "Free plan missing — run seed");
-
-    const orgId: Id<"organizations"> = await ctx.db.insert("organizations", {
-      slug,
-      name: args.name.trim(),
-      ownerId: profile._id,
-      createdById: profile._id,
-      status: "active",
-      branding: {},
-    });
-    await ctx.db.insert("organizationMembers", {
-      userId: profile._id,
-      orgId,
-      roleId: ownerRoleId,
-      status: "active",
-      joinedAt: Date.now(),
-    });
-    await ctx.db.insert("subscriptions", {
-      orgId,
-      planId: freePlan._id,
-      status: "active",
-      trialEndsAt: null,
-      currentPeriodEndAt: null,
-      cancelAtPeriodEnd: false,
-      stripeCustomerId: null,
-      stripeSubscriptionId: null,
-    });
-    await incrementUsage(ctx, orgId, "members", 1);
-    await writeAudit(ctx, {
-      orgId, actorId: profile._id, action: "organization.created",
-      resourceType: "organization", resourceId: orgId, after: { slug, name: args.name },
-    });
-    return slug;
-  },
-});
-
-async function pickSystemRole(ctx: { db: any }, name: string): Promise<Id<"roles">> {
-  const role = await ctx.db
-    .query("roles")
-    .withIndex("by_name", (q) => q.eq("name", name))
-    .unique();
-  if (!role) throw appError(ErrorCode.NOT_FOUND, `Role missing: ${name}`);
-  return role._id;
-}
-
-export const get = query({
-  args: { orgSlug: v.string() },
+export const publish = mutation({
+  args: { orgSlug: v.string(), eventSlug: v.string() },
   handler: async (ctx, args) => {
-    const actx = await requireOrgMember(ctx, { orgSlug: args.orgSlug });
-    return actx.org;
+    const eactx = await requireEventPermission(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.publish" });
+    if (eactx.event.status !== "draft") {
+      throw appError(ErrorCode.CONFLICT, "Only draft events can be published");
+    }
+    const checks = await computeReadiness(ctx, eactx.event._id);
+    const failures = checks.filter((c) => !c.passed);
+    if (failures.length > 0) {
+      throw appError(ErrorCode.VALIDATION_ERROR, "Event is not ready to publish", { failures });
+    }
+    const rounds = await ctx.db.query("rounds").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
+    const judges = await ctx.db.query("judges").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
+    const contestants = await ctx.db.query("contestants").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
+    const active = contestants.filter((c) => c.status === "active");
+    let generated = 0;
+    for (const judge of judges) {
+      for (const round of rounds) {
+        for (const contestant of active) {
+          await ctx.db.insert("scoreSheets", {
+            eventId: eactx.event._id, roundId: round._id, judgeId: judge._id,
+            contestantId: contestant._id, status: "not_started",
+          });
+          generated++;
+        }
+      }
+    }
+    await ctx.db.patch(eactx.event._id, { status: "ready" });
+    await writeAudit(ctx, {
+      orgId: eactx.org._id, actorId: eactx.user._id, action: "event.published",
+      resourceType: "event", resourceId: eactx.event._id,
+      before: { status: "draft" }, after: { status: "ready", scoreSheetsGenerated: generated },
+    });
   },
 });
 
-export const listMine = query({
-  args: {},
-  handler: async (ctx) => {
-    const profile = await requireUserProfileFromCtx(ctx);
-    const memberships = await ctx.db
-      .query("organizationMembers")
-      .withIndex("by_user_id", (q) => q.eq("userId", profile._id))
-      .filter((q) => q.eq(q.field("status"), "active"))
+export const reopen = mutation({
+  args: { orgSlug: v.string(), eventSlug: v.string() },
+  handler: async (ctx, args) => {
+    const eactx = await requireEventPermission(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.publish" });
+    if (eactx.event.status !== "ready") {
+      throw appError(ErrorCode.CONFLICT, "Only ready events can be reopened");
+    }
+    const sheets = await ctx.db
+      .query("scoreSheets")
+      .withIndex("by_event_id_and_round_id", (q) => q.eq("eventId", eactx.event._id))
       .collect();
-    return Promise.all(
-      memberships.map(async (m) => {
-        const org = await ctx.db.get(m.orgId);
-        const role = await ctx.db.get(m.roleId);
-        return { membership: m, org, role };
-      }),
-    );
-  },
-});
-
-export const update = mutation({
-  args: { orgSlug: v.string(), name: v.optional(v.string()) },
-  handler: async (ctx, args) => {
-    const actx = await requirePermission(ctx, { orgSlug: args.orgSlug, permission: "organization.update" });
-    if (args.name === undefined) return actx.org;
-    const before = actx.org;
-    await ctx.db.patch(actx.org._id, { name: args.name.trim() });
+    for (const s of sheets) await ctx.db.delete(s._id);
+    await ctx.db.patch(eactx.event._id, { status: "draft" });
     await writeAudit(ctx, {
-      orgId: actx.org._id, actorId: actx.user._id, action: "organization.updated",
-      resourceType: "organization", resourceId: actx.org._id, before, after: { ...before, name: args.name },
+      orgId: eactx.org._id, actorId: eactx.user._id, action: "event.reopened",
+      resourceType: "event", resourceId: eactx.event._id,
+      before: { status: "ready" }, after: { status: "draft", scoreSheetsDeleted: sheets.length },
     });
   },
 });
 
-async function requireUserProfileFromCtx(ctx: any) {
-  const { requireUserProfile } = await import("./lib/auth");
-  return requireUserProfile(ctx);
-}
+export const archive = mutation({
+  args: { orgSlug: v.string(), eventSlug: v.string() },
+  handler: async (ctx, args) => {
+    const eactx = await requireEventPermission(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.archive" });
+    if (eactx.event.status !== "ready") {
+      throw appError(ErrorCode.CONFLICT, "Only ready events can be archived");
+    }
+    await ctx.db.patch(eactx.event._id, { status: "archived" });
+    await writeAudit(ctx, {
+      orgId: eactx.org._id, actorId: eactx.user._id, action: "event.archived",
+      resourceType: "event", resourceId: eactx.event._id,
+      before: { status: "ready" }, after: { status: "archived" },
+    });
+  },
+});
 ```
+Note: `reopen`'s `.withIndex("by_event_id_and_round_id", q => q.eq("eventId", ...))` binds only the index prefix â€” valid Convex.
 
-> Note: the inline `import()` of `requireUserProfile` and the `any` ctx on `pickSystemRole`/`requireUserProfileFromCtx` are pragmatic shims to avoid circular-import edge cases during initial scaffolding. In Step 5 you will replace them with direct top-level imports — verify `npm run typecheck` passes both ways and prefer the direct import.
-
-- [ ] **Step 4: Replace pragmatic shims with direct imports**
-
-Edit the top of `convex/organizations.ts` to import `requireUserProfile` directly:
-```ts
-import { requireIdentity, requireUserProfile, requireOrgMember, requirePermission } from "./lib/auth";
-```
-Wait — `requireOrgMember` and `requirePermission` live in `convex/lib/authz.ts`, not `auth.ts`. Correct imports:
-```ts
-import { requireIdentity, requireUserProfile } from "./lib/auth";
-import { requireOrgMember, requirePermission } from "./lib/authz";
-```
-Delete `requireUserProfileFromCtx` and the inline `import()` calls; call `requireUserProfile(ctx)` directly. Remove the `any`-typed `pickSystemRole` parameter and type it as `MutationCtx`:
-```ts
-import type { MutationCtx } from "./_generated/server";
-
-async function pickSystemRole(ctx: MutationCtx, name: string): Promise<Id<"roles">> {
-  const role = await ctx.db
-    .query("roles")
-    .withIndex("by_name", (q) => q.eq("name", name))
-    .unique();
-  if (!role) throw appError(ErrorCode.NOT_FOUND, `Role missing: ${name}`);
-  return role._id;
-}
-```
-
-- [ ] **Step 5: Run — expect pass**
-
-Run: `npm test`. Expected: organizations tests PASS.
-
-- [ ] **Step 6: Commit**
+- [ ] **Step 4: GREEN + commit**
 
 ```powershell
-git add convex/organizations.ts convex-test/organizations.test.ts
-git commit -m "feat: organization create/get/listMine/update with audit"
+npm test
+Remove-Item -Force tsconfig.tsbuildinfo -ErrorAction SilentlyContinue; npm run typecheck
+git add convex/eventLifecycle.ts convex-test/lifecycle.test.ts
+git commit -m "feat: publish/reopen/archive lifecycle with sheet generation"
 ```
+Expected: 55/55 tests pass; typecheck exit 0.
 
 ---
 

@@ -29,6 +29,8 @@ export default function OrgLayout({
           <Link href={`/app/${orgSlug}/members`} className="block rounded px-2 py-1 hover:bg-accent">Members</Link>
           <Link href={`/app/${orgSlug}/settings`} className="block rounded px-2 py-1 hover:bg-accent">Settings</Link>
           <Link href={`/app/${orgSlug}/billing`} className="block rounded px-2 py-1 hover:bg-accent">Billing</Link>
+          <Link href={`/app/${orgSlug}/events`} className="block rounded px-2 py-1 hover:bg-accent">Events</Link>
+          <Link href={`/app/${orgSlug}/templates`} className="block rounded px-2 py-1 hover:bg-accent">Templates</Link>
         </nav>
         <div className="pt-4 border-t"><UserMenu /></div>
       </aside>

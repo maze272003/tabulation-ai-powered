@@ -1,152 +1,157 @@
-## Task 2: Better-Auth Convex component
+﻿## Task 2: Permissions, role wiring, system templates
 
 **Files:**
-- Create: `convex/betterAuth/convex.config.ts`
-- Create: `convex/betterAuth/auth.ts`
-- Create: `convex/betterAuth/adapter.ts`
-- Generated: `convex/betterAuth/schema.ts` (by `npx auth generate`)
-- Create: `convex/convex.config.ts`
-- Create: `convex/auth.config.ts`
-- Create: `convex/http.ts`
+- Modify: `convex/lib/constants.ts`
+- Modify: `convex/seed.ts`
+- Modify: `convex-test/seed.test.ts` (append 1 test)
 
 **Interfaces:**
-- Produces: a mounted Better-Auth component, `ctx.auth.getUserIdentity()` resolvable once a client authenticates, HTTP route handlers for auth flows.
-- Reference: official guide at `https://www.better-auth.com/docs/integrations/convex`.
+- Produces: `SYSTEM_PERMISSIONS` gains 8 event-domain permissions; `ROLE_PERMISSIONS` rewired; `SYSTEM_TEMPLATES` exported; `seedReferenceData` seeds templates idempotently.
 
-- [ ] **Step 1: Create the component definition**
+- [ ] **Step 1: Extend `convex/lib/constants.ts`**
 
-Create `convex/betterAuth/convex.config.ts`:
+Append to `SYSTEM_PERMISSIONS` (before `] as const`):
 ```ts
-import { defineComponent } from "convex/server";
-
-const component = defineComponent("betterAuth");
-
-export default component;
+  { name: "event.create", category: "event", description: "Create events" },
+  { name: "event.view", category: "event", description: "View events" },
+  { name: "event.update", category: "event", description: "Update event configuration" },
+  { name: "event.delete", category: "event", description: "Delete events" },
+  { name: "event.publish", category: "event", description: "Publish and reopen events" },
+  { name: "event.archive", category: "event", description: "Archive events" },
+  { name: "contestant.manage", category: "contestant", description: "Manage contestants" },
+  { name: "judge.manage", category: "judge", description: "Manage judges and assignments" },
 ```
 
-- [ ] **Step 2: Register the component in the app config**
-
-Create `convex/convex.config.ts`:
+Replace `ROLE_PERMISSIONS` entirely:
 ```ts
-import { defineApp } from "convex/server";
-import betterAuth from "./betterAuth/convex.config";
-
-const app = defineApp();
-
-app.use(betterAuth);
-
-export default app;
+export const ROLE_PERMISSIONS: Record<string, string[]> = {
+  "Org Owner": ["organization.view", "organization.update", "organization.members.manage", "organization.delete", "audit.view", "subscription.view", "subscription.manage", "event.create", "event.view", "event.update", "event.delete", "event.publish", "event.archive", "contestant.manage", "judge.manage"],
+  "Org Admin": ["organization.view", "organization.update", "organization.members.manage", "audit.view", "subscription.view", "event.create", "event.view", "event.update", "event.delete", "event.publish", "event.archive", "contestant.manage", "judge.manage"],
+  "Event Admin": ["organization.view", "subscription.view", "event.create", "event.view", "event.update", "event.publish", "event.archive", "contestant.manage", "judge.manage"],
+  "Tabulator": ["organization.view", "event.view"],
+  "Judge": ["organization.view", "event.view"],
+  "Staff": ["organization.view", "event.view", "contestant.manage"],
+  "Viewer": ["organization.view", "event.view"],
+};
 ```
+(Event Admin gets NO `event.delete` â€” spec Â§2.)
 
-- [ ] **Step 3: Create the auth.config.ts**
-
-Create `convex/auth.config.ts`:
+Append after `SYSTEM_PLANS`:
 ```ts
-import { getAuthConfigProvider } from "@convex-dev/better-auth/auth-config";
-import type { AuthConfig } from "convex/server";
-
-export default {
-  providers: [getAuthConfigProvider()],
-} satisfies AuthConfig;
-```
-
-- [ ] **Step 4: Create the Better-Auth instance**
-
-Create `convex/betterAuth/auth.ts`:
-```ts
-import { createClient } from "@convex-dev/better-auth";
-import { convex } from "@convex-dev/better-auth/plugins";
-import type { GenericCtx } from "@convex-dev/better-auth/utils";
-import type { BetterAuthOptions } from "better-auth";
-import { betterAuth } from "better-auth";
-import { components } from "../_generated/api";
-import type { DataModel } from "../_generated/dataModel";
-import authConfig from "../auth.config";
-import schema from "./schema";
-
-export const authComponent = createClient<DataModel, typeof schema>(
-  components.betterAuth,
+export const SYSTEM_TEMPLATES = [
   {
-    local: { schema },
-    verbose: false,
-  },
-);
-
-export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions => {
-  return {
-    appName: "Tabulation",
-    baseURL: process.env.SITE_URL,
-    secret: process.env.BETTER_AUTH_SECRET,
-    database: authComponent.adapter(ctx),
-    emailAndPassword: { enabled: false },
-    socialProviders: {
-      google: {
-        clientId: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      },
+    name: "Pageant",
+    description: "Classic beauty pageant with a weighted preliminary round",
+    configSnapshot: {
+      decimalPrecision: 2,
+      resultVisibility: "private",
+      rounds: [
+        {
+          name: "Preliminary",
+          order: 0,
+          qualifiesToNextRound: false,
+          criteria: [
+            { name: "Beauty", order: 0, weight: 30, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+            { name: "Personality", order: 1, weight: 20, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+            { name: "Talent", order: 2, weight: 20, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+            { name: "Q&A", order: 3, weight: 30, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+          ],
+        },
+      ],
     },
-    plugins: [convex({ authConfig })],
-  };
-};
-
-export const options = createAuthOptions({} as GenericCtx<DataModel>);
-
-export const createAuth = (ctx: GenericCtx<DataModel>) => {
-  return betterAuth(createAuthOptions(ctx));
-};
+  },
+  {
+    name: "Singing",
+    description: "Singing competition with a weighted final round",
+    configSnapshot: {
+      decimalPrecision: 2,
+      resultVisibility: "private",
+      rounds: [
+        {
+          name: "Final",
+          order: 0,
+          qualifiesToNextRound: false,
+          criteria: [
+            { name: "Vocal Quality", order: 0, weight: 40, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+            { name: "Stage Presence", order: 1, weight: 20, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+            { name: "Musicality", order: 2, weight: 20, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+            { name: "Audience Impact", order: 3, weight: 20, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    name: "Quiz",
+    description: "Quiz bee with correctness-weighted scoring",
+    configSnapshot: {
+      decimalPrecision: 0,
+      resultVisibility: "private",
+      rounds: [
+        {
+          name: "Quiz Bee",
+          order: 0,
+          qualifiesToNextRound: false,
+          criteria: [
+            { name: "Correct Answers", order: 0, weight: 70, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+            { name: "Speed", order: 1, weight: 20, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+            { name: "Bonus", order: 2, weight: 10, minScore: 0, maxScore: 100, decimalPrecision: 0 },
+          ],
+        },
+      ],
+    },
+  },
+] as const;
 ```
 
-- [ ] **Step 5: Generate the Better-Auth schema**
+- [ ] **Step 2: Extend `convex/seed.ts`**
 
-Run:
-```powershell
-npx auth generate --config ./convex/betterAuth/auth.ts --output ./convex/betterAuth/schema.ts
-```
-Expected: a file appears at `convex/betterAuth/schema.ts` defining the Better-Auth tables (`user`, `session`, `account`, `verification`). If the command fails because `schema.ts` is referenced before it exists, create a stub `convex/betterAuth/schema.ts` with `export default {};` first, then re-run.
-
-- [ ] **Step 6: Create the adapter**
-
-Create `convex/betterAuth/adapter.ts`:
+Update the import:
 ```ts
-import { createApi } from "@convex-dev/better-auth";
-import { createAuthOptions } from "./auth";
-import schema from "./schema";
-
-export const {
-  create,
-  findOne,
-  findMany,
-  updateOne,
-  updateMany,
-  deleteOne,
-  deleteMany,
-} = createApi(schema, createAuthOptions);
+import { ROLE_PERMISSIONS, SYSTEM_PERMISSIONS, SYSTEM_PLANS, SYSTEM_ROLES, SYSTEM_TEMPLATES } from "./lib/constants";
 ```
-
-- [ ] **Step 7: Mount HTTP handlers**
-
-Create `convex/http.ts`:
+Append this loop at the end of `seedReferenceData`'s handler (after the plans loop):
 ```ts
-import { httpRouter } from "convex/server";
-import { authComponent, createAuth } from "./betterAuth/auth";
-
-const http = httpRouter();
-
-authComponent.registerRoutes(http, createAuth);
-
-export default http;
+    for (const tpl of SYSTEM_TEMPLATES) {
+      const existing = await ctx.db
+        .query("eventTemplates")
+        .filter((q) => q.eq(q.field("name"), tpl.name) && q.eq(q.field("isSystem"), true))
+        .first();
+      if (!existing) {
+        await ctx.db.insert("eventTemplates", {
+          orgId: null,
+          name: tpl.name,
+          description: tpl.description,
+          configSnapshot: tpl.configSnapshot,
+          isSystem: true,
+        });
+      }
+    }
 ```
 
-- [ ] **Step 8: Verify the backend deploys**
+- [ ] **Step 3: Append the seed test to `convex-test/seed.test.ts`** (inside the existing `describe`):
+```ts
+    it("seeds system templates idempotently", async () => {
+      const t = setupTest();
+      await t.mutation(api.seed.seedReferenceData, {});
+      await t.mutation(api.seed.seedReferenceData, {});
+      const count = await t.run(async (q) => {
+        const all = await q.db.query("eventTemplates").collect();
+        return all.filter((x) => x.isSystem).length;
+      });
+      expect(count).toBe(3);
+    });
+```
 
-Run `npx convex dev` in a separate terminal (keep it running). Expected: no errors; the schema generates and the component mounts. If `convex dev` reports a schema error from the still-present demo `numbers` table, that is fine for now — the demo is removed in Task 4.
-
-- [ ] **Step 9: Commit**
+- [ ] **Step 4: Verify + commit**
 
 ```powershell
-git add convex/betterAuth convex/convex.config.ts convex/auth.config.ts convex/http.ts
-git commit -m "feat: mount @convex-dev/better-auth component"
+npm test
+Remove-Item -Force tsconfig.tsbuildinfo -ErrorAction SilentlyContinue; npm run typecheck
+git add convex/lib/constants.ts convex/seed.ts convex-test/seed.test.ts
+git commit -m "feat: event-domain permissions, role wiring, system templates"
 ```
+Expected: 32/32 tests pass; typecheck exit 0.
 
 ---
 

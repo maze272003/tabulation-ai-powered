@@ -1,84 +1,63 @@
-# Task 5 Report: Test harness
+# Task 5 Report: Categories and rounds
 
-## Status: DONE_WITH_CONCERNS
+**Status:** DONE
+**Commit:** `520cfce` — `feat: categories and rounds with draft gating and cascade delete`
+**Branch:** `phase2-competition-config`
 
-The harness is built, both sanity tests pass, typecheck is clean, and the commit is on `phase1-foundation`. Marked DONE_WITH_CONCERNS only because several adaptations from the brief were required (documented below); they are all sound and the harness genuinely exercises the backend.
+## Files created
 
-## Commits
+- `convex/categories.ts` — `add`, `update`, `remove`, `list` (verbatim from brief)
+- `convex/rounds.ts` — `add`, `update`, `remove`, `list` with joined `criteria` (verbatim from brief)
+- `convex-test/config.test.ts` — 3 tests (verbatim from brief)
+- `convex/_generated/api.d.ts` — regenerated via `npx convex codegen` (adds `categories` and `rounds` modules; repo convention from Task 4)
 
-- `9c5a105` — `test: add convex-test harness`
+## TDD evidence
 
-## Verification
+### RED (after writing `convex-test/config.test.ts`, before implementation)
 
-- `npm test`: **2/2 sanity tests pass** (1 file, ~1.2s).
-- `npm run typecheck`: **clean** on a fresh build (`tsconfig.tsbuildinfo` deleted first).
-- `npm run lint`: 0 errors (2 pre-existing warnings in `convex/betterAuth/_generated/*.ts`, unrelated to this task).
-
-## What was delivered
-
-### `convex-test/setup.ts`
-Exports exactly the three agreed symbols — `setupTest()`, `aliceIdentity`, `bobIdentity`. `seedAndProvision` was **deferred** as instructed: `convex/seed.ts` does not exist until Task 8, so `api.seed.seedReferenceData` is a TS error today. Task 8 will add `seedAndProvision` to this file.
-
-```ts
-/// <reference types="vite/client" />
-import { convexTest } from "convex-test";
-import schema from "../convex/schema";
-
-const testModules = import.meta.glob("../convex/**/*.ts");
-
-export function setupTest() {
-  return convexTest(schema, testModules);
-}
-
-export const aliceIdentity = { tokenIdentifier: "alice-token", subject: "alice-subject",
-  name: "Alice", email: "alice@example.com",
-  pictureUrl: "https://example.com/a.png", issuer: "https://tabulation.example.com" } as const;
-
-export const bobIdentity   = { /* same shape, bob@example.com */ } as const;
+```
+ Test Files  1 failed | 8 passed (9)
+      Tests  3 failed | 39 passed (42)
 ```
 
-### `convex-test/sanity.test.ts`
-Two tests, both passing:
-1. `setupTest()` (anonymous) → `getCurrentUser` returns `null`.
-2. `setupTest().withIdentity(aliceIdentity)` → `ensureUserProfile` inserts a row, then `getCurrentUser` reads it back with `email === "alice@example.com"`.
+Failure cause (expected): `Could not find module for: "categories"` / `"rounds"` — `api.categories` / `api.rounds` undefined; all 3 new tests failed while the prior 39 passed.
 
-## Adaptations from the brief (concerns)
+### GREEN (after implementing `convex/categories.ts` + `convex/rounds.ts`)
 
-Four deviations from the brief's literal code were necessary. All were verified against the installed `convex-test@0.0.55` source (`node_modules/convex-test/dist/index.js` + `index.d.ts`) and the Convex testing docs.
+```
+ Test Files  9 passed (9)
+      Tests  42 passed (42)
+```
 
-### 1. Glob is lazy, NOT `{ eager: true }`
-The brief used `import.meta.glob("../convex/**/*.ts", { eager: true })`. convex-test's `moduleCache` does `return await module();` (index.js:1366) — i.e. it expects each entry to be a lazy loader `() => Promise<module>`. The eager form resolves modules to their values immediately, so `module()` throws "module is not a function". Removed `eager: true`. The Convex guidelines example (`convex/_generated/ai/guidelines.md`:414) confirms the lazy form `import.meta.glob("./**/*.ts")`.
+## Gate results
 
-### 2. Authentication via `.withIdentity(...)`, not a third `{ userIdentity }` argument
-The brief called `t.runMutation(api.auth.ensureUserProfile, {}, { userIdentity: aliceIdentity })`. In convex-test 0.0.55 the runtime signatures are `runQuery(fnRef, args)` and `runMutation(fnRef, args)` — only two arguments. A third argument is **silently ignored** (the function would run with no identity and throw `UNAUTHENTICATED`, failing the test). The typed, supported way to attach an identity is `const t = setupTest().withIdentity(aliceIdentity)`; the resulting object runs all subsequent `query`/`mutation` calls under that identity. Used that pattern. Verified in index.d.ts:85-96 (`withIdentity(identity: Partial<UserIdentity>)`) and index.js:1604-1608.
+- `npm test`: 42/42 passed
+- `npx convex codegen`: regenerated `api.d.ts` successfully
+- `Remove-Item -Force tsconfig.tsbuildinfo; npm run typecheck`: exit 0
 
-### 3. Used `t.query` / `t.mutation` (not `t.runQuery` / `t.runMutation`)
-The runtime has both names (it spreads `...byType, ...byTypeWithPath`), but the **public types** in `index.d.ts` only declare `query`, `mutation`, `action`. Using `runQuery`/`runMutation` compiles at runtime but fails `tsc` with TS2339/TS2551. Switched to the typed public API. (`runQuery` etc. are reachable through the same object and remain available to callers who need the by-path variants.)
+## Tests written
 
-### 4. Removed the `convex: "convex-test/convex-shim.ts"` vitest alias
-The alias (added in Task 1) breaks `convex/values` and `convex/server` imports. Vite string aliases match by prefix, so `"convex"` also remaps `convex/values`, `convex/server`, etc., to the empty shim (`export {};`). That would make `import { ConvexError } from "convex/values"` (in `convex/auth.ts`) resolve to `undefined`. Removed the alias from `vitest.config.ts`. The shim file (`convex-test/convex-shim.ts`) is left in place but is now unused — convex-test installs its own global proxy (`global.Convex = { syscall, asyncSyscall, jsSyscall }` via `ensureGlobalProxy()`, index.js:1396-1412) which is the official interception mechanism. The `convex` package reads `globalThis.Convex` at runtime, so no alias is required.
+1. `adds and lists categories in order` — creates org+event (seeds default "Open" category via `events.create`), adds "Juniors", asserts `["Open", "Juniors"]` order.
+2. `adds rounds and lists them with criteria joined` — adds "Preliminary"/"Final", asserts order and that each round has a joined `criteria` array.
+3. `unknown event slug yields NOT_FOUND` — `categories.add` on nonexistent event slug rejects with `{ data: { code: "NOT_FOUND" } }`.
 
-## Caveat checks from the brief
+## Self-review checklist
 
-- **Caveat 1 (defer `seedAndProvision`)** — Done. Not written, no `api.seed.*` reference anywhere.
-- **Caveat 2 (Step 3 "expected fail" is wrong)** — Confirmed. With `seedAndProvision` removed, both sanity tests genuinely PASS. The real success criterion (`npm test` green) is met.
-- **Caveat 3 (verify convex-test API shape)** — Verified against installed 0.0.55 types/source. Adaptations 1–3 above are the result.
-- **Caveat 4 (alias)** — Removed; see adaptation 4.
-- **Caveat 5 (edge-runtime + Better-Auth glob)** — **No narrowing needed.** The glob `"../convex/**/*.ts"` does include `convex/betterAuth/**/*.ts`, but convex-test loads modules **lazily** (only when a function reference is resolved). The sanity tests only call `api.auth.getCurrentUser` / `api.auth.ensureUserProfile`, which live in `convex/auth.ts`; that module imports only `./_generated/server` and `./_generated/dataModel` — it does **not** import `better-auth`. So `betterAuth/*` is never imported during these tests and the edge-runtime never sees the `better-auth` package. Left the glob broad to keep the harness reusable for later tasks.
-- **Caveat 6 (`userIdentity` shape)** — Verified. `withIdentity` accepts `Partial<UserIdentity>`; the brief's fields (`tokenIdentifier`, `subject`, `name`, `email`, `pictureUrl`, `issuer`) are all valid. Missing fields are auto-filled by convex-test (`subject`/`issuer`/`tokenIdentifier` get defaults). All provided explicitly here.
+- [x] `convex/categories.ts` and `convex/rounds.ts` match the brief verbatim (no modifications needed)
+- [x] All ID-arg mutations (`categories.update/remove`, `rounds.update/remove`) verify `doc.eventId === eactx.event._id` and throw `NOT_FOUND` otherwise
+- [x] `categories.remove` throws `CONFLICT` when contestants reference the category (`by_event_id_and_category_id` index, `.first()`)
+- [x] `rounds.remove` deletes the round's criteria before deleting the round; audit records `criteriaDeleted` count
+- [x] `rounds.list` returns rounds with joined `criteria` array
+- [x] Mutations gated by `requireDraftEvent(..., permission: "event.update")`; lists gated by `requireEventMember`
+- [x] All mutations write audit entries via `writeAudit`
+- [x] Object-form function syntax; validators on every function; no `any`/`as never` (`Record<string, unknown>` used in `rounds.update` per brief); no comments
+- [x] Single commit containing exactly the 4 intended files
 
-## Self-review: does the harness really exercise the backend?
+## Deviations
 
-Yes — it is not a mock of the handlers, it is a mock of the **database/syscall layer** only. The actual function code runs:
+None. The brief's verbatim code compiled and passed on the first attempt — no latent bugs encountered (unlike Tasks 2 and 4).
 
-- Test 1 calls the real `getCurrentUser` query handler. `ctx.auth.getUserIdentity()` returns `null` (no identity attached), the handler returns `null` directly — no DB read needed. Proves the query executes.
-- Test 2 calls the real `ensureUserProfile` mutation handler. It calls `ctx.auth.getUserIdentity()` (returns the Alice identity), then runs a real `ctx.db.query("userProfiles").withIndex("by_token_identifier", ...).unique()` against the `DatabaseFake`, finds nothing, and calls the real `ctx.db.insert("userProfiles", {...})` — exercising schema validation and the `by_token_identifier` index. The follow-up `getCurrentUser` query then reads the just-inserted row through the same index and returns it, with `email === "alice@example.com"`. This proves writes persist within a test, indexes resolve, and validators accept the document.
+## Notes
 
-No function handler is stubbed or bypassed. The harness is suitable for TDD in later tasks.
-
-## Files
-
-- `convex-test/setup.ts` (new, 28 lines)
-- `convex-test/sanity.test.ts` (new, 19 lines)
-- `vitest.config.ts` (modified — removed 3-line `alias` block)
-- `convex-test/convex-shim.ts` (Task 1, now unused — left in place; safe to delete in a later cleanup)
+- Test 1's `["Open", "Juniors"]` expectation relies on `events.create` seeding a default "Open" category (implemented in Task 4, `convex/events.ts:38`) — verified consistent.
+- List ordering relies on the `by_event_id` index's ascending order with `_creationTime` tiebreak, matching insertion order.

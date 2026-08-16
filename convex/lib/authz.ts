@@ -18,6 +18,9 @@ export async function resolveOrgBySlug(ctx: QueryCtx, slug: string) {
     .withIndex("by_slug", (q) => q.eq("slug", slug))
     .unique();
   if (!org || org.status === "deleted") throw appError(ErrorCode.NOT_FOUND, "Organization not found");
+  if (org.status === "suspended") {
+    throw appError(ErrorCode.FORBIDDEN, "Organization suspended");
+  }
   return org;
 }
 

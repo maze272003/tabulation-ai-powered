@@ -10,6 +10,7 @@ export const ErrorCode = {
   LIMIT_EXCEEDED: "LIMIT_EXCEEDED",
   FEATURE_UNAVAILABLE: "FEATURE_UNAVAILABLE",
   CONFLICT: "CONFLICT",
+  TIES_UNRESOLVED: "TIES_UNRESOLVED",
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
