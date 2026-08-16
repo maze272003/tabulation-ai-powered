@@ -1,7 +1,13 @@
 "use client";
 
 import { Authenticated } from "@/components/Authenticated";
+import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  return <Authenticated>{children}</Authenticated>;
+  return (
+    <Authenticated>
+      <AnnouncementBanner />
+      {children}
+    </Authenticated>
+  );
 }

@@ -47,6 +47,13 @@ export const ensureUserProfile = mutation({
       await maybeBootstrapPlatformOwner(ctx, { ...existing, email });
       return existing._id;
     }
+    const settings = await ctx.db.query("platformSettings").first();
+    if (settings && !settings.allowSignups) {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "New signups are temporarily closed",
+      });
+    }
     const email = identity.email ?? "";
     const id = await ctx.db.insert("userProfiles", {
       tokenIdentifier: identity.tokenIdentifier,

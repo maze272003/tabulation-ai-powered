@@ -9,11 +9,13 @@
  */
 
 import type * as accounts from "../accounts.js";
+import type * as announcements from "../announcements.js";
 import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
 import type * as categories from "../categories.js";
 import type * as contestants from "../contestants.js";
 import type * as criteria from "../criteria.js";
+import type * as crons from "../crons.js";
 import type * as enter_results from "../enter/results.js";
 import type * as enter_rounds from "../enter/rounds.js";
 import type * as enter_scoring from "../enter/scoring.js";
@@ -35,6 +37,7 @@ import type * as lib_password from "../lib/password.js";
 import type * as lib_roundCompute from "../lib/roundCompute.js";
 import type * as lib_serializers from "../lib/serializers.js";
 import type * as lib_sheetValidation from "../lib/sheetValidation.js";
+import type * as lib_superadmin from "../lib/superadmin.js";
 import type * as lib_tabulation from "../lib/tabulation.js";
 import type * as lib_usage from "../lib/usage.js";
 import type * as organizations from "../organizations.js";
@@ -52,6 +55,15 @@ import type * as roundAdmin from "../roundAdmin.js";
 import type * as rounds from "../rounds.js";
 import type * as seed from "../seed.js";
 import type * as subscriptions from "../subscriptions.js";
+import type * as superadmin_announcements from "../superadmin/announcements.js";
+import type * as superadmin_audit from "../superadmin/audit.js";
+import type * as superadmin_auth from "../superadmin/auth.js";
+import type * as superadmin_billing from "../superadmin/billing.js";
+import type * as superadmin_crm from "../superadmin/crm.js";
+import type * as superadmin_dashboard from "../superadmin/dashboard.js";
+import type * as superadmin_orgs from "../superadmin/orgs.js";
+import type * as superadmin_settings from "../superadmin/settings.js";
+import type * as superadmin_users from "../superadmin/users.js";
 import type * as templates from "../templates.js";
 
 import type {
@@ -62,11 +74,13 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   accounts: typeof accounts;
+  announcements: typeof announcements;
   audit: typeof audit;
   auth: typeof auth;
   categories: typeof categories;
   contestants: typeof contestants;
   criteria: typeof criteria;
+  crons: typeof crons;
   "enter/results": typeof enter_results;
   "enter/rounds": typeof enter_rounds;
   "enter/scoring": typeof enter_scoring;
@@ -88,6 +102,7 @@ declare const fullApi: ApiFromModules<{
   "lib/roundCompute": typeof lib_roundCompute;
   "lib/serializers": typeof lib_serializers;
   "lib/sheetValidation": typeof lib_sheetValidation;
+  "lib/superadmin": typeof lib_superadmin;
   "lib/tabulation": typeof lib_tabulation;
   "lib/usage": typeof lib_usage;
   organizations: typeof organizations;
@@ -105,6 +120,15 @@ declare const fullApi: ApiFromModules<{
   rounds: typeof rounds;
   seed: typeof seed;
   subscriptions: typeof subscriptions;
+  "superadmin/announcements": typeof superadmin_announcements;
+  "superadmin/audit": typeof superadmin_audit;
+  "superadmin/auth": typeof superadmin_auth;
+  "superadmin/billing": typeof superadmin_billing;
+  "superadmin/crm": typeof superadmin_crm;
+  "superadmin/dashboard": typeof superadmin_dashboard;
+  "superadmin/orgs": typeof superadmin_orgs;
+  "superadmin/settings": typeof superadmin_settings;
+  "superadmin/users": typeof superadmin_users;
   templates: typeof templates;
 }>;
 

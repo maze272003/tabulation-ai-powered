@@ -82,6 +82,10 @@ export default defineSchema({
       maxContestants: v.number(),
     }),
     isSystem: v.boolean(),
+    priceCents: v.optional(v.number()),
+    currency: v.optional(v.string()),
+    billingInterval: v.optional(v.union(v.literal("monthly"), v.literal("yearly"))),
+    isActive: v.optional(v.boolean()),
   })
     .index("by_name", ["name"]),
 
@@ -389,4 +393,63 @@ export default defineSchema({
   })
     .index("by_org_id", ["orgId"])
     .index("by_name", ["name"]),
+
+  superadminSessions: defineTable({
+    token: v.string(),
+    label: v.string(),
+    expiresAt: v.number(),
+    lastSeenAt: v.number(),
+  })
+    .index("by_token", ["token"])
+    .index("by_expires_at", ["expiresAt"]),
+
+  crmLeads: defineTable({
+    companyName: v.string(),
+    contactName: v.string(),
+    contactEmail: v.string(),
+    phone: v.optional(v.string()),
+    source: v.string(),
+    stage: v.union(
+      v.literal("lead"),
+      v.literal("qualified"),
+      v.literal("proposal"),
+      v.literal("trial"),
+      v.literal("customer"),
+      v.literal("churned"),
+    ),
+    valueCents: v.number(),
+    nextFollowUpAt: v.union(v.null(), v.number()),
+    summary: v.string(),
+    convertedOrgId: v.union(v.null(), v.id("organizations")),
+    createdById: v.union(v.null(), v.id("userProfiles")),
+    updatedAt: v.number(),
+  })
+    .index("by_stage", ["stage"])
+    .index("by_company_name", ["companyName"])
+    .index("by_updated_at", ["updatedAt"]),
+
+  crmNotes: defineTable({
+    leadId: v.union(v.null(), v.id("crmLeads")),
+    orgId: v.union(v.null(), v.id("organizations")),
+    body: v.string(),
+    createdById: v.union(v.null(), v.id("userProfiles")),
+  })
+    .index("by_lead_id", ["leadId"])
+    .index("by_org_id", ["orgId"]),
+
+  announcements: defineTable({
+    title: v.string(),
+    body: v.string(),
+    isActive: v.boolean(),
+    createdById: v.union(v.null(), v.id("userProfiles")),
+    publishedAt: v.number(),
+  })
+    .index("by_active_and_published_at", ["isActive", "publishedAt"]),
+
+  platformSettings: defineTable({
+    maintenanceMode: v.boolean(),
+    allowSignups: v.boolean(),
+    updatedById: v.union(v.null(), v.id("userProfiles")),
+    updatedAt: v.number(),
+  }),
 });
