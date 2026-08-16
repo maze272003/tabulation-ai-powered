@@ -34,6 +34,7 @@ import type * as plans from "../plans.js";
 import type * as platform from "../platform.js";
 import type * as roles from "../roles.js";
 import type * as rounds from "../rounds.js";
+import type * as scoring from "../scoring.js";
 import type * as seed from "../seed.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as templates from "../templates.js";
@@ -71,6 +72,7 @@ declare const fullApi: ApiFromModules<{
   platform: typeof platform;
   roles: typeof roles;
   rounds: typeof rounds;
+  scoring: typeof scoring;
   seed: typeof seed;
   subscriptions: typeof subscriptions;
   templates: typeof templates;

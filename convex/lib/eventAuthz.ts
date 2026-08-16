@@ -1,5 +1,5 @@
 import type { QueryCtx } from "../_generated/server";
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { appError, ErrorCode } from "./errors";
 import { requireOrgMember, type AuthCtx } from "./authz";
 
@@ -49,4 +49,34 @@ export async function requireDraftEvent(
     throw appError(ErrorCode.CONFLICT, "Event configuration is locked");
   }
   return eactx;
+}
+
+export async function requireReadyEvent(
+  ctx: QueryCtx,
+  args: { orgSlug: string; eventSlug: string; permission: string },
+): Promise<EventAuthCtx> {
+  const eactx = await requireEventPermission(ctx, args);
+  if (eactx.event.status !== "ready") {
+    throw appError(ErrorCode.CONFLICT, "Event is not in scoring state");
+  }
+  return eactx;
+}
+
+export async function requireJudgeRow(ctx: QueryCtx, eactx: EventAuthCtx): Promise<Doc<"judges">> {
+  const judge = await ctx.db
+    .query("judges")
+    .withIndex("by_event_id_and_user_id", (q) => q.eq("eventId", eactx.event._id).eq("userId", eactx.user._id))
+    .unique();
+  if (!judge) throw appError(ErrorCode.NOT_FOUND, "No judge record for this event");
+  return judge;
+}
+
+export async function loadRound(
+  ctx: QueryCtx,
+  eactx: EventAuthCtx,
+  roundId: Id<"rounds">,
+): Promise<Doc<"rounds">> {
+  const round = await ctx.db.get(roundId);
+  if (!round || round.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Round not found");
+  return round;
 }
