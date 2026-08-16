@@ -334,6 +334,7 @@ export const correctResults = mutation({
         ties: result.unresolvedTies,
       });
     }
+    await ctx.db.patch(args.roundId, {});
     const existing = await ctx.db
       .query("resultVersions")
       .withIndex("by_round_id", (q) => q.eq("roundId", args.roundId))

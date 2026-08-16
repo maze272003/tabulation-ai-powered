@@ -16,6 +16,11 @@ export type RoundComputeResult = {
   judgeParticipation: { judgeId: Id<"judges">; sheetsSubmitted: number; sheetsTotal: number }[];
   tieBreaks: Doc<"tieBreaks">[];
   overrides: Doc<"advancementOverrides">[];
+  effectiveOverrides: {
+    contestantId: Id<"contestants">;
+    action: "force_advance" | "force_cut";
+    createdById: Id<"userProfiles">;
+  }[];
 };
 
 export async function loadRoundCompute(
@@ -87,10 +92,13 @@ export async function loadRoundCompute(
     percent: round.advancement.percent ?? null,
     allowOverride: round.advancement.allowOverride,
   };
-  const overrides: AdvancementOverrideRow[] = [
-    ...overrideDocs.map((o) => ({ contestantId: o.contestantId, action: o.action })),
-    ...extraOverrides,
+  const effectiveOverrides: RoundComputeResult["effectiveOverrides"] = [
+    ...overrideDocs.map((o) => ({ contestantId: o.contestantId, action: o.action, createdById: o.createdById })),
+    ...extraOverrides.map((o) => ({ contestantId: o.contestantId, action: o.action, createdById: eactx.user._id })),
   ];
+  const overrides: AdvancementOverrideRow[] = effectiveOverrides.map((o) => ({
+    contestantId: o.contestantId, action: o.action,
+  }));
   const advancement = applyAdvancement(standings, advancementConfig, overrides);
   const judgeParticipation = judges.map((j) => {
     const own = sheets.filter((s) => s.judgeId === j._id);
@@ -102,7 +110,7 @@ export async function loadRoundCompute(
   });
   return {
     round, standings, unresolvedTies, advancement, advancementConfig,
-    judgeParticipation, tieBreaks, overrides: overrideDocs,
+    judgeParticipation, tieBreaks, overrides: overrideDocs, effectiveOverrides,
   };
 }
 
@@ -133,7 +141,7 @@ export function buildSnapshot(result: RoundComputeResult, now: number, decimalPr
       tieBreaks: result.tieBreaks.map((b) => ({
         tiedContestantIds: b.tiedContestantIds, orderedIds: b.orderedIds, createdById: b.createdById,
       })),
-      advancementOverrides: result.overrides.map((o) => ({
+      advancementOverrides: result.effectiveOverrides.map((o) => ({
         contestantId: o.contestantId, action: o.action, createdById: o.createdById,
       })),
     },

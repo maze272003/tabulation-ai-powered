@@ -105,6 +105,62 @@ describe("publish, results, corrections, finalize", () => {
     await t.withIdentity(aliceIdentity).mutation(api.eventLifecycle.archive, { orgSlug: "acme", eventSlug: "gala" });
   });
 
+  it("corrections freeze inline overrides into snapshot decisions and standings", async () => {
+    const t = setupTest();
+    const ids = await prepareScoredEvent(t, {
+      eliminationEnabled: true,
+      qualifiesToNextRound: true,
+      advancement: { mode: "top_count", count: 1, allowOverride: true },
+    });
+    await submitJudgeScores(t, bobIdentity, ids, [[8, 6], [5, 5]]);
+    await submitJudgeScores(t, carolIdentity, ids, [[9, 7], [5, 5]]);
+    await closeAndPublish(t, ids.roundId);
+    const members = await t.withIdentity(aliceIdentity).query(api.members.list, { orgSlug: "acme" });
+    const aliceProfileId = members.find((m: { email: string }) => m.email === "alice@example.com")!.userId;
+    await t.withIdentity(aliceIdentity).mutation(api.roundAdmin.correctResults, {
+      orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId, reason: "override reversal",
+      overrides: [
+        { contestantId: ids.contestantIds[0], action: "force_cut" },
+        { contestantId: ids.contestantIds[1], action: "force_advance" },
+      ],
+    });
+    const result = await t.withIdentity(aliceIdentity).query(api.results.roundResults, {
+      orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId,
+    });
+    expect(result.version).toBe(2);
+    expect(result.snapshot.decisions.advancementOverrides).toEqual([
+      { contestantId: ids.contestantIds[0], action: "force_cut", createdById: aliceProfileId },
+      { contestantId: ids.contestantIds[1], action: "force_advance", createdById: aliceProfileId },
+    ]);
+    const standings = result.snapshot.categories[0].standings;
+    const maria = standings.find((s: { contestantId: string }) => s.contestantId === ids.contestantIds[0])!;
+    const nina = standings.find((s: { contestantId: string }) => s.contestantId === ids.contestantIds[1])!;
+    expect(maria.advanced).toBe(false);
+    expect(nina.advanced).toBe(true);
+  });
+
+  it("sequential publish and corrections allocate versions 1, 2, 3 without duplicates", async () => {
+    const t = setupTest();
+    const ids = await prepareScoredEvent(t);
+    await submitJudgeScores(t, bobIdentity, ids, [[8, 6], [5, 5]]);
+    await submitJudgeScores(t, carolIdentity, ids, [[9, 7], [5, 5]]);
+    await closeAndPublish(t, ids.roundId);
+    await t.withIdentity(aliceIdentity).mutation(api.roundAdmin.correctResults, {
+      orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId, reason: "first correction",
+    });
+    await t.withIdentity(aliceIdentity).mutation(api.roundAdmin.correctResults, {
+      orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId, reason: "second correction",
+    });
+    const versions = await t.withIdentity(aliceIdentity).query(api.results.listRoundVersions, {
+      orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId,
+    });
+    expect(versions.map((v: { version: number }) => v.version)).toEqual([3, 2, 1]);
+    const latest = await t.withIdentity(aliceIdentity).query(api.results.roundResults, {
+      orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId,
+    });
+    expect(latest.version).toBe(3);
+  });
+
   it("publish requires the round to be closed; scoring stops after publish", async () => {
     const t = setupTest();
     const ids = await prepareScoredEvent(t);
