@@ -49,10 +49,20 @@ export const reopen = mutation({
     if (eactx.event.status !== "ready") {
       throw appError(ErrorCode.CONFLICT, "Only ready events can be reopened");
     }
+    const rounds = await ctx.db
+      .query("rounds")
+      .withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id))
+      .collect();
+    if (rounds.some((r) => r.status !== "open")) {
+      throw appError(ErrorCode.CONFLICT, "Round scoring has started");
+    }
     const sheets = await ctx.db
       .query("scoreSheets")
       .withIndex("by_event_id_and_round_id", (q) => q.eq("eventId", eactx.event._id))
       .collect();
+    if (sheets.some((s) => s.status === "submitted" || s.status === "locked")) {
+      throw appError(ErrorCode.CONFLICT, "Scores have been submitted");
+    }
     for (const s of sheets) await ctx.db.delete(s._id);
     await ctx.db.patch(eactx.event._id, { status: "draft" });
     await writeAudit(ctx, {
@@ -67,14 +77,14 @@ export const archive = mutation({
   args: { orgSlug: v.string(), eventSlug: v.string() },
   handler: async (ctx, args) => {
     const eactx = await requireEventPermission(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.archive" });
-    if (eactx.event.status !== "ready") {
-      throw appError(ErrorCode.CONFLICT, "Only ready events can be archived");
+    if (eactx.event.status !== "ready" && eactx.event.status !== "finalized") {
+      throw appError(ErrorCode.CONFLICT, "Only ready or finalized events can be archived");
     }
     await ctx.db.patch(eactx.event._id, { status: "archived" });
     await writeAudit(ctx, {
       orgId: eactx.org._id, actorId: eactx.user._id, action: "event.archived",
       resourceType: "event", resourceId: eactx.event._id,
-      before: { status: "ready" }, after: { status: "archived" },
+      before: { status: eactx.event.status }, after: { status: "archived" },
     });
   },
 });

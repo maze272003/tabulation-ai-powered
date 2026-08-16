@@ -1,6 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { api } from "../convex/_generated/api";
-import { aliceIdentity, createOrgAndEvent, setupTest } from "./setup";
+import { aliceIdentity, bobIdentity, createOrgAndEvent, setupTest } from "./setup";
+
+async function configureMinimalEvent(t: ReturnType<typeof setupTest>) {
+  await t.withIdentity(bobIdentity).mutation(api.auth.ensureUserProfile, {});
+  await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "gala", name: "R" });
+  const rounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "gala" });
+  const roundId = rounds[0]._id;
+  await t.withIdentity(aliceIdentity).mutation(api.criteria.add, { orgSlug: "acme", eventSlug: "gala", roundId, name: "A", weight: 60, minScore: 0, maxScore: 10, decimalPrecision: 0 });
+  await t.withIdentity(aliceIdentity).mutation(api.criteria.add, { orgSlug: "acme", eventSlug: "gala", roundId, name: "B", weight: 40, minScore: 0, maxScore: 10, decimalPrecision: 0 });
+  await t.withIdentity(aliceIdentity).mutation(api.contestants.add, { orgSlug: "acme", eventSlug: "gala", name: "Maria", number: 1 });
+  await t.withIdentity(aliceIdentity).mutation(api.invitations.create, { orgSlug: "acme", email: "bob@example.com", roleName: "Judge" });
+  const pending = await t.withIdentity(bobIdentity).query(api.invitations.listForUser, {});
+  await t.withIdentity(bobIdentity).mutation(api.invitations.accept, { token: pending[0].token });
+  const members = await t.withIdentity(aliceIdentity).query(api.members.list, { orgSlug: "acme" });
+  const bobId = members.find((m: { email: string }) => m.email === "bob@example.com")!.userId;
+  await t.withIdentity(aliceIdentity).mutation(api.judges.add, { orgSlug: "acme", eventSlug: "gala", userId: bobId });
+  const judges = await t.withIdentity(aliceIdentity).query(api.judges.listWithAssignments, { orgSlug: "acme", eventSlug: "gala" });
+  await t.withIdentity(aliceIdentity).mutation(api.judges.addAssignment, { orgSlug: "acme", eventSlug: "gala", judgeId: judges[0]._id });
+  return roundId;
+}
 
 describe("phase3 schema defaults", () => {
   it("new events get default scoring rules and elimination", async () => {
@@ -85,5 +104,59 @@ describe("phase3 schema defaults", () => {
     const r2 = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "g2" });
     expect(r2[0].weight).toBe(100);
     expect(r2[0].advancement).toEqual({ mode: "top_percent", percent: 50, allowOverride: false });
+  });
+});
+
+describe("readiness & lifecycle gating", () => {
+  it("multi-round weights must sum to 100", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "gala", name: "R1", weight: 60 });
+    await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "gala", name: "R2", weight: 60 });
+    const checks = await t.withIdentity(aliceIdentity).query(api.events.readiness, { orgSlug: "acme", eventSlug: "gala" });
+    expect(checks.find((c) => c.item === "rounds.weightsSum")?.passed).toBe(false);
+    await t.withIdentity(aliceIdentity).mutation(api.rounds.update, { orgSlug: "acme", eventSlug: "gala", roundId: (await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "gala" }))[1]._id, weight: 40 });
+    const after = await t.withIdentity(aliceIdentity).query(api.events.readiness, { orgSlug: "acme", eventSlug: "gala" });
+    expect(after.find((c) => c.item === "rounds.weightsSum")?.passed).toBe(true);
+  });
+
+  it("bad advancement config fails readiness", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "gala", name: "R" });
+    await t.run(async (q) => {
+      const rounds = await q.db.query("rounds").collect();
+      await q.db.patch(rounds[0]._id, { advancement: { mode: "top_percent", percent: 150, allowOverride: true } });
+    });
+    const checks = await t.withIdentity(aliceIdentity).query(api.events.readiness, { orgSlug: "acme", eventSlug: "gala" });
+    expect(checks.find((c) => c.item === "rounds.advancement")?.passed).toBe(false);
+  });
+
+  it("reopen is blocked once a sheet is submitted", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    await configureMinimalEvent(t);
+    await t.withIdentity(aliceIdentity).mutation(api.eventLifecycle.publish, { orgSlug: "acme", eventSlug: "gala" });
+    await t.run(async (q) => {
+      const sheets = await q.db.query("scoreSheets").collect();
+      await q.db.patch(sheets[0]._id, { status: "submitted" });
+    });
+    await expect(
+      t.withIdentity(aliceIdentity).mutation(api.eventLifecycle.reopen, { orgSlug: "acme", eventSlug: "gala" }),
+    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
+  });
+
+  it("reopen is blocked once a round is closed", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    await configureMinimalEvent(t);
+    await t.withIdentity(aliceIdentity).mutation(api.eventLifecycle.publish, { orgSlug: "acme", eventSlug: "gala" });
+    await t.run(async (q) => {
+      const rounds = await q.db.query("rounds").collect();
+      await q.db.patch(rounds[0]._id, { status: "closed" });
+    });
+    await expect(
+      t.withIdentity(aliceIdentity).mutation(api.eventLifecycle.reopen, { orgSlug: "acme", eventSlug: "gala" }),
+    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
   });
 });

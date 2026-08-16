@@ -148,6 +148,12 @@ export async function computeReadiness(
     return total !== 100;
   });
   const badRanges = criteriaPerRound.flat().filter((c) => !(c.minScore < c.maxScore));
+  const weightSum = rounds.reduce((s, r) => s + r.weight, 0);
+  const badAdvancement = rounds.filter(
+    (r) =>
+      (r.advancement.mode === "top_count" && !(Number.isInteger(r.advancement.count) && (r.advancement.count ?? 0) >= 1)) ||
+      (r.advancement.mode === "top_percent" && !((r.advancement.percent ?? 0) >= 1 && (r.advancement.percent ?? 0) <= 100)),
+  );
   const activeContestants = contestants.filter((c) => c.status === "active");
   const judgesWithAssignments = judges.filter((j) => assignments.some((a) => a.judgeId === j._id));
 
@@ -159,6 +165,8 @@ export async function computeReadiness(
     { item: "categories.exist", passed: categories.length >= 1, detail: `${categories.length} categor(y/ies)` },
     { item: "contestants.exist", passed: activeContestants.length >= 1, detail: `${activeContestants.length} active contestant(s)` },
     { item: "judges.exist", passed: judgesWithAssignments.length >= 1, detail: `${judgesWithAssignments.length} judge(s) with assignments` },
+    { item: "rounds.weightsSum", passed: weightSum === 100, detail: weightSum === 100 ? "round weights sum to 100" : `round weights sum to ${weightSum}, expected 100` },
+    { item: "rounds.advancement", passed: badAdvancement.length === 0, detail: badAdvancement.length === 0 ? "advancement rules valid" : `${badAdvancement.length} round(s) with invalid advancement config` },
   ];
 }
 
