@@ -149,6 +149,7 @@ export default defineSchema({
   events: defineTable({
     orgId: v.id("organizations"),
     slug: v.string(),
+    eventCode: v.string(),
     name: v.string(),
     description: v.string(),
     logoUrl: v.optional(v.string()),
@@ -171,7 +172,8 @@ export default defineSchema({
   })
     .index("by_org_id_and_slug", ["orgId", "slug"])
     .index("by_org_id_and_status", ["orgId", "status"])
-    .index("by_org_id", ["orgId"]),
+    .index("by_org_id", ["orgId"])
+    .index("by_event_code", ["eventCode"]),
 
   categories: defineTable({
     eventId: v.id("events"),

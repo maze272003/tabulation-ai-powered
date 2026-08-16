@@ -4,13 +4,28 @@ import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import { appError, ErrorCode } from "./lib/errors";
 import { requireOrgMember, requirePermission } from "./lib/authz";
-import { requireEventMember, requireDraftEvent } from "./lib/eventAuthz";
+import { requireEventMember, requireDraftEvent, requireEventPermission } from "./lib/eventAuthz";
 import { writeAudit } from "./lib/audit";
 import { requireLimit } from "./lib/entitlements";
 import { incrementUsage } from "./lib/usage";
+import { generateEventCode } from "./lib/eventCode";
 
 function slugify(name: string): string {
   return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+const EVENT_CODE_ATTEMPTS = 5;
+
+async function uniqueEventCode(ctx: QueryCtx): Promise<string> {
+  for (let i = 0; i < EVENT_CODE_ATTEMPTS; i++) {
+    const code = generateEventCode();
+    const clash = await ctx.db
+      .query("events")
+      .withIndex("by_event_code", (q) => q.eq("eventCode", code))
+      .unique();
+    if (!clash) return code;
+  }
+  throw appError(ErrorCode.CONFLICT, "Could not allocate a unique event code");
 }
 
 function defaultRoundWeight(index: number, total: number): number {
@@ -31,9 +46,11 @@ export const create = mutation({
       .unique();
     if (existing) throw appError(ErrorCode.CONFLICT, "Event slug already taken", { slug });
     await requireLimit(ctx, actx.subscription, "events");
+    const eventCode = await uniqueEventCode(ctx);
     const eventId = await ctx.db.insert("events", {
       orgId: actx.org._id,
       slug,
+      eventCode,
       name: args.name.trim(),
       description: "",
       status: "draft",
@@ -195,9 +212,11 @@ export const createFromTemplate = mutation({
       .unique();
     if (existing) throw appError(ErrorCode.CONFLICT, "Event slug already taken", { slug });
     const snap = tpl.configSnapshot;
+    const eventCode = await uniqueEventCode(ctx);
     const eventId = await ctx.db.insert("events", {
       orgId: actx.org._id,
       slug,
+      eventCode,
       name: args.name.trim(),
       description: "",
       status: "draft",
@@ -248,3 +267,24 @@ export const createFromTemplate = mutation({
     return slug;
   },
 });
+
+export const regenerateCode = mutation({
+  args: { orgSlug: v.string(), eventSlug: v.string() },
+  handler: async (ctx, args): Promise<string> => {
+    const eactx = await requireEventPermission(ctx, {
+      orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.update",
+    });
+    if (eactx.event.status !== "draft" && eactx.event.status !== "ready") {
+      throw appError(ErrorCode.CONFLICT, "Event code can no longer be regenerated");
+    }
+    const eventCode = await uniqueEventCode(ctx);
+    await ctx.db.patch(eactx.event._id, { eventCode });
+    await writeAudit(ctx, {
+      orgId: eactx.org._id, actorId: eactx.user._id, action: "event.code.regenerated",
+      resourceType: "event", resourceId: eactx.event._id,
+      before: { eventCode: eactx.event.eventCode }, after: { eventCode },
+    });
+    return eventCode;
+  },
+});
+
