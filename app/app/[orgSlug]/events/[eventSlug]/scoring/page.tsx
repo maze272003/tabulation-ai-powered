@@ -19,6 +19,15 @@ export default function ScoringPage({
   const mine = useQuery(api.scoring.myAssignments, { orgSlug, eventSlug });
 
   if (mine === undefined) return <TableSkeleton rows={4} cols={3} />;
+  if (mine instanceof Error) {
+    return (
+      <EmptyState
+        icon={ClipboardList}
+        title="Scoring unavailable"
+        hint="You may not have permission to enter scores for this event."
+      />
+    );
+  }
   if (mine.judgeId === null) {
     return (
       <EmptyState

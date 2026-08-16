@@ -178,6 +178,36 @@ describe("ranking & ties", () => {
     expect(standings.find((s) => s.contestantId === p("k1"))?.rank).toBe(1);
   });
 
+  it("contestant with no score rows is unrankable without NaN", () => {
+    const input = fixture({ k1: [9, 9], k2: [5, 5] });
+    input.scores = input.scores.filter((s) => s.contestantId !== p("k2"));
+    const { standings, unresolvedTies } = computeRoundStandings(input);
+    const k2 = standings.find((s) => s.contestantId === p("k2"))!;
+    expect(k2.rank).toBeNull();
+    expect(k2.roundScore).toBeNull();
+    expect(k2.criterionScores).toEqual([]);
+    expect(standings.find((s) => s.contestantId === p("k1"))?.rank).toBe(1);
+    const numericScores = standings.flatMap((s) => [
+      ...(s.roundScore === null ? [] : [s.roundScore]),
+      ...s.criterionScores.flatMap((cs) => [cs.avgRaw, cs.contribution, ...cs.dropped.map((d) => d.value)]),
+    ]);
+    expect(numericScores.every((v) => !Number.isNaN(v))).toBe(true);
+    expect(unresolvedTies).toEqual([]);
+  });
+
+  it("criterion with zero entries contributes nothing", () => {
+    const input = fixture({ k1: [9, 9], k2: [5, 5] });
+    input.scores = input.scores.filter((s) => s.criterionId !== c("cr2"));
+    const { standings, unresolvedTies } = computeRoundStandings(input);
+    for (const s of standings) {
+      expect(s.criterionScores.map((cs) => cs.criterionId)).toEqual([c("cr1")]);
+      expect(s.criterionScores.every((cs) => !Number.isNaN(cs.avgRaw) && !Number.isNaN(cs.contribution))).toBe(true);
+    }
+    expect(standings.find((s) => s.contestantId === p("k1"))?.rank).toBe(1);
+    expect(standings.find((s) => s.contestantId === p("k2"))?.rank).toBe(2);
+    expect(unresolvedTies).toEqual([]);
+  });
+
   it("deterministic across repeated runs", () => {
     const input = fixture({ k1: [8, 8], k2: [8, 8] });
     input.manualTieBreaks = [{ tiedContestantIds: [p("k1"), p("k2")], orderedIds: [p("k2"), p("k1")] }];

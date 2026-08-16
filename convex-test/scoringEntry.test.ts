@@ -113,4 +113,29 @@ describe("score entry", () => {
       t.mutation(api.scoring.saveDraft, { orgSlug: "acme", eventSlug: "gala", sheetId: sheets[0].sheetId, draftValues: {} }),
     ).rejects.toMatchObject({ data: { code: "UNAUTHENTICATED" } });
   });
+
+  it("sheetDetail rejects ids from a foreign event", async () => {
+    const t = setupTest();
+    const ids = await prepareScoredEvent(t);
+    await t.withIdentity(aliceIdentity).mutation(api.organizations.create, { name: "other", slug: "other" });
+    await t.withIdentity(aliceIdentity).mutation(api.events.create, { orgSlug: "other", name: "gala2", slug: "gala2" });
+    await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "other", eventSlug: "gala2", name: "R" });
+    const otherRounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "other", eventSlug: "gala2" });
+    await t.withIdentity(aliceIdentity).mutation(api.contestants.add, {
+      orgSlug: "other", eventSlug: "gala2", name: "Zoe", number: 1,
+    });
+    const otherContestants = await t.withIdentity(aliceIdentity).query(api.contestants.list, {
+      orgSlug: "other", eventSlug: "gala2",
+    });
+    await expect(
+      t.withIdentity(bobIdentity).query(api.scoring.sheetDetail, {
+        orgSlug: "acme", eventSlug: "gala", roundId: otherRounds[0]._id, contestantId: ids.contestantIds[0],
+      }),
+    ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
+    await expect(
+      t.withIdentity(bobIdentity).query(api.scoring.sheetDetail, {
+        orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId, contestantId: otherContestants[0]._id,
+      }),
+    ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
+  });
 });

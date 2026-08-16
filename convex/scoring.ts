@@ -95,17 +95,21 @@ export const sheetDetail = query({
       orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "score.enter",
     });
     const judge = await requireJudgeRow(ctx, eactx);
+    const round = await loadRound(ctx, eactx, args.roundId);
+    const contestant = await ctx.db.get(args.contestantId);
+    if (!contestant || contestant.eventId !== eactx.event._id) {
+      throw appError(ErrorCode.NOT_FOUND, "Contestant not found");
+    }
     const sheets = await ctx.db
       .query("scoreSheets")
       .withIndex("by_event_id_and_round_id_and_contestant_id", (q) =>
-        q.eq("eventId", eactx.event._id).eq("roundId", args.roundId).eq("contestantId", args.contestantId))
+        q.eq("eventId", eactx.event._id).eq("roundId", round._id).eq("contestantId", args.contestantId))
       .collect();
     const sheet = sheets.find((s) => s.judgeId === judge._id) ?? null;
     const criteria = await ctx.db
       .query("criteria")
-      .withIndex("by_round_id", (q) => q.eq("roundId", args.roundId))
+      .withIndex("by_round_id", (q) => q.eq("roundId", round._id))
       .collect();
-    const contestant = await ctx.db.get(args.contestantId);
     return { sheet, criteria: [...criteria].sort((a, b) => a.order - b.order), contestant };
   },
 });

@@ -51,13 +51,14 @@ export function computeContestantCriteria(
 ): CriterionResult[] {
   return [...criteria]
     .sort((a, b) => b.weight - a.weight || (a.id < b.id ? -1 : 1))
-    .map((c) => {
+    .flatMap((c) => {
       const entries = scores
         .filter((s) => s.contestantId === contestantId && s.criterionId === c.id)
         .map((s) => ({ judgeId: s.judgeId, value: s.value }));
+      if (entries.length === 0) return [];
       const { avg, dropped } = aggregateJudgeValues(entries, dropHighLow);
       const contribution = c.maxScore === 0 ? 0 : roundToPrecision((avg / c.maxScore) * c.weight, 6);
-      return { criterionId: c.id, avgRaw: roundToPrecision(avg, decimalPrecision), contribution, dropped };
+      return [{ criterionId: c.id, avgRaw: roundToPrecision(avg, decimalPrecision), contribution, dropped }];
     });
 }
 
@@ -141,11 +142,12 @@ export function computeRoundStandings(input: RoundComputeInput): {
       const criterionScores = rankable
         ? computeContestantCriteria(k.id, input.criteria, input.scores, input.dropHighLow, input.decimalPrecision)
         : [];
+      const hasScoreRows = criterionScores.length > 0;
       return {
         contestantId: k.id,
         categoryId: k.categoryId,
         status: k.status,
-        roundScore: rankable ? computeRoundScore(criterionScores) : null,
+        roundScore: rankable && hasScoreRows ? computeRoundScore(criterionScores) : null,
         criterionScores,
         rank: null,
         tieResolvedBy: "none" as const,
