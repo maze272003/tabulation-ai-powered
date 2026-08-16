@@ -35,6 +35,8 @@ export const createFromEvent = mutation({
         order: r.order,
         qualifiesToNextRound: r.qualifiesToNextRound,
         scoringRules: r.scoringRules,
+        weight: r.weight,
+        advancement: r.advancement,
         criteria: await ctx.db.query("criteria").withIndex("by_round_id", (q) => q.eq("roundId", r._id)).collect(),
       })),
     );
@@ -45,10 +47,12 @@ export const createFromEvent = mutation({
       configSnapshot: {
         decimalPrecision: eactx.event.decimalPrecision,
         resultVisibility: eactx.event.resultVisibility,
+        eliminationEnabled: eactx.event.eliminationEnabled,
+        scoringRules: eactx.event.scoringRules,
         categories: categories.map((c) => ({ name: c.name, order: c.order })),
         rounds: roundsWithCriteria.map((r) => ({
           name: r.name, order: r.order, qualifiesToNextRound: r.qualifiesToNextRound,
-          scoringRules: r.scoringRules,
+          scoringRules: r.scoringRules, weight: r.weight, advancement: r.advancement,
           criteria: r.criteria.map((c) => ({
             name: c.name, order: c.order, weight: c.weight,
             minScore: c.minScore, maxScore: c.maxScore, decimalPrecision: c.decimalPrecision,

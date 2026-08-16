@@ -4,21 +4,42 @@ import { appError, ErrorCode } from "./lib/errors";
 import { requireDraftEvent, requireEventMember } from "./lib/eventAuthz";
 import { writeAudit } from "./lib/audit";
 
+const advancementArgs = {
+  mode: v.union(v.literal("none"), v.literal("top_count"), v.literal("top_percent"), v.literal("manual")),
+  count: v.optional(v.number()),
+  percent: v.optional(v.number()),
+  allowOverride: v.boolean(),
+};
+
+function validateAdvancement(a: { mode: string; count?: number; percent?: number }): void {
+  if (a.mode === "top_count" && !(Number.isInteger(a.count) && (a.count ?? 0) >= 1)) {
+    throw appError(ErrorCode.VALIDATION_ERROR, "top_count advancement requires count >= 1");
+  }
+  if (a.mode === "top_percent" && !((a.percent ?? 0) >= 1 && (a.percent ?? 0) <= 100)) {
+    throw appError(ErrorCode.VALIDATION_ERROR, "top_percent advancement requires percent 1-100");
+  }
+}
+
 export const add = mutation({
   args: {
     orgSlug: v.string(), eventSlug: v.string(), name: v.string(),
     description: v.optional(v.string()), qualifiesToNextRound: v.optional(v.boolean()),
+    weight: v.optional(v.number()), advancement: v.optional(v.object(advancementArgs)),
   },
   handler: async (ctx, args) => {
     const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.update" });
     if (!args.name.trim()) throw appError(ErrorCode.VALIDATION_ERROR, "name must not be empty");
     const existing = await ctx.db.query("rounds").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
+    if (args.advancement) validateAdvancement(args.advancement);
     const id = await ctx.db.insert("rounds", {
       eventId: eactx.event._id,
       name: args.name.trim(),
       description: args.description,
       order: existing.length,
       qualifiesToNextRound: args.qualifiesToNextRound ?? false,
+      weight: args.weight ?? (existing.length === 0 ? 100 : 0),
+      status: "open",
+      advancement: args.advancement ?? { mode: "none", allowOverride: true },
     });
     await writeAudit(ctx, {
       orgId: eactx.org._id, actorId: eactx.user._id, action: "round.added",
@@ -33,6 +54,7 @@ export const update = mutation({
     name: v.optional(v.string()), description: v.optional(v.string()),
     qualifiesToNextRound: v.optional(v.boolean()),
     scoringRules: v.optional(v.object({ winner: v.union(v.literal("highest"), v.literal("lowest")) })),
+    weight: v.optional(v.number()), advancement: v.optional(v.object(advancementArgs)),
   },
   handler: async (ctx, args) => {
     const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.update" });
@@ -46,6 +68,16 @@ export const update = mutation({
     if (args.description !== undefined) patch.description = args.description;
     if (args.qualifiesToNextRound !== undefined) patch.qualifiesToNextRound = args.qualifiesToNextRound;
     if (args.scoringRules !== undefined) patch.scoringRules = args.scoringRules;
+    if (args.weight !== undefined) {
+      if (!Number.isInteger(args.weight) || args.weight < 0 || args.weight > 100) {
+        throw appError(ErrorCode.VALIDATION_ERROR, "weight must be an integer 0-100");
+      }
+      patch.weight = args.weight;
+    }
+    if (args.advancement !== undefined) {
+      validateAdvancement(args.advancement);
+      patch.advancement = args.advancement;
+    }
     if (Object.keys(patch).length === 0) return;
     await ctx.db.patch(args.roundId, patch);
     await writeAudit(ctx, {

@@ -13,6 +13,12 @@ function slugify(name: string): string {
   return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
+function defaultRoundWeight(index: number, total: number): number {
+  if (total === 1) return 100;
+  const base = Math.floor(100 / total);
+  return index === total - 1 ? 100 - base * (total - 1) : base;
+}
+
 export const create = mutation({
   args: { orgSlug: v.string(), name: v.string(), slug: v.optional(v.string()) },
   handler: async (ctx, args): Promise<string> => {
@@ -33,6 +39,8 @@ export const create = mutation({
       status: "draft",
       decimalPrecision: 2,
       resultVisibility: "private",
+      scoringRules: { dropHighLow: false },
+      eliminationEnabled: true,
       branding: {},
       createdById: actx.user._id,
     });
@@ -82,6 +90,8 @@ export const update = mutation({
     timezone: v.optional(v.string()),
     decimalPrecision: v.optional(v.number()),
     resultVisibility: v.optional(v.union(v.literal("private"), v.literal("organization"), v.literal("public"))),
+    scoringRules: v.optional(v.object({ dropHighLow: v.boolean() })),
+    eliminationEnabled: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const eactx = await requireDraftEvent(ctx, {
@@ -90,7 +100,7 @@ export const update = mutation({
     if (args.name !== undefined && !args.name.trim()) {
       throw appError(ErrorCode.VALIDATION_ERROR, "name must not be empty");
     }
-    const patch: Record<string, string | number> = {};
+    const patch: Record<string, unknown> = {};
     if (args.name !== undefined) patch.name = args.name.trim();
     if (args.description !== undefined) patch.description = args.description;
     if (args.startDate !== undefined) patch.startDate = args.startDate;
@@ -104,6 +114,8 @@ export const update = mutation({
       patch.decimalPrecision = args.decimalPrecision;
     }
     if (args.resultVisibility !== undefined) patch.resultVisibility = args.resultVisibility;
+    if (args.scoringRules !== undefined) patch.scoringRules = args.scoringRules;
+    if (args.eliminationEnabled !== undefined) patch.eliminationEnabled = args.eliminationEnabled;
     if (Object.keys(patch).length === 0) return;
     await ctx.db.patch(eactx.event._id, patch);
     await writeAudit(ctx, {
@@ -183,6 +195,8 @@ export const createFromTemplate = mutation({
       status: "draft",
       decimalPrecision: snap.decimalPrecision,
       resultVisibility: snap.resultVisibility,
+      scoringRules: snap.scoringRules ?? { dropHighLow: false },
+      eliminationEnabled: snap.eliminationEnabled ?? true,
       branding: {},
       templateId: tpl._id,
       createdById: actx.user._id,
@@ -194,13 +208,16 @@ export const createFromTemplate = mutation({
     } else {
       await ctx.db.insert("categories", { eventId, name: "Open", order: 0 });
     }
-    for (const r of snap.rounds) {
+    for (const [i, r] of snap.rounds.entries()) {
       const roundId = await ctx.db.insert("rounds", {
         eventId,
         name: r.name,
         order: r.order,
         qualifiesToNextRound: r.qualifiesToNextRound,
         scoringRules: r.scoringRules,
+        weight: r.weight ?? defaultRoundWeight(i, snap.rounds.length),
+        status: "open",
+        advancement: r.advancement ?? { mode: "none", allowOverride: true },
       });
       for (const c of r.criteria) {
         await ctx.db.insert("criteria", {
