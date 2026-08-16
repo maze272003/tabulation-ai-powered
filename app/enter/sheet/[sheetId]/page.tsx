@@ -62,7 +62,7 @@ export default function ScoreSheetPage({
     );
   }
 
-  if (data === null) {
+  if (data === null || !data.sheet || !data.round) {
     return (
       <div className="text-center py-16 space-y-4">
         <div className="w-12 h-12 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mx-auto">
@@ -143,7 +143,16 @@ function ScoreSheetForm({
       validationErrors[c._id] = `Score cannot exceed ${c.maxScore}`;
       allComplete = false;
     } else {
-      totalScore += num;
+      const factor = 10 ** (c.decimalPrecision ?? 0);
+      if (Math.abs(num * factor - Math.round(num * factor)) > 1e-6) {
+        validationErrors[c._id] =
+          c.decimalPrecision === 0
+            ? "Must be a whole number (no decimals)"
+            : `Allows at most ${c.decimalPrecision} decimal place${c.decimalPrecision === 1 ? "" : "s"}`;
+        allComplete = false;
+      } else {
+        totalScore += num;
+      }
     }
   }
 
@@ -221,7 +230,7 @@ function ScoreSheetForm({
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Dashboard</span>
         </Link>
-        <StatusBadge kind="sheet" status={sheet.status} />
+        <StatusBadge kind="sheet" status={sheet?.status ?? "not_started"} />
       </div>
 
       {/* Contestant Header Card */}
@@ -241,9 +250,9 @@ function ScoreSheetForm({
               </div>
               <h1 className="text-2xl font-bold tracking-tight text-foreground">{contestant?.name}</h1>
               <p className="text-xs text-muted-foreground flex items-center gap-2">
-                <span>{round.name}</span>
+                <span>{round?.name}</span>
                 <span>•</span>
-                <span>Order: Round {round.order}</span>
+                <span>Order: Round {round?.order}</span>
               </p>
             </div>
 
@@ -300,7 +309,7 @@ function ScoreSheetForm({
                   </div>
 
                   <Badge variant="secondary" className="text-xs shrink-0 font-mono">
-                    {criterion.minScore} - {criterion.maxScore} pts
+                    {criterion.minScore} - {criterion.maxScore} pts · {criterion.decimalPrecision === 0 ? "integers" : `${criterion.decimalPrecision} dec`}
                   </Badge>
                 </div>
               </CardHeader>
@@ -317,7 +326,7 @@ function ScoreSheetForm({
                         value={val}
                         onChange={(e) => handleScoreChange(criterion._id, e.target.value)}
                         disabled={isImmutable}
-                        placeholder={`Enter score (${criterion.minScore} - ${criterion.maxScore})`}
+                        placeholder={`Enter score (${criterion.minScore} - ${criterion.maxScore}${criterion.decimalPrecision > 0 ? `, up to ${criterion.decimalPrecision} dec` : ""})`}
                         className={`font-mono text-base font-semibold h-11 ${
                           error ? "border-destructive focus-visible:ring-destructive" : ""
                         }`}

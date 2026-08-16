@@ -108,6 +108,12 @@ export const createAccount = internalMutation({
       lockedUntil: null,
       createdById: eactx.user._id,
     });
+    if (args.kind === "judge") {
+      await ctx.db.insert("judgeAssignments", {
+        judgeId: accountId,
+        eventId: eactx.event._id,
+      });
+    }
     await incrementUsage(ctx, eactx.org._id, "judges", 1);
     await writeAudit(ctx, {
       orgId: eactx.org._id,
@@ -132,18 +138,26 @@ export const list = query({
       .withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id))
       .collect();
     return Promise.all(
-      accounts.map(async (a) => ({
-        _id: a._id,
-        kind: a.kind,
-        displayName: a.displayName,
-        username: a.username,
-        status: a.status,
-        lockedUntil: a.lockedUntil,
-        assignments: await ctx.db
-          .query("judgeAssignments")
-          .withIndex("by_judge_id", (q) => q.eq("judgeId", a._id))
-          .collect(),
-      })),
+      accounts.map(async (a) => {
+        const sessions = await ctx.db
+          .query("eventSessions")
+          .withIndex("by_account_id", (q) => q.eq("accountId", a._id))
+          .collect();
+        return {
+          _id: a._id,
+          kind: a.kind,
+          displayName: a.displayName,
+          username: a.username,
+          status: a.status,
+          lockedUntil: a.lockedUntil,
+          failedAttempts: a.failedAttempts,
+          activeSessionsCount: sessions.filter((s) => s.expiresAt > Date.now()).length,
+          assignments: await ctx.db
+            .query("judgeAssignments")
+            .withIndex("by_judge_id", (q) => q.eq("judgeId", a._id))
+            .collect(),
+        };
+      }),
     );
   },
 });

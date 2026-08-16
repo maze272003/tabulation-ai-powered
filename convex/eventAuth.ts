@@ -1,8 +1,17 @@
 import { v } from "convex/values";
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Doc } from "./_generated/dataModel";
 import { appError, ErrorCode } from "./lib/errors";
 import { timingSafeDummyVerify, verifyPassword } from "./lib/password";
+
+export type SessionInfoPayload = {
+  account: Pick<Doc<"eventAccounts">, "_id" | "kind" | "displayName" | "username">;
+  event: Pick<
+    Doc<"events">,
+    "_id" | "name" | "slug" | "eventCode" | "status" | "resultVisibility" | "eliminationEnabled"
+  >;
+};
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_FAILED_ATTEMPTS = 5;
@@ -90,7 +99,7 @@ export const logout = mutation({
 
 export const sessionInfo = query({
   args: { sessionToken: v.string() },
-  handler: async (ctx, args): Promise<{ kind: string; displayName: string; eventName: string; expiresAt: number } | null> => {
+  handler: async (ctx, args): Promise<SessionInfoPayload | null> => {
     const session = await ctx.db
       .query("eventSessions")
       .withIndex("by_token", (q) => q.eq("token", args.sessionToken))
@@ -99,7 +108,23 @@ export const sessionInfo = query({
     const account = await ctx.db.get(session.accountId);
     const event = await ctx.db.get(session.eventId);
     if (!account || account.status !== "active" || !event) return null;
-    return { kind: account.kind, displayName: account.displayName, eventName: event.name, expiresAt: session.expiresAt };
+    return {
+      account: {
+        _id: account._id,
+        kind: account.kind,
+        displayName: account.displayName,
+        username: account.username,
+      },
+      event: {
+        _id: event._id,
+        name: event.name,
+        slug: event.slug,
+        eventCode: event.eventCode,
+        status: event.status,
+        resultVisibility: event.resultVisibility,
+        eliminationEnabled: event.eliminationEnabled,
+      },
+    };
   },
 });
 

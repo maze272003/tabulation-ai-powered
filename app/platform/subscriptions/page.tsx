@@ -43,6 +43,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EmptyState, TableSkeleton } from "@/components/tabulation/StateBlock";
+import { PageHeader } from "@/components/PageHeader";
 
 export default function PlatformSubscriptionsPage() {
   const plans = useQuery(api.plans.list, {});
@@ -92,13 +93,10 @@ export default function PlatformSubscriptionsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Subscriptions</h1>
-        <p className="text-sm text-muted-foreground">
-          Plan assignment for every organization. Stripe-managed billing arrives in Phase 6 —
-          overrides here are administrative and audited.
-        </p>
-      </div>
+      <PageHeader
+        title="Subscriptions"
+        description="Plan assignment for every organization. Stripe-managed billing arrives in Phase 6 — overrides here are administrative and audited."
+      />
 
       {status === "LoadingFirstPage" ? (
         <TableSkeleton rows={6} cols={5} />

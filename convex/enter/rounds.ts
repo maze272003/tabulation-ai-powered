@@ -117,7 +117,9 @@ export const roundReview = query({
       sessionToken: args.sessionToken, kind: "staff", requireReadyEvent: true,
     });
     const result = await loadRoundCompute(ctx, sctx, args.roundId);
-    if (result.round.status !== "closed") {
+    // Published rounds stay viewable read-only; every editing mutation
+    // (tie break, override, publish) independently requires "closed".
+    if (result.round.status !== "closed" && result.round.status !== "published") {
       throw appError(ErrorCode.CONFLICT, "Close the round before review");
     }
     const contestants = await ctx.db
@@ -149,7 +151,10 @@ export const roundReview = query({
         contestantIds: u.contestantIds,
         names: u.contestantIds.map(nameOf),
       })),
-      tieBreaks: result.tieBreaks,
+      tieBreaks: result.tieBreaks.map((tb) => ({
+        _id: tb._id,
+        orderedNames: tb.orderedIds.map(nameOf),
+      })),
       overrides: result.overrides,
     };
   },

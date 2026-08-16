@@ -152,4 +152,40 @@ describe("score entry", () => {
       }),
     ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
   });
+
+  it("accepts decimal scores (e.g. 59.1 or 8.5) and enforces precision", async () => {
+    const t = setupTest();
+    const ids = await prepareScoredEvent(t);
+    const bobMine = await t.query(api.enter.scoring.myAssignments, { sessionToken: ids.judgeSessions.bob });
+    const sheet = bobMine.rounds[0].sheets[0];
+
+    // Save draft with decimals
+    await t.mutation(api.enter.scoring.saveDraft, {
+      sessionToken: ids.judgeSessions.bob,
+      sheetId: sheet.sheetId,
+      draftValues: { [ids.criterionIds[0]]: 8.5, [ids.criterionIds[1]]: 7.25 },
+    });
+
+    const draftDetail = await t.query(api.enter.scoring.sheetDetail, {
+      sessionToken: ids.judgeSessions.bob,
+      sheetId: sheet.sheetId,
+    });
+    expect(draftDetail.sheet?.draftValues?.[ids.criterionIds[0]]).toBe(8.5);
+    expect(draftDetail.sheet?.draftValues?.[ids.criterionIds[1]]).toBe(7.25);
+
+    // Submit with decimal scores
+    await t.mutation(api.enter.scoring.submitSheet, {
+      sessionToken: ids.judgeSessions.bob,
+      sheetId: sheet.sheetId,
+      values: { [ids.criterionIds[0]]: 8.5, [ids.criterionIds[1]]: 7.25 },
+    });
+
+    const submittedDetail = await t.query(api.enter.scoring.sheetDetail, {
+      sessionToken: ids.judgeSessions.bob,
+      sheetId: sheet.sheetId,
+    });
+    expect(submittedDetail.sheet?.status).toBe("submitted");
+    expect(submittedDetail.scores?.length).toBe(2);
+    expect(submittedDetail.scores?.find((s) => s.criterionId === ids.criterionIds[0])?.value).toBe(8.5);
+  });
 });

@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EmptyState, TableSkeleton } from "@/components/tabulation/StateBlock";
+import { PageHeader } from "@/components/PageHeader";
 
 /**
  * Scope filter value encoding. Select values must be non-empty strings, so
@@ -51,12 +52,10 @@ export default function PlatformAuditPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Audit log</h1>
-        <p className="text-sm text-muted-foreground">
-          Every administrative and organizational action, newest first.
-        </p>
-      </div>
+      <PageHeader
+        title="Audit log"
+        description="Every administrative and organizational action, newest first."
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <Select value={scope} onValueChange={(value) => setScope((value as ScopeValue) ?? "all")}>

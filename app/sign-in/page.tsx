@@ -66,10 +66,10 @@ function SignInContent() {
       <div className="w-full max-w-md space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 text-primary mb-2 ring-1 ring-primary/20 shadow-sm">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary text-primary-foreground mb-2 shadow-sm">
             <Shield className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Tabulation Platform</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Tabulation</h1>
           <p className="text-sm text-muted-foreground">
             Sign in to manage your organization or enter your assigned event
           </p>

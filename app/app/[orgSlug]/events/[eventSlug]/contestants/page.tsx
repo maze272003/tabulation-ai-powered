@@ -4,8 +4,27 @@ import { use, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { toast } from "sonner";
+import { Loader2, Plus, Trash2, UserRound } from "lucide-react";
+import { EmptyState, TableSkeleton } from "@/components/tabulation/StateBlock";
+
+const STATUS_TONE: Record<string, string> = {
+  active: "bg-success-muted text-success",
+  scratched: "bg-warning-muted text-warning",
+  disqualified: "bg-destructive/10 text-destructive",
+};
 
 export default function ContestantsPage({ params }: { params: Promise<{ orgSlug: string; eventSlug: string }> }) {
   const { orgSlug, eventSlug } = use(params);
@@ -15,50 +34,142 @@ export default function ContestantsPage({ params }: { params: Promise<{ orgSlug:
   const remove = useMutation(api.contestants.remove);
   const [name, setName] = useState("");
   const [number, setNumber] = useState("");
+  const [adding, setAdding] = useState(false);
 
   const onError = (err: unknown) => {
     const data = (err as { data?: { code?: string; message?: string } })?.data;
-    if (data?.code === "LIMIT_EXCEEDED") toast.error("Contestant limit reached - upgrade your plan.");
+    if (data?.code === "LIMIT_EXCEEDED") toast.error("Contestant limit reached — upgrade your plan.");
     else if (data?.code === "CONFLICT") toast.error(data.message ?? "Conflict.");
     else toast.error(data?.message ?? "Action failed.");
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2">
-        <Input className="w-24" placeholder="No." value={number} onChange={(e) => setNumber(e.target.value)} />
-        <Input placeholder="Contestant name" value={name} onChange={(e) => setName(e.target.value)} />
-        <Button
-          onClick={async () => {
-            try {
-              await add({ orgSlug, eventSlug, name, number: Number(number) });
-              setName(""); setNumber("");
-            } catch (e) { onError(e); }
-          }}
-        >
-          Add
-        </Button>
-      </div>
-      <table className="w-full text-sm">
-        <thead className="text-left text-muted-foreground">
-          <tr><th className="py-1">No.</th><th>Name</th><th>Category</th><th>Status</th><th /></tr>
-        </thead>
-        <tbody>
-          {list?.map((c) => (
-            <tr key={c._id} className="border-t">
-              <td className="py-1">{c.number}</td>
-              <td>{c.name}</td>
-              <td>{cats?.find((x) => x._id === c.categoryId)?.name ?? "-"}</td>
-              <td>{c.status}</td>
-              <td className="text-right">
-                <Button variant="ghost" size="sm" onClick={async () => { try { await remove({ orgSlug, eventSlug, contestantId: c._id }); } catch (e) { onError(e); } }}>
-                  Remove
-                </Button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Add a contestant</CardTitle>
+          <CardDescription>Contestant numbers must be unique within the event.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form
+            className="flex flex-col gap-2 sm:flex-row"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!name.trim() || !number.trim()) return;
+              setAdding(true);
+              try {
+                await add({ orgSlug, eventSlug, name, number: Number(number) });
+                setName("");
+                setNumber("");
+              } catch (err) {
+                onError(err);
+              } finally {
+                setAdding(false);
+              }
+            }}
+          >
+            <div className="w-full space-y-1.5 sm:w-24">
+              <Label htmlFor="contestant-number" className="sr-only">
+                Number
+              </Label>
+              <Input
+                id="contestant-number"
+                type="number"
+                min={1}
+                placeholder="No."
+                value={number}
+                onChange={(e) => setNumber(e.target.value)}
+                disabled={adding}
+              />
+            </div>
+            <div className="flex-1 space-y-1.5">
+              <Label htmlFor="contestant-name" className="sr-only">
+                Contestant name
+              </Label>
+              <Input
+                id="contestant-name"
+                placeholder="Contestant name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={adding}
+              />
+            </div>
+            <Button type="submit" disabled={adding || !name.trim() || !number.trim()} className="sm:w-auto">
+              {adding ? <Loader2 aria-hidden className="animate-spin" /> : <Plus aria-hidden />}
+              Add
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Contestants</CardTitle>
+          <CardDescription>{list?.length ?? 0} contestants registered.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {list === undefined ? (
+            <TableSkeleton rows={5} cols={4} />
+          ) : list.length === 0 ? (
+            <EmptyState
+              icon={UserRound}
+              title="No contestants yet"
+              hint="Add contestants above — they appear on judge score sheets after publishing."
+            />
+          ) : (
+            <div className="rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead className="w-16 pl-4">No.</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="pr-4 text-right">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {list.map((c) => (
+                    <TableRow key={c._id}>
+                      <TableCell className="pl-4 font-mono font-medium">{c.number}</TableCell>
+                      <TableCell className="font-medium">{c.name}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {cats?.find((x) => x._id === c.categoryId)?.name ?? "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          className={`border-transparent capitalize ${STATUS_TONE[c.status] ?? "bg-muted text-muted-foreground"}`}
+                        >
+                          {c.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="pr-4 text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={async () => {
+                            try {
+                              await remove({ orgSlug, eventSlug, contestantId: c._id });
+                            } catch (err) {
+                              onError(err);
+                            }
+                          }}
+                        >
+                          <Trash2 aria-hidden />
+                          <span className="sr-only">Remove {c.name}</span>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

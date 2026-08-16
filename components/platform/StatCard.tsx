@@ -16,10 +16,10 @@ export function StatCard({
     <Card size="sm">
       <CardHeader>
         <CardDescription className="flex items-center gap-1.5">
-          {Icon && <Icon aria-hidden className="size-3.5" />}
+          {Icon && <Icon aria-hidden className="size-3.5 text-primary" />}
           {label}
         </CardDescription>
-        <CardTitle className="font-mono text-2xl tabular-nums">{value}</CardTitle>
+        <CardTitle className="font-heading text-2xl font-semibold tabular-nums">{value}</CardTitle>
         {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
       </CardHeader>
     </Card>

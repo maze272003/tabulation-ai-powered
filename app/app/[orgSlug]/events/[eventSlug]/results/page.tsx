@@ -6,6 +6,15 @@ import { EyeOff, Flag, History } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/tabulation/ConfirmDialog";
 import { Num } from "@/components/tabulation/Num";
@@ -125,43 +134,52 @@ export default function ResultsPage({
       ))}
 
       {results.rounds.length > 0 && (
-        <section className="space-y-3 rounded-lg border p-4" aria-label="Final standings">
-          <h3 className="font-medium">Final standings</h3>
-          {finalByCategory.map((group) => (
-            <div key={group.categoryId} className="space-y-2">
-              <h4 className="text-sm font-medium">{group.name}</h4>
-              <table className="w-full text-sm">
-                <caption className="sr-only">{group.name} final standings</caption>
-                <thead className="text-left text-muted-foreground">
-                  <tr>
-                    <th className="py-1">Rank</th>
-                    <th>Contestant</th>
-                    <th>Total</th>
-                    <th>Eliminated in round</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {group.rows.map((row) => (
-                    <tr key={row.contestantId} className="border-t">
-                      <td className="py-1">
-                        <Num value={row.rank} />
-                      </td>
-                      <td>{row.contestantName}</td>
-                      <td>
-                        <Num value={row.totalScore} precision={ev.decimalPrecision} />
-                      </td>
-                      <td className="text-muted-foreground">
-                        {row.eliminatedInRoundOrder === null
-                          ? "—"
-                          : `round ${row.eliminatedInRoundOrder}`}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ))}
-        </section>
+        <Card aria-label="Final standings">
+          <CardHeader>
+            <CardTitle>Final standings</CardTitle>
+            <CardDescription>
+              Weighted totals across all published rounds, grouped by category.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {finalByCategory.map((group) => (
+              <div key={group.categoryId} className="space-y-2">
+                <h4 className="text-sm font-semibold text-muted-foreground">{group.name}</h4>
+                <div className="rounded-lg border">
+                  <Table>
+                    <caption className="sr-only">{group.name} final standings</caption>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50 hover:bg-muted/50">
+                        <TableHead className="w-16 pl-4">Rank</TableHead>
+                        <TableHead>Contestant</TableHead>
+                        <TableHead>Total</TableHead>
+                        <TableHead>Eliminated in round</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {group.rows.map((row) => (
+                        <TableRow key={row.contestantId}>
+                          <TableCell className="pl-4">
+                            <Num value={row.rank} />
+                          </TableCell>
+                          <TableCell className="font-medium">{row.contestantName}</TableCell>
+                          <TableCell>
+                            <Num value={row.totalScore} precision={ev.decimalPrecision} />
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {row.eliminatedInRoundOrder === null
+                              ? "—"
+                              : `round ${row.eliminatedInRoundOrder}`}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       )}
 
       <ConfirmDialog

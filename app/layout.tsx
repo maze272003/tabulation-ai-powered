@@ -10,8 +10,12 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Tabulation",
-  description: "Competition management and tabulation platform",
+  title: {
+    default: "Tabulation — Competition Management Platform",
+    template: "%s | Tabulation",
+  },
+  description:
+    "Run events, score rounds, and rank participants with a secure, real-time tabulation platform for organizers, judges, and staff.",
 };
 
 export default async function RootLayout({

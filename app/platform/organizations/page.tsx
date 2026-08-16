@@ -32,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EmptyState, TableSkeleton } from "@/components/tabulation/StateBlock";
+import { PageHeader } from "@/components/PageHeader";
 
 type StatusFilter = "all" | "active" | "suspended";
 
@@ -51,12 +52,10 @@ export default function PlatformOrganizationsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Organizations</h1>
-        <p className="text-sm text-muted-foreground">
-          Every tenant on the platform. Suspend to revoke member access.
-        </p>
-      </div>
+      <PageHeader
+        title="Organizations"
+        description="Every tenant on the platform. Suspend to revoke member access."
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-0 flex-1 sm:max-w-xs">

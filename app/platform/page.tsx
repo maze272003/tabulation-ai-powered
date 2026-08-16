@@ -14,10 +14,12 @@ import {
 import { api } from "@/convex/_generated/api";
 import { PlatformBadge } from "@/components/platform/PlatformBadge";
 import { StatCard } from "@/components/platform/StatCard";
+import { DatabaseResetCard } from "@/components/platform/DatabaseResetCard";
 import { formatDateTime } from "@/components/platform/format";
 import { userStatusLabel, userStatusTone } from "@/components/platform/status";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { TableSkeleton } from "@/components/tabulation/StateBlock";
+import { PageHeader } from "@/components/PageHeader";
 
 export default function PlatformOverviewPage() {
   const stats = useQuery(api.platform.dashboard.stats, {});
@@ -25,7 +27,11 @@ export default function PlatformOverviewPage() {
   if (stats === undefined) {
     return (
       <div className="space-y-6">
-        <PageHeader />
+      <PageHeader
+        title="Overview"
+        description="Platform-wide health of accounts, organizations, and subscriptions."
+      />
+
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <TableSkeleton rows={2} cols={1} />
           <TableSkeleton rows={2} cols={1} />
@@ -40,7 +46,10 @@ export default function PlatformOverviewPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader />
+      <PageHeader
+        title="Overview"
+        description="Platform-wide health of accounts, organizations, and subscriptions."
+      />
 
       <section aria-label="Key metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
@@ -181,17 +190,8 @@ export default function PlatformOverviewPage() {
           </Link>
         </CardContent>
       </Card>
-    </div>
-  );
-}
 
-function PageHeader() {
-  return (
-    <div>
-      <h1 className="text-2xl font-semibold">Overview</h1>
-      <p className="text-sm text-muted-foreground">
-        Platform-wide health of accounts, organizations, and subscriptions.
-      </p>
+      <DatabaseResetCard />
     </div>
   );
 }

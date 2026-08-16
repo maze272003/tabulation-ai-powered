@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 export default function EventSettingsPage({
   params,
@@ -37,7 +38,7 @@ export default function EventSettingsPage({
   const { orgSlug, eventSlug } = use(params);
   const ev = useQuery(api.events.get, { orgSlug, eventSlug });
   const update = useMutation(api.events.update);
-  const regenerateCodeMutation = useMutation(api.eventCodes.regenerateCode);
+  const regenerateCodeMutation = useMutation(api.events.regenerateCode);
 
   const [name, setName] = useState("");
   const [venue, setVenue] = useState("");
@@ -59,8 +60,8 @@ export default function EventSettingsPage({
     setElimination(ev.eliminationEnabled);
   }
 
-  if (ev === undefined) return <div className="p-4">Loading…</div>;
-  if (ev === null) return <div className="p-4">Event not found.</div>;
+  if (ev === undefined) return <LoadingScreen label="Loading settings…" />;
+  if (ev === null) return <LoadingScreen label="Event not found." />;
 
   const portalUrl = typeof window !== "undefined" ? `${window.location.origin}/sign-in` : "/sign-in";
   const codeDirectUrl = typeof window !== "undefined"
@@ -104,8 +105,8 @@ export default function EventSettingsPage({
   async function handleRegenerateCode() {
     setIsRegenerating(true);
     try {
-      const result = await regenerateCodeMutation({ orgSlug, eventSlug });
-      toast.success(`Event code updated to ${result.eventCode}`);
+      const newCode = await regenerateCodeMutation({ orgSlug, eventSlug });
+      toast.success(`Event code updated to ${newCode}`);
       setRegenerateConfirmOpen(false);
     } catch (err: unknown) {
       const convexErr = err as { data?: { message?: string }; message?: string };

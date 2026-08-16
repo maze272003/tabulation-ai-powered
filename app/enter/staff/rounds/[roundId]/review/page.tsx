@@ -163,7 +163,7 @@ export default function StaffRoundReviewPage({
   }
 
   const hasUnresolvedTies = unresolvedTies.length > 0;
-  const isPublished = round.status === "published";
+  const isPublished = (round.status as string) === "published";
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in-50 duration-300">
@@ -396,11 +396,11 @@ export default function StaffRoundReviewPage({
             <CardTitle className="text-sm font-semibold">Applied Manual Tie Breaks ({tieBreaks.length})</CardTitle>
           </CardHeader>
           <CardContent className="p-4 space-y-2">
-            {tieBreaks.map((tb: { _id: Id<"tieBreaks">; reason: string; tieGroupContestants: string[] }) => (
+            {tieBreaks.map((tb: { _id: Id<"tieBreaks">; orderedNames: string[] }) => (
               <div key={tb._id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50 text-xs">
                 <div>
                   <span className="font-semibold text-foreground">Tie Break Order:</span>
-                  <p className="text-muted-foreground">{tb.tieGroupContestants?.join(" > ") || tb.reason}</p>
+                  <p className="text-muted-foreground">{tb.orderedNames.join(" > ")}</p>
                 </div>
                 {!isPublished && (
                   <Button

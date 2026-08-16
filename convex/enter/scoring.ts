@@ -72,28 +72,87 @@ export const myAssignments = query({
 });
 
 export const sheetDetail = query({
-  args: { sessionToken: v.string(), roundId: v.id("rounds"), contestantId: v.id("contestants") },
+  args: {
+    sessionToken: v.string(),
+    sheetId: v.optional(v.id("scoreSheets")),
+    roundId: v.optional(v.id("rounds")),
+    contestantId: v.optional(v.id("contestants")),
+  },
   handler: async (ctx, args) => {
     const sctx = await requireEventSession(ctx, {
-      sessionToken: args.sessionToken, kind: "judge", requireReadyEvent: true,
+      sessionToken: args.sessionToken,
+      kind: "judge",
+      requireReadyEvent: true,
     });
-    const round = await ctx.db.get(args.roundId);
+
+    let roundId: Id<"rounds">;
+    let contestantId: Id<"contestants">;
+    let sheet: Doc<"scoreSheets"> | null = null;
+
+    if (args.sheetId) {
+      const s = await ctx.db.get(args.sheetId);
+      if (!s || s.eventId !== sctx.event._id || s.judgeId !== sctx.account._id) {
+        throw appError(ErrorCode.NOT_FOUND, "Score sheet not found");
+      }
+      sheet = s;
+      roundId = s.roundId;
+      contestantId = s.contestantId;
+    } else if (args.roundId && args.contestantId) {
+      roundId = args.roundId;
+      contestantId = args.contestantId;
+      const sheets = await ctx.db
+        .query("scoreSheets")
+        .withIndex("by_event_id_and_round_id_and_contestant_id", (q) =>
+          q.eq("eventId", sctx.event._id).eq("roundId", roundId).eq("contestantId", contestantId),
+        )
+        .collect();
+      sheet = sheets.find((s) => s.judgeId === sctx.account._id) ?? null;
+    } else {
+      throw appError(
+        ErrorCode.VALIDATION_ERROR,
+        "Either sheetId or both roundId and contestantId must be provided",
+      );
+    }
+
+    const round = await ctx.db.get(roundId);
     if (!round || round.eventId !== sctx.event._id) throw appError(ErrorCode.NOT_FOUND, "Round not found");
-    const contestant = await ctx.db.get(args.contestantId);
+    const contestant = await ctx.db.get(contestantId);
     if (!contestant || contestant.eventId !== sctx.event._id) {
       throw appError(ErrorCode.NOT_FOUND, "Contestant not found");
     }
-    const sheets = await ctx.db
-      .query("scoreSheets")
-      .withIndex("by_event_id_and_round_id_and_contestant_id", (q) =>
-        q.eq("eventId", sctx.event._id).eq("roundId", round._id).eq("contestantId", args.contestantId))
-      .collect();
-    const sheet = sheets.find((s) => s.judgeId === sctx.account._id) ?? null;
+    const category = contestant.categoryId ? await ctx.db.get(contestant.categoryId) : null;
     const criteria = await ctx.db
       .query("criteria")
       .withIndex("by_round_id", (q) => q.eq("roundId", round._id))
       .collect();
-    return { sheet, criteria: [...criteria].sort((a, b) => a.order - b.order), contestant };
+
+    const isImmutable =
+      sheet?.status === "submitted" ||
+      sheet?.status === "locked" ||
+      round.status === "closed" ||
+      round.status === "published";
+
+    const scores = sheet && (sheet.status === "submitted" || sheet.status === "locked")
+      ? await ctx.db
+          .query("scores")
+          .withIndex("by_sheet_id", (q) => q.eq("sheetId", sheet._id))
+          .collect()
+      : undefined;
+
+    const effectiveCriteria = criteria.map((c) => ({
+      ...c,
+      decimalPrecision: Math.max(c.decimalPrecision ?? 0, sctx.event.decimalPrecision ?? 0),
+    }));
+
+    return {
+      sheet,
+      round,
+      contestant,
+      category,
+      criteria: [...effectiveCriteria].sort((a, b) => a.order - b.order),
+      scores,
+      isImmutable,
+    };
   },
 });
 
@@ -114,7 +173,7 @@ export const saveDraft = mutation({
     for (const [criterionId, value] of Object.entries(args.draftValues)) {
       const criterion = criteria.find((c) => c._id === criterionId);
       if (!criterion) throw appError(ErrorCode.VALIDATION_ERROR, "Unknown criterion in draft");
-      const problem = checkValue(criterion, value);
+      const problem = checkValue(criterion, value, sctx.event.decimalPrecision);
       if (problem) throw appError(ErrorCode.VALIDATION_ERROR, problem);
     }
     await ctx.db.patch(args.sheetId, { status: "in_progress", draftValues: args.draftValues });
@@ -152,7 +211,7 @@ export const submitSheet = mutation({
       if (value === undefined) {
         throw appError(ErrorCode.VALIDATION_ERROR, `${criterion.name} is missing`);
       }
-      const problem = checkValue(criterion, value);
+      const problem = checkValue(criterion, value, sctx.event.decimalPrecision);
       if (problem) throw appError(ErrorCode.VALIDATION_ERROR, problem);
     }
     const now = Date.now();

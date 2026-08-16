@@ -26,6 +26,17 @@ export const publish = mutation({
     const active = contestants.filter((c) => c.status === "active");
     let generated = 0;
     for (const judge of judges) {
+      if (judge.status !== "active") continue;
+      const existingAssignment = await ctx.db
+        .query("judgeAssignments")
+        .withIndex("by_judge_id", (q) => q.eq("judgeId", judge._id))
+        .first();
+      if (!existingAssignment) {
+        await ctx.db.insert("judgeAssignments", {
+          judgeId: judge._id,
+          eventId: eactx.event._id,
+        });
+      }
       for (const round of rounds) {
         for (const contestant of active) {
           await ctx.db.insert("scoreSheets", {

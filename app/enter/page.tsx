@@ -22,9 +22,9 @@ interface JudgeSheetItem {
 
 interface JudgeRoundItem {
   roundId: Id<"rounds">;
-  roundName: string;
-  roundOrder: number;
-  roundStatus: string;
+  name: string;
+  order: number;
+  status: string;
   sheets: JudgeSheetItem[];
 }
 
@@ -154,19 +154,19 @@ function JudgeDashboard({
                 (s: JudgeSheetItem) => s.status === "submitted" || s.status === "locked",
               ).length;
               const roundTotal = round.sheets.length;
-              const isRoundClosed = round.roundStatus === "closed" || round.roundStatus === "published";
+              const isRoundClosed = round.status === "closed" || round.status === "published";
 
               return (
                 <Card key={round.roundId} className="border-border/60 shadow-sm overflow-hidden">
                   <CardHeader className="bg-muted/30 border-b border-border/40 py-4 px-6 flex flex-row items-center justify-between">
                     <div>
                       <div className="flex items-center gap-2.5">
-                        <CardTitle className="text-base font-semibold">{round.roundName}</CardTitle>
+                        <CardTitle className="text-base font-semibold">{round.name}</CardTitle>
                         <Badge
-                          variant={round.roundStatus === "open" ? "default" : "secondary"}
+                          variant={round.status === "open" ? "default" : "secondary"}
                           className="capitalize text-xs font-semibold"
                         >
-                          {round.roundStatus}
+                          {round.status}
                         </Badge>
                       </div>
                       <CardDescription className="text-xs mt-0.5">

@@ -43,6 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TableSkeleton } from "@/components/tabulation/StateBlock";
+import { PageHeader } from "@/components/PageHeader";
 
 const USAGE_RESOURCES = [
   { key: "members", limitKey: "maxMembers", label: "Members" },
@@ -117,11 +118,11 @@ export default function PlatformOrgDetailPage({
   return (
     <div className="space-y-6">
       <BackLink />
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold">{org.name}</h1>
-        <PlatformBadge label={orgStatusLabel[org.status]} tone={orgStatusTone[org.status]} />
-        <p className="text-sm text-muted-foreground">{org.slug}</p>
-      </div>
+      <PageHeader
+        title={org.name}
+        description={org.slug}
+        actions={<PlatformBadge label={orgStatusLabel[org.status]} tone={orgStatusTone[org.status]} />}
+      />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

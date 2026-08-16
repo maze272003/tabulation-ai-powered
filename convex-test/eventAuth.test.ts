@@ -38,7 +38,9 @@ describe("eventAuth.login", () => {
     expect(res.eventName).toBe("gala");
     expect(res.token).toMatch(/^[0-9a-f]{64}$/);
     const info = await t.query(api.eventAuth.sessionInfo, { sessionToken: res.token });
-    expect(info?.kind).toBe("judge");
+    expect(info?.account.kind).toBe("judge");
+    expect(info?.account.username).toBe("judge1");
+    expect(info?.event.name).toBe("gala");
   });
 
   it("rejects an unknown code with NOT_FOUND and the exact message", async () => {

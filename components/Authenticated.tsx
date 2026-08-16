@@ -5,6 +5,7 @@ import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 export function Authenticated({ children }: { children: React.ReactNode }) {
   const { data: session, isPending: isSessionPending } = useSession();
@@ -45,11 +46,7 @@ export function Authenticated({ children }: { children: React.ReactNode }) {
   }, [session, isConvexAuth, ensureProfile]);
 
   if (isSessionPending || isConvexLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground text-sm">
-        Loading…
-      </div>
-    );
+    return <LoadingScreen label="Loading your workspace…" />;
   }
 
   if (!session) {
@@ -62,7 +59,7 @@ export function Authenticated({ children }: { children: React.ReactNode }) {
         <p className="text-destructive text-sm font-medium">{provisionError}</p>
         <button
           type="button"
-          className="rounded border px-4 py-2 text-sm hover:bg-muted"
+          className="rounded-lg border px-4 py-2 text-sm transition-colors hover:bg-muted"
           onClick={() => {
             setProvisionError(null);
             ensureProfile({})
@@ -82,11 +79,7 @@ export function Authenticated({ children }: { children: React.ReactNode }) {
   const isReady = (currentUser !== null && currentUser !== undefined) || isProvisioned;
 
   if (!isReady) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground text-sm">
-        Loading…
-      </div>
-    );
+    return <LoadingScreen label="Preparing your profile…" />;
   }
 
   return <>{children}</>;

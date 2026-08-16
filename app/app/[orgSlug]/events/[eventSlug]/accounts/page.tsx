@@ -1,7 +1,7 @@
 "use client";
 
-import { use, useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { use, useEffect, useState } from "react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,33 +19,42 @@ import {
 } from "@/components/ui/dialog";
 import {
   CredentialsDialog,
-  type CredentialsData,
 } from "@/components/tabulation/CredentialsDialog";
 import {
-  UserPlus,
   Users,
-  KeyRound,
+  UserPlus,
   ShieldCheck,
+  KeyRound,
   Trash2,
   Lock,
   Unlock,
-  Loader2,
-  Sparkles,
   RefreshCw,
   AlertTriangle,
+  Loader2,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
 interface AccountItem {
   _id: Id<"eventAccounts">;
-  _creationTime: number;
-  eventId: Id<"events">;
   kind: "judge" | "staff";
   displayName: string;
   username: string;
+  status: "active" | "disabled";
+  lockedUntil: number | null;
   failedAttempts?: number;
-  disabledAt?: number;
   activeSessionsCount?: number;
+  assignments?: { _id: Id<"judgeAssignments">; roundId?: Id<"rounds">; criterionId?: Id<"criteria"> }[];
+}
+
+interface CredentialsData {
+  eventName: string;
+  eventCode: string;
+  displayName: string;
+  username: string;
+  password?: string;
+  kind: "judge" | "staff";
+  isReset?: boolean;
 }
 
 export default function EventAccountsPage({
@@ -56,14 +65,14 @@ export default function EventAccountsPage({
   const { orgSlug, eventSlug } = use(params);
 
   const ev = useQuery(api.events.get, { orgSlug, eventSlug });
-  const rawAccounts = useQuery(api.eventAccounts.listAccounts, { orgSlug, eventSlug });
-  const judgeLimit = useQuery(api.entitlements.checkJudgeLimit, { orgSlug, eventSlug });
+  const rawAccounts = useQuery(api.accounts.list, { orgSlug, eventSlug });
+  const sub = useQuery(api.subscriptions.getForOrg, { orgSlug });
 
-  const createAccountMutation = useMutation(api.eventAccounts.createAccount);
-  const resetPasswordMutation = useMutation(api.eventAccounts.resetPassword);
-  const disableAccountMutation = useMutation(api.eventAccounts.disableAccount);
-  const enableAccountMutation = useMutation(api.eventAccounts.enableAccount);
-  const deleteAccountMutation = useMutation(api.eventAccounts.deleteAccount);
+  const createAccountAction = useAction(api.accounts.create);
+  const resetPasswordAction = useAction(api.accounts.resetPassword);
+  const disableAccountMutation = useMutation(api.accounts.disable);
+  const enableAccountMutation = useMutation(api.accounts.enable);
+  const deleteAccountMutation = useMutation(api.accounts.deleteAccount);
 
   // Modals state
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -83,6 +92,19 @@ export default function EventAccountsPage({
   const [accountToDelete, setAccountToDelete] = useState<{ id: Id<"eventAccounts">; name: string } | null>(null);
   const [actionInProgressId, setActionInProgressId] = useState<string | null>(null);
 
+  // Read the clock outside of render and refresh it periodically so that
+  // temporary account locks expire visually without a manual reload.
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  useEffect(() => {
+    const update = () => setNowMs(Date.now());
+    const frame = requestAnimationFrame(update);
+    const clock = window.setInterval(update, 30_000);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearInterval(clock);
+    };
+  }, []);
+
   if (ev === undefined || rawAccounts === undefined) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -100,7 +122,7 @@ export default function EventAccountsPage({
   const accounts = rawAccounts as AccountItem[];
   const judgesCount = accounts.filter((a: AccountItem) => a.kind === "judge").length;
   const staffCount = accounts.filter((a: AccountItem) => a.kind === "staff").length;
-  const maxJudges = judgeLimit?.maxJudges ?? 5;
+  const maxJudges = sub?.plan?.limits?.maxJudges ?? 5;
   const isJudgeLimitReached = judgesCount >= maxJudges;
 
   async function handleCreateAccount(e: React.FormEvent) {
@@ -122,7 +144,7 @@ export default function EventAccountsPage({
 
     setIsSubmitting(true);
     try {
-      const result = await createAccountMutation({
+      const result = await createAccountAction({
         orgSlug,
         eventSlug,
         kind: role,
@@ -133,10 +155,10 @@ export default function EventAccountsPage({
 
       setCredentialsData({
         eventName: currentEvent.name,
-        eventCode: result.eventCode,
-        displayName: result.account.displayName,
-        username: result.account.username,
-        password: result.temporaryPassword,
+        eventCode: currentEvent.eventCode,
+        displayName: displayName.trim(),
+        username: result.username,
+        password: result.password,
         kind: role,
         isReset: false,
       });
@@ -161,7 +183,7 @@ export default function EventAccountsPage({
   async function handleResetPassword(account: { _id: Id<"eventAccounts">; displayName: string; username: string; kind: "judge" | "staff" }) {
     setActionInProgressId(account._id);
     try {
-      const result = await resetPasswordMutation({
+      const result = await resetPasswordAction({
         orgSlug,
         eventSlug,
         accountId: account._id,
@@ -169,10 +191,10 @@ export default function EventAccountsPage({
 
       setCredentialsData({
         eventName: currentEvent.name,
-        eventCode: result.eventCode,
+        eventCode: currentEvent.eventCode,
         displayName: account.displayName,
-        username: result.username,
-        password: result.newTemporaryPassword,
+        username: account.username,
+        password: result.password,
         kind: account.kind,
         isReset: true,
       });
@@ -298,7 +320,7 @@ export default function EventAccountsPage({
             <span>Event Accounts</span>
           </CardTitle>
           <CardDescription className="text-xs">
-            Credentials generated for this event. Passwords are encrypted with SHA-256 and custom salt.
+            Credentials generated for this event. Passwords are hashed with PBKDF2-SHA256 and a per-account salt.
           </CardDescription>
         </CardHeader>
 
@@ -337,8 +359,8 @@ export default function EventAccountsPage({
               <tbody className="divide-y divide-border/40">
                 {accounts.map((acc: AccountItem) => {
                   const isActing = actionInProgressId === acc._id;
-                  const isLocked = (acc.failedAttempts ?? 0) >= 5;
-                  const isDisabled = Boolean(acc.disabledAt);
+                  const isLocked = acc.lockedUntil !== null && nowMs !== null && acc.lockedUntil > nowMs;
+                  const isDisabled = acc.status === "disabled";
 
                   return (
                     <tr key={acc._id} className="hover:bg-muted/20 transition-colors">

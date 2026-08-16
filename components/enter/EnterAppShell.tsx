@@ -3,29 +3,14 @@
 import React, { createContext, useContext, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Shield, KeyRound, LogOut, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
 
-export type EventSessionData = {
-  account: {
-    _id: string;
-    kind: "judge" | "staff";
-    displayName: string;
-    username: string;
-  };
-  event: {
-    _id: string;
-    name: string;
-    slug: string;
-    eventCode: string;
-    status: string;
-    resultVisibility: string;
-    eliminationEnabled: boolean;
-  };
-};
+export type EventSessionData = NonNullable<FunctionReturnType<typeof api.eventAuth.sessionInfo>>;
 
 interface EnterContextValue {
   sessionToken: string;
@@ -84,10 +69,10 @@ export function EnterAppShell({
     return null;
   }
 
-  const { account, event } = sessionInfo as unknown as EventSessionData;
+  const { account, event } = sessionInfo;
 
   return (
-    <EnterContext.Provider value={{ sessionToken, session: sessionInfo as unknown as EventSessionData }}>
+    <EnterContext.Provider value={{ sessionToken, session: sessionInfo }}>
       <div className="min-h-screen flex flex-col bg-background selection:bg-primary/10">
         {/* Top Navigation Bar */}
         <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-xs">
@@ -98,7 +83,7 @@ export function EnterAppShell({
                 href="/enter"
                 className="flex items-center gap-2.5 hover:opacity-90 transition-opacity"
               >
-                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary/10 text-primary ring-1 ring-primary/20 shadow-xs">
+                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary text-primary-foreground shadow-xs">
                   <Shield className="w-5 h-5" />
                 </div>
                 <div>
@@ -126,10 +111,10 @@ export function EnterAppShell({
                 </span>
                 <Badge
                   variant="default"
-                  className={`capitalize text-xs font-semibold px-2 py-0.5 shadow-none ${
+                  className={`capitalize text-xs font-semibold px-2 py-0.5 shadow-none border-transparent ${
                     account.kind === "staff"
-                      ? "bg-amber-600/90 hover:bg-amber-600 text-white"
-                      : "bg-blue-600/90 hover:bg-blue-600 text-white"
+                      ? "bg-warning text-warning-foreground hover:bg-warning"
+                      : "bg-info text-info-foreground hover:bg-info"
                   }`}
                 >
                   {account.kind === "staff" ? (

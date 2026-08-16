@@ -39,6 +39,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EmptyState, TableSkeleton } from "@/components/tabulation/StateBlock";
+import { PageHeader } from "@/components/PageHeader";
 
 type StatusFilter = "all" | "active" | "inactive" | "suspended";
 type RowAction =
@@ -95,12 +96,10 @@ export default function PlatformUsersPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Users</h1>
-        <p className="text-sm text-muted-foreground">
-          Every account on the platform. Suspended users lose all access.
-        </p>
-      </div>
+      <PageHeader
+        title="Users"
+        description="Every account on the platform. Suspended users lose all access."
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-0 flex-1 sm:max-w-xs">
