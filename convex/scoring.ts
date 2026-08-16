@@ -59,8 +59,8 @@ export const myAssignments = query({
       roundId: Id<"rounds">;
       name: string;
       order: number;
-      status: string;
-      sheets: { sheetId: Id<"scoreSheets">; contestantId: Id<"contestants">; contestantName: string; contestantNumber: number; status: string }[];
+      status: Doc<"rounds">["status"];
+      sheets: { sheetId: Id<"scoreSheets">; contestantId: Id<"contestants">; contestantName: string; contestantNumber: number; status: Doc<"scoreSheets">["status"] }[];
     }[] = [];
     for (const round of [...rounds].sort((a, b) => a.order - b.order)) {
       const sheets = await ctx.db
