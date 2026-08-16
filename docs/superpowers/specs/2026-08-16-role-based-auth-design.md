@@ -147,7 +147,7 @@ Unchanged better-auth Google flow. `/app/**` functions continue through `require
 - Account lockout 5 fails / 15 min; disabled accounts rejected.
 - httpOnly cookie; no token in URLs; Convex args validated (`v.string()` with format constraints everywhere).
 - Login only while `event.status === "ready"`; code rotation invalidates nothing structurally (sessions still valid — they reference eventId; rotation only blocks new logins).
-- Audit trail: account actions (login is not audited; round publish, sheet submit/reopen are) record `actorId: null` + account metadata.
+- Audit trail: admin account-management actions (create/disable/delete/reset) audit with the admin's `actorId` as today; event-account actions inside `/enter` (sheet submit, round publish, sheet reopen) record `actorId: null` + account kind/displayName metadata. Logins are not audited.
 - Rate limiting beyond account lockout (per-IP) deferred — single-tenant dev scale, noted as future work.
 
 ## 10. Testing
