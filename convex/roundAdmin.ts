@@ -3,7 +3,7 @@ import { mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { appError, ErrorCode } from "./lib/errors";
 import { loadRound, requireReadyEvent } from "./lib/eventAuthz";
-import { loadRoundCompute } from "./lib/roundCompute";
+import { buildSnapshot, loadRoundCompute } from "./lib/roundCompute";
 import { writeAudit } from "./lib/audit";
 
 export const roundMonitor = query({
@@ -258,6 +258,101 @@ export const removeAdvancementOverride = mutation({
     await writeAudit(ctx, {
       orgId: eactx.org._id, actorId: eactx.user._id, action: "round.advancement_override.removed",
       resourceType: "advancementOverride", resourceId: args.overrideId,
+    });
+  },
+});
+
+export const publishRound = mutation({
+  args: { orgSlug: v.string(), eventSlug: v.string(), roundId: v.id("rounds") },
+  handler: async (ctx, args) => {
+    const eactx = await requireReadyEvent(ctx, {
+      orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "score.manage",
+    });
+    const result = await loadRoundCompute(ctx, eactx, args.roundId);
+    if (result.round.status !== "closed") {
+      throw appError(ErrorCode.CONFLICT, "Only closed rounds can be published");
+    }
+    if (result.unresolvedTies.length > 0) {
+      throw appError(ErrorCode.TIES_UNRESOLVED, "Resolve all ties before publishing", {
+        ties: result.unresolvedTies,
+      });
+    }
+    const existing = await ctx.db
+      .query("resultVersions")
+      .withIndex("by_round_id", (q) => q.eq("roundId", args.roundId))
+      .collect();
+    const version = existing.reduce((max, v) => Math.max(max, v.version), 0) + 1;
+    const now = Date.now();
+    await ctx.db.insert("resultVersions", {
+      eventId: eactx.event._id,
+      roundId: args.roundId,
+      version,
+      snapshot: buildSnapshot(result, now, eactx.event.decimalPrecision),
+      createdById: eactx.user._id,
+      createdAt: now,
+    });
+    await ctx.db.patch(args.roundId, { status: "published" });
+    await writeAudit(ctx, {
+      orgId: eactx.org._id, actorId: eactx.user._id, action: "round.published",
+      resourceType: "round", resourceId: args.roundId,
+      before: { status: "closed" }, after: { status: "published", version },
+    });
+  },
+});
+
+export const correctResults = mutation({
+  args: {
+    orgSlug: v.string(), eventSlug: v.string(), roundId: v.id("rounds"), reason: v.string(),
+    overrides: v.optional(v.array(v.object({
+      contestantId: v.id("contestants"),
+      action: v.union(v.literal("force_advance"), v.literal("force_cut")),
+    }))),
+  },
+  handler: async (ctx, args) => {
+    const eactx = await requireReadyEvent(ctx, {
+      orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "score.manage",
+    });
+    if (!args.reason.trim()) {
+      throw appError(ErrorCode.VALIDATION_ERROR, "A correction reason is required");
+    }
+    const contestants = await ctx.db
+      .query("contestants")
+      .withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id))
+      .collect();
+    const extra = (args.overrides ?? []).filter((o) => {
+      if (!contestants.some((k) => k._id === o.contestantId)) {
+        throw appError(ErrorCode.NOT_FOUND, "Contestant not found");
+      }
+      return true;
+    });
+    const result = await loadRoundCompute(ctx, eactx, args.roundId, extra);
+    if (result.round.status !== "published") {
+      throw appError(ErrorCode.CONFLICT, "Only published rounds can be corrected");
+    }
+    if (result.unresolvedTies.length > 0) {
+      throw appError(ErrorCode.TIES_UNRESOLVED, "Resolve all ties before correcting", {
+        ties: result.unresolvedTies,
+      });
+    }
+    const existing = await ctx.db
+      .query("resultVersions")
+      .withIndex("by_round_id", (q) => q.eq("roundId", args.roundId))
+      .collect();
+    const version = existing.reduce((max, v) => Math.max(max, v.version), 0) + 1;
+    const now = Date.now();
+    await ctx.db.insert("resultVersions", {
+      eventId: eactx.event._id,
+      roundId: args.roundId,
+      version,
+      snapshot: buildSnapshot(result, now, eactx.event.decimalPrecision),
+      createdById: eactx.user._id,
+      createdAt: now,
+      reason: args.reason.trim(),
+    });
+    await writeAudit(ctx, {
+      orgId: eactx.org._id, actorId: eactx.user._id, action: "round.corrected",
+      resourceType: "resultVersion", resourceId: args.roundId,
+      after: { version, reason: args.reason.trim() },
     });
   },
 });
