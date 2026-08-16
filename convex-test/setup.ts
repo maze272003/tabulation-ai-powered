@@ -67,6 +67,7 @@ type ScoredEventOpts = {
   advancement?: { mode: "none" | "top_count" | "top_percent" | "manual"; count?: number; percent?: number; allowOverride: boolean };
   qualifiesToNextRound?: boolean;
   dropHighLow?: boolean;
+  eliminationEnabled?: boolean;
   resultVisibility?: "private" | "organization" | "public";
 };
 
@@ -84,6 +85,7 @@ export async function prepareScoredEvent(
   await t.withIdentity(carolIdentity).mutation(api.auth.ensureUserProfile, {});
   const eventPatch: Record<string, unknown> = {};
   if (opts.dropHighLow !== undefined) eventPatch.scoringRules = { dropHighLow: opts.dropHighLow };
+  if (opts.eliminationEnabled !== undefined) eventPatch.eliminationEnabled = opts.eliminationEnabled;
   if (opts.resultVisibility !== undefined) eventPatch.resultVisibility = opts.resultVisibility;
   if (Object.keys(eventPatch).length > 0) {
     await t.withIdentity(aliceIdentity).mutation(api.events.update, { orgSlug: "acme", eventSlug: "gala", ...eventPatch });
