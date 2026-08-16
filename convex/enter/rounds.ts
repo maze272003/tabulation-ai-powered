@@ -12,7 +12,7 @@ export const list = query({
   args: { sessionToken: v.string() },
   handler: async (ctx, args) => {
     const sctx = await requireEventSession(ctx, {
-      sessionToken: args.sessionToken, kind: "staff", requireReadyEvent: true,
+      sessionToken: args.sessionToken, kind: "staff",
     });
     const rounds = await ctx.db
       .query("rounds")
@@ -45,7 +45,7 @@ export const roundMonitor = query({
   args: { sessionToken: v.string(), roundId: v.id("rounds") },
   handler: async (ctx, args) => {
     const sctx = await requireEventSession(ctx, {
-      sessionToken: args.sessionToken, kind: "staff", requireReadyEvent: true,
+      sessionToken: args.sessionToken, kind: "staff",
     });
     const round = await loadRound(ctx, sctx, args.roundId);
     const judges = await ctx.db
@@ -114,7 +114,7 @@ export const roundReview = query({
   args: { sessionToken: v.string(), roundId: v.id("rounds") },
   handler: async (ctx, args) => {
     const sctx = await requireEventSession(ctx, {
-      sessionToken: args.sessionToken, kind: "staff", requireReadyEvent: true,
+      sessionToken: args.sessionToken, kind: "staff",
     });
     const result = await loadRoundCompute(ctx, sctx, args.roundId);
     // An open round is an expected state here, not an error: throwing would

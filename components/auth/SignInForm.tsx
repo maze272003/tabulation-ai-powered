@@ -87,13 +87,7 @@ export function SignInForm({ eventSessionToken }: { eventSessionToken: string | 
 
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        if (data.code === "FORBIDDEN") {
-          setJudgeError("Account is locked or disabled. Please contact the event administrator.");
-        } else if (data.code === "UNAUTHENTICATED") {
-          setJudgeError("Invalid event code, username, or password.");
-        } else {
-          setJudgeError(data.error || "Authentication failed.");
-        }
+        setJudgeError(data.error || "Authentication failed. Please check your credentials.");
         return;
       }
 

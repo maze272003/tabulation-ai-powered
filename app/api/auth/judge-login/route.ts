@@ -50,10 +50,38 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (err: unknown) {
-    const convexErr = err as { data?: { code?: string }; message?: string };
-    const code = convexErr?.data?.code ?? "UNAUTHENTICATED";
-    const message = convexErr?.message ?? "Authentication failed";
-    const status = code === "FORBIDDEN" ? 403 : code === "VALIDATION_ERROR" ? 400 : 401;
+    let code = "UNAUTHENTICATED";
+    let message = "Authentication failed. Please check your credentials.";
+
+    if (err && typeof err === "object") {
+      const maybeData = (err as { data?: unknown }).data;
+      if (maybeData && typeof maybeData === "object") {
+        const dataObj = maybeData as { code?: string; message?: string };
+        if (typeof dataObj.code === "string") code = dataObj.code;
+        if (typeof dataObj.message === "string") message = dataObj.message;
+      } else if (typeof maybeData === "string") {
+        message = maybeData;
+      } else if (typeof (err as { message?: unknown }).message === "string") {
+        const rawMsg = (err as { message: string }).message;
+        const match = rawMsg.match(/Uncaught ConvexError:\s*(.+?)(?:\s+at handler|$)/);
+        if (match && match[1]) {
+          message = match[1].trim();
+        } else if (!rawMsg.includes("Server Error") && !rawMsg.includes("Request ID:")) {
+          message = rawMsg;
+        }
+      }
+    }
+
+    const status =
+      code === "FORBIDDEN"
+        ? 403
+        : code === "NOT_FOUND"
+          ? 404
+          : code === "CONFLICT"
+            ? 409
+            : code === "VALIDATION_ERROR"
+              ? 400
+              : 401;
 
     return NextResponse.json(
       { ok: false, error: message, code },

@@ -24,8 +24,11 @@ export const lookupAccountForLogin = internalQuery({
       .query("events")
       .withIndex("by_event_code", (q) => q.eq("eventCode", args.eventCode.toUpperCase().trim()))
       .unique();
-    if (!event || event.status !== "ready") {
+    if (!event) {
       return { status: "no_event" as const };
+    }
+    if (event.status === "draft") {
+      return { status: "event_not_started" as const };
     }
     const username = args.username.toLowerCase().trim();
     const account = await ctx.db
@@ -59,7 +62,13 @@ export const login = action({
       username: args.username,
     });
     if (res.status === "no_event") {
-      throw appError(ErrorCode.NOT_FOUND, "Event code does not exist or event has ended");
+      throw appError(ErrorCode.NOT_FOUND, "Event code not found. Please check the code and try again.");
+    }
+    if (res.status === "event_not_started") {
+      throw appError(
+        ErrorCode.CONFLICT,
+        "This event has not started yet. Please wait for the organizer to start or publish the event.",
+      );
     }
     if (res.status === "no_account") {
       // Burn equivalent PBKDF2 work so unknown usernames are not distinguishable by timing.
@@ -68,7 +77,7 @@ export const login = action({
     }
     const { event, account } = res;
     if (account.status === "disabled") {
-      throw appError(ErrorCode.FORBIDDEN, "This account has been disabled.");
+      throw appError(ErrorCode.FORBIDDEN, "This account has been disabled. Please contact the event administrator.");
     }
     if (account.lockedUntil !== null && account.lockedUntil > Date.now()) {
       throw appError(ErrorCode.FORBIDDEN, "Account locked due to failed attempts. Try again later.");

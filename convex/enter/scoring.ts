@@ -28,7 +28,7 @@ export const myAssignments = query({
   args: { sessionToken: v.string() },
   handler: async (ctx, args) => {
     const sctx = await requireEventSession(ctx, {
-      sessionToken: args.sessionToken, kind: "judge", requireReadyEvent: true,
+      sessionToken: args.sessionToken, kind: "judge",
     });
     const rounds = await ctx.db
       .query("rounds")
@@ -82,7 +82,6 @@ export const sheetDetail = query({
     const sctx = await requireEventSession(ctx, {
       sessionToken: args.sessionToken,
       kind: "judge",
-      requireReadyEvent: true,
     });
 
     let roundId: Id<"rounds">;
@@ -130,7 +129,9 @@ export const sheetDetail = query({
       sheet?.status === "submitted" ||
       sheet?.status === "locked" ||
       round.status === "closed" ||
-      round.status === "published";
+      round.status === "published" ||
+      sctx.event.status === "finalized" ||
+      sctx.event.status === "archived";
 
     const scores = sheet && (sheet.status === "submitted" || sheet.status === "locked")
       ? await ctx.db

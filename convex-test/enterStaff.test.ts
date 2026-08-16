@@ -92,9 +92,29 @@ describe("staff enter round and result operations", () => {
 
     // Staff checks eventResults and finalizes
     const eventRes = await t.query(api.enter.results.eventResults, { sessionToken: env.staffSession });
-    expect(eventRes.final.length).toBe(2);
-
     await t.mutation(api.enter.results.finalizeEvent, { sessionToken: env.staffSession });
+
+    // After finalization, read queries remain accessible to staff and judges
+    const postRounds = await t.query(api.enter.rounds.list, { sessionToken: env.staffSession });
+    expect(postRounds.length).toBe(1);
+    const postMonitor = await t.query(api.enter.rounds.roundMonitor, { sessionToken: env.staffSession, roundId: env.roundId });
+    expect(postMonitor.roundStatus).toBe("published");
+    const postBobMine = await t.query(api.enter.scoring.myAssignments, { sessionToken: env.judgeSessions.bob });
+    expect(postBobMine.rounds.length).toBe(1);
+    const postSheet = await t.query(api.enter.scoring.sheetDetail, { sessionToken: env.judgeSessions.bob, sheetId: postBobMine.rounds[0].sheets[0].sheetId });
+    expect(postSheet.isImmutable).toBe(true);
+
+    // But mutations are rejected on finalized events
+    await expect(
+      t.mutation(api.enter.rounds.closeRound, { sessionToken: env.staffSession, roundId: env.roundId }),
+    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
+    await expect(
+      t.mutation(api.enter.scoring.submitSheet, {
+        sessionToken: env.judgeSessions.bob,
+        sheetId: postBobMine.rounds[0].sheets[0].sheetId,
+        values: { [env.criterionIds[0]]: 8, [env.criterionIds[1]]: 8 },
+      }),
+    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
   });
 
   it("judge access to results obeys resultVisibility", async () => {

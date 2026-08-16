@@ -43,20 +43,38 @@ describe("eventAuth.login", () => {
     expect(info?.event.name).toBe("gala");
   });
 
-  it("rejects an unknown code with NOT_FOUND and the exact message", async () => {
+  it("rejects an unknown code with NOT_FOUND and clear message", async () => {
     const t = setupTest();
     await seedReadyEventWithAccounts(t);
     await expect(
       t.action(api.eventAuth.login, { eventCode: "ZZZZZZZZ", username: "judge1", password: PASSWORD }),
-    ).rejects.toMatchObject({ data: { code: "NOT_FOUND", message: "Event code does not exist or event has ended" } });
+    ).rejects.toMatchObject({ data: { code: "NOT_FOUND", message: "Event code not found. Please check the code and try again." } });
   });
 
-  it("rejects a draft event with NOT_FOUND", async () => {
+  it("rejects a draft event with CONFLICT and informative message", async () => {
     const t = setupTest();
     const ev = await seedReadyEventWithAccounts(t, "draft");
     await expect(
       t.action(api.eventAuth.login, { eventCode: ev.eventCode, username: "judge1", password: PASSWORD }),
-    ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
+    ).rejects.toMatchObject({
+      data: {
+        code: "CONFLICT",
+        message: "This event has not started yet. Please wait for the organizer to start or publish the event.",
+      },
+    });
+  });
+
+  it("allows login to a finalized event to view results read-only", async () => {
+    const t = setupTest();
+    const ev = await seedReadyEventWithAccounts(t, "ready");
+    await t.run(async (q) => {
+      await q.db.patch(ev._id, { status: "finalized" });
+    });
+    const res = await t.action(api.eventAuth.login, { eventCode: ev.eventCode, username: "judge1", password: PASSWORD });
+    expect(res.kind).toBe("judge");
+    expect(res.token).toMatch(/^[0-9a-f]{64}$/);
+    const info = await t.query(api.eventAuth.sessionInfo, { sessionToken: res.token });
+    expect(info?.event.status).toBe("finalized");
   });
 
   it("rejects unknown username and wrong password identically (UNAUTHENTICATED)", async () => {
@@ -93,7 +111,7 @@ describe("eventAuth.login", () => {
     await t.run(async (q) => { await q.db.patch(id, { status: "disabled" }); });
     await expect(
       t.action(api.eventAuth.login, { eventCode: ev.eventCode, username: "judge1", password: PASSWORD }),
-    ).rejects.toMatchObject({ data: { code: "FORBIDDEN", message: "This account has been disabled." } });
+    ).rejects.toMatchObject({ data: { code: "FORBIDDEN", message: "This account has been disabled. Please contact the event administrator." } });
   });
 
   it("logout revokes the session", async () => {
