@@ -117,10 +117,14 @@ export const roundReview = query({
       sessionToken: args.sessionToken, kind: "staff", requireReadyEvent: true,
     });
     const result = await loadRoundCompute(ctx, sctx, args.roundId);
-    // Published rounds stay viewable read-only; every editing mutation
-    // (tie break, override, publish) independently requires "closed".
+    // An open round is an expected state here, not an error: throwing would
+    // crash the review page via useQuery's render-time rethrow. Returning null
+    // lets the page render a "close first" notice that reactively switches to
+    // standings once the round is closed. Published rounds stay viewable
+    // read-only; every editing mutation (tie break, override, publish)
+    // independently requires "closed".
     if (result.round.status !== "closed" && result.round.status !== "published") {
-      throw appError(ErrorCode.CONFLICT, "Close the round before review");
+      return null;
     }
     const contestants = await ctx.db
       .query("contestants")

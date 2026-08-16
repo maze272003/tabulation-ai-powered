@@ -5,6 +5,7 @@ import { api } from "@/convex/_generated/api";
 import { signOut } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { ChevronsUpDown, LogOut } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -61,8 +62,13 @@ export function UserMenu({ className }: { className?: string }) {
         <DropdownMenuItem
           variant="destructive"
           onClick={async () => {
-            await signOut();
-            router.push("/sign-in");
+            try {
+              await signOut();
+              router.push("/sign-in");
+            } catch {
+              // The session remains active, so keep the user where they are.
+              toast.error("Could not sign out. Please try again.");
+            }
           }}
         >
           <LogOut />

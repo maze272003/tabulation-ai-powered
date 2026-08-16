@@ -8,6 +8,7 @@ import { api } from "@/convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Shield, KeyRound, LogOut, Loader2, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import Link from "next/link";
 
 export type EventSessionData = NonNullable<FunctionReturnType<typeof api.eventAuth.sessionInfo>>;
@@ -49,11 +50,18 @@ export function EnterAppShell({
 
   async function handleLogout() {
     try {
-      await fetch("/api/auth/judge-logout", { method: "POST" });
-    } finally {
-      router.push("/sign-in");
-      router.refresh();
+      const response = await fetch("/api/auth/judge-logout", { method: "POST" });
+      if (!response.ok) {
+        throw new Error("Logout request failed");
+      }
+    } catch {
+      // The event session cookie is still active; navigating would bounce the
+      // user straight back, so surface the failure instead.
+      toast.error("Could not log out. Please try again.");
+      return;
     }
+    router.push("/sign-in");
+    router.refresh();
   }
 
   if (!sessionToken || sessionInfo === undefined) {

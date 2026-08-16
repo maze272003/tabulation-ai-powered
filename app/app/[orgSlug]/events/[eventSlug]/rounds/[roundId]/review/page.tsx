@@ -48,25 +48,18 @@ export default function ReviewPage({
   const tiesRef = useRef<HTMLDivElement>(null);
 
   const tiedIds = useMemo(
-    () =>
-      new Set(
-        review && !(review instanceof Error)
-          ? review.unresolvedTies.flatMap((t) => t.contestantIds)
-          : [],
-      ),
+    () => new Set(review ? review.unresolvedTies.flatMap((t) => t.contestantIds) : []),
     [review],
   );
   const overrideByContestant = useMemo(
     () =>
       new Map(
-        review && !(review instanceof Error)
-          ? review.overrides.map((o) => [o.contestantId, o] as const)
-          : [],
+        review ? review.overrides.map((o) => [o.contestantId, o] as const) : [],
       ),
     [review],
   );
   const standingsByCategory = useMemo(() => {
-    if (!review || review instanceof Error) return [];
+    if (!review) return [];
     const groups = new Map<string, typeof review.standings>();
     for (const row of review.standings) {
       const list = groups.get(row.categoryId) ?? [];
@@ -81,14 +74,12 @@ export default function ReviewPage({
   }, [review, categories]);
 
   const unresolvedTieSignature =
-    review && !(review instanceof Error)
-      ? review.unresolvedTies.map((t) => t.contestantIds.join(",")).join("|")
-      : "";
+    review ? review.unresolvedTies.map((t) => t.contestantIds.join(",")).join("|") : "";
   const tieError = failedTieSignature !== null && failedTieSignature === unresolvedTieSignature;
 
   if (review === undefined || ev === undefined) return <TableSkeleton rows={6} cols={5} />;
   if (ev === null) return <ErrorState message="Event not found." />;
-  if (review instanceof Error) {
+  if (review === null) {
     return (
       <EmptyState
         icon={CirclePause}

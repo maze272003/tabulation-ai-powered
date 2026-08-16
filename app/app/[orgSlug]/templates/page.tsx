@@ -131,6 +131,7 @@ export default function TemplatesPage({ params }: { params: Promise<{ orgSlug: s
                     onClick={async () => {
                       try {
                         await remove({ orgSlug, templateId: tpl._id });
+                        toast.success("Template deleted.");
                       } catch (err: unknown) {
                         toast.error(
                           (err as { data?: { message?: string } })?.data?.message ?? "Failed.",

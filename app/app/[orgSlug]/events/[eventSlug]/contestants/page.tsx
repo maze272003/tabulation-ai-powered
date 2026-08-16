@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { Loader2, Plus, Trash2, UserRound } from "lucide-react";
 import { EmptyState, TableSkeleton } from "@/components/tabulation/StateBlock";
+import { toastMutationError } from "@/lib/convex-errors";
 
 const STATUS_TONE: Record<string, string> = {
   active: "bg-success-muted text-success",
@@ -36,12 +37,10 @@ export default function ContestantsPage({ params }: { params: Promise<{ orgSlug:
   const [number, setNumber] = useState("");
   const [adding, setAdding] = useState(false);
 
-  const onError = (err: unknown) => {
-    const data = (err as { data?: { code?: string; message?: string } })?.data;
-    if (data?.code === "LIMIT_EXCEEDED") toast.error("Contestant limit reached — upgrade your plan.");
-    else if (data?.code === "CONFLICT") toast.error(data.message ?? "Conflict.");
-    else toast.error(data?.message ?? "Action failed.");
-  };
+  const onError = (err: unknown) =>
+    toastMutationError(err, {
+      codeMessages: { LIMIT_EXCEEDED: "Contestant limit reached — upgrade your plan." },
+    });
 
   return (
     <div className="space-y-6">
@@ -61,6 +60,7 @@ export default function ContestantsPage({ params }: { params: Promise<{ orgSlug:
                 await add({ orgSlug, eventSlug, name, number: Number(number) });
                 setName("");
                 setNumber("");
+                toast.success("Contestant added.");
               } catch (err) {
                 onError(err);
               } finally {
@@ -153,6 +153,7 @@ export default function ContestantsPage({ params }: { params: Promise<{ orgSlug:
                           onClick={async () => {
                             try {
                               await remove({ orgSlug, eventSlug, contestantId: c._id });
+                              toast.success("Contestant removed.");
                             } catch (err) {
                               onError(err);
                             }

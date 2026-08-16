@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   Award,
   CheckCircle2,
+  CirclePause,
   Loader2,
   TrendingUp,
   XCircle,
@@ -68,6 +69,33 @@ export default function StaffRoundReviewPage({
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
         <p className="text-sm text-muted-foreground animate-pulse">Computing round review standings...</p>
+      </div>
+    );
+  }
+
+  if (reviewData === null) {
+    return (
+      <div className="max-w-6xl mx-auto animate-in fade-in-50 duration-300">
+        <Card className="border-border/60 shadow-sm">
+          <CardContent className="py-16 px-6">
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
+                <CirclePause className="w-6 h-6 text-amber-600" aria-hidden />
+              </div>
+              <h2 className="text-lg font-semibold tracking-tight">Close the round before review</h2>
+              <p className="text-sm text-muted-foreground max-w-md">
+                Review and publishing become available once judging is closed for this round.
+              </p>
+              <Link
+                href={`/enter/staff/rounds/${roundId}/monitor`}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-2 gap-1.5")}
+              >
+                <ArrowLeft className="w-4 h-4" aria-hidden />
+                <span>Go to Live Monitor</span>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }

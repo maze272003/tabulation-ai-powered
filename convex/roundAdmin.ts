@@ -84,8 +84,8 @@ export const roundReview = query({
       orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "score.manage",
     });
     const result = await loadRoundCompute(ctx, eactx, args.roundId);
-    if (result.round.status !== "closed") {
-      throw appError(ErrorCode.CONFLICT, "Close the round before review");
+    if (result.round.status !== "closed" && result.round.status !== "published") {
+      return null;
     }
     const contestants = await ctx.db
       .query("contestants")

@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { Eye, Plus, ClipboardCheck, Trash2 } from "lucide-react";
 import { Num } from "@/components/tabulation/Num";
+import { toastMutationError } from "@/lib/convex-errors";
 
 const ADVANCEMENT_MODES = ["none", "top_count", "top_percent", "manual"] as const;
 
@@ -47,12 +48,13 @@ export default function RoundsPage({
 
   const locked = ev !== undefined && ev !== null && ev.status !== "draft";
   const eliminationOn = ev?.eliminationEnabled ?? true;
-  const onError = (err: unknown) => {
-    const data = (err as { data?: { code?: string; message?: string } })?.data;
-    if (data?.code === "CONFLICT") toast.error("Configuration is locked.");
-    else if (data?.code === "LIMIT_EXCEEDED") toast.error("Limit reached — upgrade your plan.");
-    else toast.error(data?.message ?? "Action failed.");
-  };
+  const onError = (err: unknown) =>
+    toastMutationError(err, {
+      codeMessages: {
+        CONFLICT: "Configuration is locked.",
+        LIMIT_EXCEEDED: "Limit reached — upgrade your plan.",
+      },
+    });
 
   const weightsSum = (rounds ?? []).reduce((s, r) => s + r.weight, 0);
 
@@ -95,6 +97,7 @@ export default function RoundsPage({
                   });
                   setRoundName("");
                   setRoundWeight("");
+                  toast.success("Round added.");
                 } catch (err) {
                   onError(err);
                 }
@@ -163,6 +166,7 @@ export default function RoundsPage({
                       onClick={async () => {
                         try {
                           await removeRound({ orgSlug, eventSlug, roundId: r._id });
+                          toast.success("Round removed.");
                         } catch (e) {
                           onError(e);
                         }
@@ -332,6 +336,7 @@ export default function RoundsPage({
                                   eventSlug,
                                   criterionId: c._id,
                                 });
+                                toast.success("Criterion removed.");
                               } catch (e) {
                                 onError(e);
                               }
@@ -405,6 +410,7 @@ export default function RoundsPage({
                         decimalPrecision: Number(f.decimals ?? ev?.decimalPrecision ?? 2),
                       });
                       setForm({ ...form, [r._id]: { ...f, name: "", weight: "" } });
+                      toast.success("Criterion added.");
                     } catch (e) {
                       onError(e);
                     }

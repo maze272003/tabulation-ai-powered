@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Loader2, Plus, Tags, Trash2 } from "lucide-react";
 import { EmptyState, TableSkeleton } from "@/components/tabulation/StateBlock";
+import { toastMutationError } from "@/lib/convex-errors";
 
 export default function CategoriesPage({ params }: { params: Promise<{ orgSlug: string; eventSlug: string }> }) {
   const { orgSlug, eventSlug } = use(params);
@@ -20,11 +21,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ orgSlug: 
   const [name, setName] = useState("");
   const [adding, setAdding] = useState(false);
 
-  const onError = (err: unknown) => {
-    const data = (err as { data?: { code?: string; message?: string } })?.data;
-    if (data?.code === "CONFLICT") toast.error(data.message ?? "Conflict.");
-    else toast.error(data?.message ?? "Action failed.");
-  };
+  const onError = (err: unknown) => toastMutationError(err);
 
   return (
     <div className="space-y-6">
@@ -45,6 +42,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ orgSlug: 
               try {
                 await add({ orgSlug, eventSlug, name });
                 setName("");
+                toast.success("Category added.");
               } catch (err) {
                 onError(err);
               } finally {
@@ -103,6 +101,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ orgSlug: 
                     onClick={async () => {
                       try {
                         await remove({ orgSlug, eventSlug, categoryId: c._id });
+                        toast.success("Category removed.");
                       } catch (err) {
                         onError(err);
                       }

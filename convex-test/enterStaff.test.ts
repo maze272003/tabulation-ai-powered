@@ -30,6 +30,10 @@ describe("staff enter round and result operations", () => {
     expect(monitor.roundStatus).toBe("open");
     expect(monitor.judges.length).toBe(2);
     expect(monitor.sheets.length).toBe(4);
+
+    // Review of an open round is an expected empty state, not an error
+    const openReview = await t.query(api.enter.rounds.roundReview, { sessionToken: env.staffSession, roundId: env.roundId });
+    expect(openReview).toBeNull();
   });
 
   it("staff closes, reviews, tie-breaks, publishes, and corrects round", async () => {
@@ -57,6 +61,7 @@ describe("staff enter round and result operations", () => {
 
     // Staff reviews - surfaces unresolved tie
     const review = await t.query(api.enter.rounds.roundReview, { sessionToken: env.staffSession, roundId: env.roundId });
+    if (!review) throw new Error("Expected review data after closing the round");
     expect(review.unresolvedTies.length).toBe(1);
 
     // Publishing blocked by ties

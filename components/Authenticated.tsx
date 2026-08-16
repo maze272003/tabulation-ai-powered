@@ -5,6 +5,7 @@ import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { LoadingScreen } from "@/components/LoadingScreen";
 
 export function Authenticated({ children }: { children: React.ReactNode }) {
@@ -37,6 +38,7 @@ export function Authenticated({ children }: { children: React.ReactNode }) {
             console.error("Failed to provision user profile", err);
             const msg = err instanceof Error ? err.message : "Failed to provision profile";
             setProvisionError(msg);
+            toast.error("Failed to prepare your profile. Please retry.");
           }
         });
       return () => {
@@ -67,6 +69,7 @@ export function Authenticated({ children }: { children: React.ReactNode }) {
               .catch((err: unknown) => {
                 const msg = err instanceof Error ? err.message : "Failed to provision profile";
                 setProvisionError(msg);
+                toast.error("Failed to prepare your profile. Please retry.");
               });
           }}
         >
