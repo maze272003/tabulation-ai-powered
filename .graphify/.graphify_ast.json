@@ -505,6 +505,34 @@
       "source_location": "L4"
     },
     {
+      "id": "audit_page",
+      "label": "page.tsx",
+      "file_type": "code",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "audit_page_scopevalue",
+      "label": "ScopeValue",
+      "file_type": "code",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L32"
+    },
+    {
+      "id": "audit_page_scopetoorgid",
+      "label": "scopeToOrgId()",
+      "file_type": "code",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L34"
+    },
+    {
+      "id": "audit_page_platformauditpage",
+      "label": "PlatformAuditPage()",
+      "file_type": "code",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L40"
+    },
+    {
       "id": "platform_layout",
       "label": "layout.tsx",
       "file_type": "code",
@@ -540,6 +568,55 @@
       "source_location": "L95"
     },
     {
+      "id": "orgid_page",
+      "label": "page.tsx",
+      "file_type": "code",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "orgid_page_usage_resources",
+      "label": "USAGE_RESOURCES",
+      "file_type": "code",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L47"
+    },
+    {
+      "id": "orgid_page_platformorgdetailpage",
+      "label": "PlatformOrgDetailPage()",
+      "file_type": "code",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L54"
+    },
+    {
+      "id": "orgid_page_backlink",
+      "label": "BackLink()",
+      "file_type": "code",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L346"
+    },
+    {
+      "id": "organizations_page",
+      "label": "page.tsx",
+      "file_type": "code",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "organizations_page_statusfilter",
+      "label": "StatusFilter",
+      "file_type": "code",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L36"
+    },
+    {
+      "id": "organizations_page_platformorganizationspage",
+      "label": "PlatformOrganizationsPage()",
+      "file_type": "code",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L38"
+    },
+    {
       "id": "platform_page",
       "label": "page.tsx",
       "file_type": "code",
@@ -559,6 +636,48 @@
       "file_type": "code",
       "source_file": "app/platform/page.tsx",
       "source_location": "L188"
+    },
+    {
+      "id": "subscriptions_page",
+      "label": "page.tsx",
+      "file_type": "code",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "subscriptions_page_platformsubscriptionspage",
+      "label": "PlatformSubscriptionsPage()",
+      "file_type": "code",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L47"
+    },
+    {
+      "id": "users_page",
+      "label": "page.tsx",
+      "file_type": "code",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "users_page_statusfilter",
+      "label": "StatusFilter",
+      "file_type": "code",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L43"
+    },
+    {
+      "id": "users_page_rowaction",
+      "label": "RowAction",
+      "file_type": "code",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L44"
+    },
+    {
+      "id": "users_page_platformuserspage",
+      "label": "PlatformUsersPage()",
+      "file_type": "code",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L50"
     },
     {
       "id": "sign_in_page",
@@ -659,6 +778,181 @@
       "source_location": "L7"
     },
     {
+      "id": "platform_platformbadge",
+      "label": "PlatformBadge.tsx",
+      "file_type": "code",
+      "source_file": "components/platform/PlatformBadge.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "platform_platformbadge_platformbadge",
+      "label": "PlatformBadge()",
+      "file_type": "code",
+      "source_file": "components/platform/PlatformBadge.tsx",
+      "source_location": "L7"
+    },
+    {
+      "id": "platform_reasondialog",
+      "label": "ReasonDialog.tsx",
+      "file_type": "code",
+      "source_file": "components/platform/ReasonDialog.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "platform_reasondialog_reasondialog",
+      "label": "ReasonDialog()",
+      "file_type": "code",
+      "source_file": "components/platform/ReasonDialog.tsx",
+      "source_location": "L12"
+    },
+    {
+      "id": "platform_statcard",
+      "label": "StatCard.tsx",
+      "file_type": "code",
+      "source_file": "components/platform/StatCard.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "platform_statcard_statcard",
+      "label": "StatCard()",
+      "file_type": "code",
+      "source_file": "components/platform/StatCard.tsx",
+      "source_location": "L4"
+    },
+    {
+      "id": "platform_errors",
+      "label": "errors.ts",
+      "file_type": "code",
+      "source_file": "components/platform/errors.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "platform_errors_platformerrormessage",
+      "label": "platformErrorMessage()",
+      "file_type": "code",
+      "source_file": "components/platform/errors.ts",
+      "source_location": "L5"
+    },
+    {
+      "id": "platform_format",
+      "label": "format.ts",
+      "file_type": "code",
+      "source_file": "components/platform/format.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "platform_format_datetimeformat",
+      "label": "dateTimeFormat",
+      "file_type": "code",
+      "source_file": "components/platform/format.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "platform_format_dateformat",
+      "label": "dateFormat",
+      "file_type": "code",
+      "source_file": "components/platform/format.ts",
+      "source_location": "L6"
+    },
+    {
+      "id": "platform_format_formatdatetime",
+      "label": "formatDateTime()",
+      "file_type": "code",
+      "source_file": "components/platform/format.ts",
+      "source_location": "L8"
+    },
+    {
+      "id": "platform_format_formatdate",
+      "label": "formatDate()",
+      "file_type": "code",
+      "source_file": "components/platform/format.ts",
+      "source_location": "L12"
+    },
+    {
+      "id": "platform_status",
+      "label": "status.ts",
+      "file_type": "code",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "platform_status_orgstatus",
+      "label": "OrgStatus",
+      "file_type": "code",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L3"
+    },
+    {
+      "id": "platform_status_userstatus",
+      "label": "UserStatus",
+      "file_type": "code",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L4"
+    },
+    {
+      "id": "platform_status_subscriptionstatus",
+      "label": "SubscriptionStatus",
+      "file_type": "code",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L5"
+    },
+    {
+      "id": "platform_status_orgstatuslabel",
+      "label": "orgStatusLabel",
+      "file_type": "code",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L13"
+    },
+    {
+      "id": "platform_status_orgstatustone",
+      "label": "orgStatusTone",
+      "file_type": "code",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L19"
+    },
+    {
+      "id": "platform_status_userstatuslabel",
+      "label": "userStatusLabel",
+      "file_type": "code",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L25"
+    },
+    {
+      "id": "platform_status_userstatustone",
+      "label": "userStatusTone",
+      "file_type": "code",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L31"
+    },
+    {
+      "id": "platform_status_subscriptionstatuslabel",
+      "label": "subscriptionStatusLabel",
+      "file_type": "code",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L37"
+    },
+    {
+      "id": "platform_status_subscriptionstatustone",
+      "label": "subscriptionStatusTone",
+      "file_type": "code",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L46"
+    },
+    {
+      "id": "platform_usedebouncedvalue",
+      "label": "useDebouncedValue.ts",
+      "file_type": "code",
+      "source_file": "components/platform/useDebouncedValue.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "platform_usedebouncedvalue_usedebouncedvalue",
+      "label": "useDebouncedValue()",
+      "file_type": "code",
+      "source_file": "components/platform/useDebouncedValue.ts",
+      "source_location": "L7"
+    },
+    {
       "id": "tabulation_blackoutnotice",
       "label": "BlackoutNotice.tsx",
       "file_type": "code",
@@ -708,18 +1002,39 @@
       "source_location": "L1"
     },
     {
+      "id": "tabulation_roundresultscard_standingsrow",
+      "label": "StandingsRow",
+      "file_type": "code",
+      "source_file": "components/tabulation/RoundResultsCard.tsx",
+      "source_location": "L11"
+    },
+    {
       "id": "tabulation_roundresultscard_roundsummary",
       "label": "RoundSummary",
       "file_type": "code",
       "source_file": "components/tabulation/RoundResultsCard.tsx",
-      "source_location": "L11"
+      "source_location": "L19"
+    },
+    {
+      "id": "tabulation_roundresultscard_categorygroup",
+      "label": "CategoryGroup",
+      "file_type": "code",
+      "source_file": "components/tabulation/RoundResultsCard.tsx",
+      "source_location": "L28"
+    },
+    {
+      "id": "tabulation_roundresultscard_groupbycategory",
+      "label": "groupByCategory()",
+      "file_type": "code",
+      "source_file": "components/tabulation/RoundResultsCard.tsx",
+      "source_location": "L34"
     },
     {
       "id": "tabulation_roundresultscard_roundresultscard",
       "label": "RoundResultsCard()",
       "file_type": "code",
       "source_file": "components/tabulation/RoundResultsCard.tsx",
-      "source_location": "L25"
+      "source_location": "L51"
     },
     {
       "id": "tabulation_saveindicator",
@@ -2357,14 +2672,14 @@
       "label": "loadRoundCompute()",
       "file_type": "code",
       "source_file": "convex/lib/roundCompute.ts",
-      "source_location": "L21"
+      "source_location": "L27"
     },
     {
       "id": "lib_roundcompute_buildsnapshot",
       "label": "buildSnapshot()",
       "file_type": "code",
       "source_file": "convex/lib/roundCompute.ts",
-      "source_location": "L109"
+      "source_location": "L124"
     },
     {
       "id": "lib_serializers",
@@ -2654,6 +2969,174 @@
       "source_location": "L3"
     },
     {
+      "id": "platform_audit",
+      "label": "audit.ts",
+      "file_type": "code",
+      "source_file": "convex/platform/audit.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "platform_audit_list",
+      "label": "list",
+      "file_type": "code",
+      "source_file": "convex/platform/audit.ts",
+      "source_location": "L13"
+    },
+    {
+      "id": "platform_bootstrap",
+      "label": "bootstrap.ts",
+      "file_type": "code",
+      "source_file": "convex/platform/bootstrap.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "platform_bootstrap_maybebootstrapplatformowner",
+      "label": "maybeBootstrapPlatformOwner()",
+      "file_type": "code",
+      "source_file": "convex/platform/bootstrap.ts",
+      "source_location": "L12"
+    },
+    {
+      "id": "platform_dashboard",
+      "label": "dashboard.ts",
+      "file_type": "code",
+      "source_file": "convex/platform/dashboard.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "platform_dashboard_stats",
+      "label": "stats",
+      "file_type": "code",
+      "source_file": "convex/platform/dashboard.ts",
+      "source_location": "L14"
+    },
+    {
+      "id": "platform_orgs",
+      "label": "orgs.ts",
+      "file_type": "code",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "platform_orgs_requirereason",
+      "label": "requireReason()",
+      "file_type": "code",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L19"
+    },
+    {
+      "id": "platform_orgs_requireorg",
+      "label": "requireOrg()",
+      "file_type": "code",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L27"
+    },
+    {
+      "id": "platform_orgs_list",
+      "label": "list",
+      "file_type": "code",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L35"
+    },
+    {
+      "id": "platform_orgs_options",
+      "label": "options",
+      "file_type": "code",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L75"
+    },
+    {
+      "id": "platform_orgs_get",
+      "label": "get",
+      "file_type": "code",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L88"
+    },
+    {
+      "id": "platform_orgs_setstatus",
+      "label": "setStatus",
+      "file_type": "code",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L130"
+    },
+    {
+      "id": "platform_subscriptions",
+      "label": "subscriptions.ts",
+      "file_type": "code",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "platform_subscriptions_requirereason",
+      "label": "requireReason()",
+      "file_type": "code",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L11"
+    },
+    {
+      "id": "platform_subscriptions_requireorg",
+      "label": "requireOrg()",
+      "file_type": "code",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L19"
+    },
+    {
+      "id": "platform_subscriptions_list",
+      "label": "list",
+      "file_type": "code",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L27"
+    },
+    {
+      "id": "platform_subscriptions_setplan",
+      "label": "setPlan",
+      "file_type": "code",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L62"
+    },
+    {
+      "id": "platform_users",
+      "label": "users.ts",
+      "file_type": "code",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "platform_users_requirereason",
+      "label": "requireReason()",
+      "file_type": "code",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L12"
+    },
+    {
+      "id": "platform_users_list",
+      "label": "list",
+      "file_type": "code",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L20"
+    },
+    {
+      "id": "platform_users_setstatus",
+      "label": "setStatus",
+      "file_type": "code",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L47"
+    },
+    {
+      "id": "platform_users_hasotherplatformowner",
+      "label": "hasOtherPlatformOwner()",
+      "file_type": "code",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L84"
+    },
+    {
+      "id": "platform_users_setplatformrole",
+      "label": "setPlatformRole",
+      "file_type": "code",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L97"
+    },
+    {
       "id": "convex_results",
       "label": "results.ts",
       "file_type": "code",
@@ -2700,7 +3183,7 @@
       "label": "finalizeEvent",
       "file_type": "code",
       "source_file": "convex/results.ts",
-      "source_location": "L139"
+      "source_location": "L140"
     },
     {
       "id": "convex_roles",
@@ -2763,35 +3246,35 @@
       "label": "removeTieBreak",
       "file_type": "code",
       "source_file": "convex/roundAdmin.ts",
-      "source_location": "L170"
+      "source_location": "L177"
     },
     {
       "id": "convex_roundadmin_addadvancementoverride",
       "label": "addAdvancementOverride",
       "file_type": "code",
       "source_file": "convex/roundAdmin.ts",
-      "source_location": "L192"
+      "source_location": "L199"
     },
     {
       "id": "convex_roundadmin_removeadvancementoverride",
       "label": "removeAdvancementOverride",
       "file_type": "code",
       "source_file": "convex/roundAdmin.ts",
-      "source_location": "L243"
+      "source_location": "L250"
     },
     {
       "id": "convex_roundadmin_publishround",
       "label": "publishRound",
       "file_type": "code",
       "source_file": "convex/roundAdmin.ts",
-      "source_location": "L265"
+      "source_location": "L272"
     },
     {
       "id": "convex_roundadmin_correctresults",
       "label": "correctResults",
       "file_type": "code",
       "source_file": "convex/roundAdmin.ts",
-      "source_location": "L303"
+      "source_location": "L310"
     },
     {
       "id": "convex_rounds",
@@ -4345,6 +4828,15 @@
     {
       "source": "review_page",
       "target": "tabulation_stateblock_emptystate",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/app/[orgSlug]/events/[eventSlug]/rounds/[roundId]/review/page.tsx",
+      "source_location": "L16",
+      "weight": 1
+    },
+    {
+      "source": "review_page",
+      "target": "tabulation_stateblock_errorstate",
       "relation": "imports",
       "confidence": "EXTRACTED",
       "source_file": "app/app/[orgSlug]/events/[eventSlug]/rounds/[roundId]/review/page.tsx",
@@ -6224,6 +6716,285 @@
       "weight": 1
     },
     {
+      "source": "audit_page",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "lucide_react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L5",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_api_js",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L6",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "generated_api_api",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L6",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_datamodel",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L7",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "generated_datamodel_id",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L7",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "platform_format",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "platform_format_formatdatetime",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "ui_button",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "ui_button_button",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "ui_select",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "ui_select_select",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "ui_select_selectcontent",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "ui_select_selectitem",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "ui_select_selecttrigger",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "ui_select_selectvalue",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "ui_table",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L17",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "ui_table_table",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L17",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "ui_table_tablebody",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L17",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "ui_table_tablecell",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L17",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "ui_table_tablehead",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L17",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "ui_table_tableheader",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L17",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "ui_table_tablerow",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L17",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "tabulation_stateblock",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L25",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "tabulation_stateblock_emptystate",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L25",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "tabulation_stateblock_tableskeleton",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L25",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "audit_page_scopevalue",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L32",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "audit_page_scopetoorgid",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L34",
+      "weight": 1
+    },
+    {
+      "source": "audit_page",
+      "target": "audit_page_platformauditpage",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L40",
+      "weight": 1
+    },
+    {
+      "source": "audit_page_platformauditpage",
+      "target": "audit_page_scopetoorgid",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/audit/page.tsx",
+      "source_location": "L46",
+      "weight": 1
+    },
+    {
       "source": "platform_layout",
       "target": "react",
       "relation": "imports_from",
@@ -6377,6 +7148,825 @@
       "weight": 1
     },
     {
+      "source": "orgid_page",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "link",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L5",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "lucide_react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L6",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "sonner",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L7",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_api_js",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "generated_api_api",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_datamodel",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "generated_datamodel_id",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "platform_platformbadge",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "platform_platformbadge_platformbadge",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "platform_reasondialog",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L11",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "platform_reasondialog_reasondialog",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L11",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "platform_errors",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L12",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "platform_errors_platformerrormessage",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L12",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "platform_format",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L13",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "platform_format_formatdatetime",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L13",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "platform_status",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L14",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "platform_status_orgstatuslabel",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L14",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "platform_status_orgstatustone",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L14",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "platform_status_subscriptionstatuslabel",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L14",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "platform_status_subscriptionstatustone",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L14",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_button",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L20",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_button_button",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L20",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_card",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L21",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_card_card",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L21",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_card_cardcontent",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L21",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_card_carddescription",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L21",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_card_cardheader",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L21",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_card_cardtitle",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L21",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_dialog",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L28",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_dialog_dialog",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L28",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_dialog_dialogcontent",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L28",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_dialog_dialogdescription",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L28",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_dialog_dialogfooter",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L28",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_dialog_dialogheader",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L28",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_dialog_dialogtitle",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L28",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_input",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L36",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_input_input",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L36",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_label",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L37",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_label_label",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L37",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_select",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L38",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_select_select",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L38",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_select_selectcontent",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L38",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_select_selectitem",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L38",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_select_selecttrigger",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L38",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "ui_select_selectvalue",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L38",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "tabulation_stateblock",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L45",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "tabulation_stateblock_tableskeleton",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L45",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "orgid_page_usage_resources",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L47",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "orgid_page_platformorgdetailpage",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L54",
+      "weight": 1
+    },
+    {
+      "source": "orgid_page",
+      "target": "orgid_page_backlink",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/[orgId]/page.tsx",
+      "source_location": "L346",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "link",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L5",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "lucide_react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L6",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_api_js",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L7",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "generated_api_api",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L7",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "platform_platformbadge",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "platform_platformbadge_platformbadge",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "platform_usedebouncedvalue",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "platform_usedebouncedvalue_usedebouncedvalue",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "platform_format",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "platform_format_formatdate",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "platform_status",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L11",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "platform_status_orgstatuslabel",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L11",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "platform_status_orgstatustone",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L11",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "platform_status_subscriptionstatuslabel",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L11",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "platform_status_subscriptionstatustone",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L11",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "ui_button",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L17",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "ui_button_button",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L17",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "ui_input",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L18",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "ui_input_input",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L18",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "ui_select",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L19",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "ui_select_select",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L19",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "ui_select_selectcontent",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L19",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "ui_select_selectitem",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L19",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "ui_select_selecttrigger",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L19",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "ui_select_selectvalue",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L19",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "ui_table",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L26",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "ui_table_table",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L26",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "ui_table_tablebody",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L26",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "ui_table_tablecell",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L26",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "ui_table_tablehead",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L26",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "ui_table_tableheader",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L26",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "ui_table_tablerow",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L26",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "tabulation_stateblock",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L34",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "tabulation_stateblock_emptystate",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L34",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "tabulation_stateblock_tableskeleton",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L34",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "organizations_page_statusfilter",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L36",
+      "weight": 1
+    },
+    {
+      "source": "organizations_page",
+      "target": "organizations_page_platformorganizationspage",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/organizations/page.tsx",
+      "source_location": "L38",
+      "weight": 1
+    },
+    {
       "source": "platform_page",
       "target": "react",
       "relation": "imports_from",
@@ -6423,7 +8013,7 @@
     },
     {
       "source": "platform_page",
-      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_components_platform_platformbadge_tsx",
+      "target": "platform_platformbadge",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "app/platform/page.tsx",
@@ -6441,7 +8031,7 @@
     },
     {
       "source": "platform_page",
-      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_components_platform_statcard_tsx",
+      "target": "platform_statcard",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "app/platform/page.tsx",
@@ -6459,7 +8049,7 @@
     },
     {
       "source": "platform_page",
-      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_components_platform_format_ts",
+      "target": "platform_format",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "app/platform/page.tsx",
@@ -6477,7 +8067,7 @@
     },
     {
       "source": "platform_page",
-      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_components_platform_status_ts",
+      "target": "platform_status",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "app/platform/page.tsx",
@@ -6590,6 +8180,951 @@
       "confidence": "EXTRACTED",
       "source_file": "app/platform/page.tsx",
       "source_location": "L188",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "link",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L5",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "lucide_react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L6",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "sonner",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L7",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_api_js",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "generated_api_api",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_datamodel",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "generated_datamodel_id",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "platform_platformbadge",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "platform_platformbadge_platformbadge",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "platform_errors",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L11",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "platform_errors_platformerrormessage",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L11",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "platform_format",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L12",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "platform_format_formatdatetime",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L12",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "platform_status",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L13",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "platform_status_orgstatuslabel",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L13",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "platform_status_orgstatustone",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L13",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "platform_status_subscriptionstatuslabel",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L13",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "platform_status_subscriptionstatustone",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L13",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_button",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L19",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_button_button",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L19",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_dialog",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L20",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_dialog_dialog",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L20",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_dialog_dialogcontent",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L20",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_dialog_dialogdescription",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L20",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_dialog_dialogfooter",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L20",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_dialog_dialogheader",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L20",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_dialog_dialogtitle",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L20",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_input",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L28",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_input_input",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L28",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_label",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L29",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_label_label",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L29",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_select",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L30",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_select_select",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L30",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_select_selectcontent",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L30",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_select_selectitem",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L30",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_select_selecttrigger",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L30",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_select_selectvalue",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L30",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_table",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L37",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_table_table",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L37",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_table_tablebody",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L37",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_table_tablecell",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L37",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_table_tablehead",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L37",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_table_tableheader",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L37",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "ui_table_tablerow",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L37",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "tabulation_stateblock",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L45",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "tabulation_stateblock_emptystate",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L45",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "tabulation_stateblock_tableskeleton",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L45",
+      "weight": 1
+    },
+    {
+      "source": "subscriptions_page",
+      "target": "subscriptions_page_platformsubscriptionspage",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/subscriptions/page.tsx",
+      "source_location": "L47",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "lucide_react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L5",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "sonner",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L6",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_api_js",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L7",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "generated_api_api",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L7",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_datamodel",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "generated_datamodel_id",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "platform_platformbadge",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "platform_platformbadge_platformbadge",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "platform_reasondialog",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "platform_reasondialog_reasondialog",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "platform_errors",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L11",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "platform_errors_platformerrormessage",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L11",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "platform_format",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L12",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "platform_format_formatdatetime",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L12",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "platform_usedebouncedvalue",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L13",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "platform_usedebouncedvalue_usedebouncedvalue",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L13",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "platform_status",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L14",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "platform_status_userstatuslabel",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L14",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "platform_status_userstatustone",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L14",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_avatar",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L15",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_avatar_avatar",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L15",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_avatar_avatarfallback",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L15",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_avatar_avatarimage",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L15",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_button",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L16",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_button_button",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L16",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_dropdown_menu",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L17",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_dropdown_menu_dropdownmenu",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L17",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_dropdown_menu_dropdownmenucontent",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L17",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_dropdown_menu_dropdownmenuitem",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L17",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_dropdown_menu_dropdownmenulabel",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L17",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_dropdown_menu_dropdownmenuseparator",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L17",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_dropdown_menu_dropdownmenutrigger",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L17",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_input",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L25",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_input_input",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L25",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_select",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L26",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_select_select",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L26",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_select_selectcontent",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L26",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_select_selectitem",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L26",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_select_selecttrigger",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L26",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_select_selectvalue",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L26",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_table",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L33",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_table_table",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L33",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_table_tablebody",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L33",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_table_tablecell",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L33",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_table_tablehead",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L33",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_table_tableheader",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L33",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "ui_table_tablerow",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L33",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "tabulation_stateblock",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L41",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "tabulation_stateblock_emptystate",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L41",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "tabulation_stateblock_tableskeleton",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L41",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "users_page_statusfilter",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L43",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "users_page_rowaction",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L44",
+      "weight": 1
+    },
+    {
+      "source": "users_page",
+      "target": "users_page_platformuserspage",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/platform/users/page.tsx",
+      "source_location": "L50",
       "weight": 1
     },
     {
@@ -6971,6 +9506,375 @@
       "weight": 1
     },
     {
+      "source": "platform_platformbadge",
+      "target": "lucide_react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/PlatformBadge.tsx",
+      "source_location": "L1",
+      "weight": 1
+    },
+    {
+      "source": "platform_platformbadge",
+      "target": "ui_badge",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/PlatformBadge.tsx",
+      "source_location": "L2",
+      "weight": 1
+    },
+    {
+      "source": "platform_platformbadge",
+      "target": "ui_badge_badge",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/PlatformBadge.tsx",
+      "source_location": "L2",
+      "weight": 1
+    },
+    {
+      "source": "platform_platformbadge",
+      "target": "lib_utils",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/PlatformBadge.tsx",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "platform_platformbadge",
+      "target": "lib_utils_cn",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/PlatformBadge.tsx",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "platform_platformbadge",
+      "target": "tabulation_statusbadge",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/PlatformBadge.tsx",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "platform_platformbadge",
+      "target": "tabulation_statusbadge_toneclasses",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/PlatformBadge.tsx",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "platform_platformbadge",
+      "target": "tabulation_status",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/PlatformBadge.tsx",
+      "source_location": "L5",
+      "weight": 1
+    },
+    {
+      "source": "platform_platformbadge",
+      "target": "tabulation_status_tone",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/PlatformBadge.tsx",
+      "source_location": "L5",
+      "weight": 1
+    },
+    {
+      "source": "platform_platformbadge",
+      "target": "platform_platformbadge_platformbadge",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/PlatformBadge.tsx",
+      "source_location": "L7",
+      "weight": 1
+    },
+    {
+      "source": "platform_reasondialog",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/ReasonDialog.tsx",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "platform_reasondialog",
+      "target": "tabulation_confirmdialog",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/ReasonDialog.tsx",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "platform_reasondialog",
+      "target": "tabulation_confirmdialog_confirmdialog",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/ReasonDialog.tsx",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "platform_reasondialog",
+      "target": "ui_input",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/ReasonDialog.tsx",
+      "source_location": "L5",
+      "weight": 1
+    },
+    {
+      "source": "platform_reasondialog",
+      "target": "ui_input_input",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/ReasonDialog.tsx",
+      "source_location": "L5",
+      "weight": 1
+    },
+    {
+      "source": "platform_reasondialog",
+      "target": "platform_reasondialog_reasondialog",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/ReasonDialog.tsx",
+      "source_location": "L12",
+      "weight": 1
+    },
+    {
+      "source": "platform_statcard",
+      "target": "lucide_react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/StatCard.tsx",
+      "source_location": "L1",
+      "weight": 1
+    },
+    {
+      "source": "platform_statcard",
+      "target": "ui_card",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/StatCard.tsx",
+      "source_location": "L2",
+      "weight": 1
+    },
+    {
+      "source": "platform_statcard",
+      "target": "ui_card_card",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/StatCard.tsx",
+      "source_location": "L2",
+      "weight": 1
+    },
+    {
+      "source": "platform_statcard",
+      "target": "ui_card_carddescription",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/StatCard.tsx",
+      "source_location": "L2",
+      "weight": 1
+    },
+    {
+      "source": "platform_statcard",
+      "target": "ui_card_cardheader",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/StatCard.tsx",
+      "source_location": "L2",
+      "weight": 1
+    },
+    {
+      "source": "platform_statcard",
+      "target": "ui_card_cardtitle",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/StatCard.tsx",
+      "source_location": "L2",
+      "weight": 1
+    },
+    {
+      "source": "platform_statcard",
+      "target": "platform_statcard_statcard",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/StatCard.tsx",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "platform_errors",
+      "target": "platform_errors_platformerrormessage",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/errors.ts",
+      "source_location": "L5",
+      "weight": 1
+    },
+    {
+      "source": "platform_format",
+      "target": "platform_format_datetimeformat",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/format.ts",
+      "source_location": "L1",
+      "weight": 1
+    },
+    {
+      "source": "platform_format",
+      "target": "platform_format_dateformat",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/format.ts",
+      "source_location": "L6",
+      "weight": 1
+    },
+    {
+      "source": "platform_format",
+      "target": "platform_format_formatdatetime",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/format.ts",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "platform_format",
+      "target": "platform_format_formatdate",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/format.ts",
+      "source_location": "L12",
+      "weight": 1
+    },
+    {
+      "source": "platform_status",
+      "target": "tabulation_status",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L1",
+      "weight": 1
+    },
+    {
+      "source": "platform_status",
+      "target": "tabulation_status_tone",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L1",
+      "weight": 1
+    },
+    {
+      "source": "platform_status",
+      "target": "platform_status_orgstatus",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "platform_status",
+      "target": "platform_status_userstatus",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "platform_status",
+      "target": "platform_status_subscriptionstatus",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L5",
+      "weight": 1
+    },
+    {
+      "source": "platform_status",
+      "target": "platform_status_orgstatuslabel",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L13",
+      "weight": 1
+    },
+    {
+      "source": "platform_status",
+      "target": "platform_status_orgstatustone",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L19",
+      "weight": 1
+    },
+    {
+      "source": "platform_status",
+      "target": "platform_status_userstatuslabel",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L25",
+      "weight": 1
+    },
+    {
+      "source": "platform_status",
+      "target": "platform_status_userstatustone",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L31",
+      "weight": 1
+    },
+    {
+      "source": "platform_status",
+      "target": "platform_status_subscriptionstatuslabel",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L37",
+      "weight": 1
+    },
+    {
+      "source": "platform_status",
+      "target": "platform_status_subscriptionstatustone",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/status.ts",
+      "source_location": "L46",
+      "weight": 1
+    },
+    {
+      "source": "platform_usedebouncedvalue",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/useDebouncedValue.ts",
+      "source_location": "L1",
+      "weight": 1
+    },
+    {
+      "source": "platform_usedebouncedvalue",
+      "target": "platform_usedebouncedvalue_usedebouncedvalue",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/platform/useDebouncedValue.ts",
+      "source_location": "L7",
+      "weight": 1
+    },
+    {
       "source": "tabulation_blackoutnotice",
       "target": "lucide_react",
       "relation": "imports_from",
@@ -7251,7 +10155,7 @@
     },
     {
       "source": "tabulation_roundresultscard",
-      "target": "tabulation_roundresultscard_roundsummary",
+      "target": "tabulation_roundresultscard_standingsrow",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components/tabulation/RoundResultsCard.tsx",
@@ -7260,11 +10164,47 @@
     },
     {
       "source": "tabulation_roundresultscard",
+      "target": "tabulation_roundresultscard_roundsummary",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/RoundResultsCard.tsx",
+      "source_location": "L19",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_roundresultscard",
+      "target": "tabulation_roundresultscard_categorygroup",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/RoundResultsCard.tsx",
+      "source_location": "L28",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_roundresultscard",
+      "target": "tabulation_roundresultscard_groupbycategory",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/RoundResultsCard.tsx",
+      "source_location": "L34",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_roundresultscard",
       "target": "tabulation_roundresultscard_roundresultscard",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components/tabulation/RoundResultsCard.tsx",
-      "source_location": "L25",
+      "source_location": "L51",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_roundresultscard_roundresultscard",
+      "target": "tabulation_roundresultscard_groupbycategory",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/RoundResultsCard.tsx",
+      "source_location": "L100",
       "weight": 1
     },
     {
@@ -9006,7 +11946,7 @@
     },
     {
       "source": "convex_auth",
-      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_platform_bootstrap_ts",
+      "target": "platform_bootstrap",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "convex/auth.ts",
@@ -12070,7 +15010,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "convex/lib/roundCompute.ts",
-      "source_location": "L21",
+      "source_location": "L27",
       "weight": 1
     },
     {
@@ -12079,7 +15019,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "convex/lib/roundCompute.ts",
-      "source_location": "L109",
+      "source_location": "L124",
       "weight": 1
     },
     {
@@ -12830,6 +15770,852 @@
       "weight": 1
     },
     {
+      "source": "platform_audit",
+      "target": "values",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/audit.ts",
+      "source_location": "L1",
+      "weight": 1
+    },
+    {
+      "source": "platform_audit",
+      "target": "server",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/audit.ts",
+      "source_location": "L2",
+      "weight": 1
+    },
+    {
+      "source": "platform_audit",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_server_js",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/audit.ts",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "platform_audit",
+      "target": "generated_server_query",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/audit.ts",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "platform_audit",
+      "target": "lib_auth",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/audit.ts",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "platform_audit",
+      "target": "lib_auth_requireplatformowner",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/audit.ts",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "platform_audit",
+      "target": "platform_audit_list",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/audit.ts",
+      "source_location": "L13",
+      "weight": 1
+    },
+    {
+      "source": "platform_bootstrap",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_server_js",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/bootstrap.ts",
+      "source_location": "L1",
+      "weight": 1
+    },
+    {
+      "source": "platform_bootstrap",
+      "target": "generated_server_mutationctx",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/bootstrap.ts",
+      "source_location": "L1",
+      "weight": 1
+    },
+    {
+      "source": "platform_bootstrap",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_server_js",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/bootstrap.ts",
+      "source_location": "L2",
+      "weight": 1
+    },
+    {
+      "source": "platform_bootstrap",
+      "target": "generated_server_env",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/bootstrap.ts",
+      "source_location": "L2",
+      "weight": 1
+    },
+    {
+      "source": "platform_bootstrap",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_datamodel",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/bootstrap.ts",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "platform_bootstrap",
+      "target": "generated_datamodel_doc",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/bootstrap.ts",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "platform_bootstrap",
+      "target": "lib_audit",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/bootstrap.ts",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "platform_bootstrap",
+      "target": "lib_audit_writeaudit",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/bootstrap.ts",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "platform_bootstrap",
+      "target": "platform_bootstrap_maybebootstrapplatformowner",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/bootstrap.ts",
+      "source_location": "L12",
+      "weight": 1
+    },
+    {
+      "source": "platform_dashboard",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_server_js",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/dashboard.ts",
+      "source_location": "L1",
+      "weight": 1
+    },
+    {
+      "source": "platform_dashboard",
+      "target": "generated_server_query",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/dashboard.ts",
+      "source_location": "L1",
+      "weight": 1
+    },
+    {
+      "source": "platform_dashboard",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_datamodel",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/dashboard.ts",
+      "source_location": "L2",
+      "weight": 1
+    },
+    {
+      "source": "platform_dashboard",
+      "target": "generated_datamodel_doc",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/dashboard.ts",
+      "source_location": "L2",
+      "weight": 1
+    },
+    {
+      "source": "platform_dashboard",
+      "target": "generated_datamodel_id",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/dashboard.ts",
+      "source_location": "L2",
+      "weight": 1
+    },
+    {
+      "source": "platform_dashboard",
+      "target": "lib_auth",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/dashboard.ts",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "platform_dashboard",
+      "target": "lib_auth_requireplatformowner",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/dashboard.ts",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "platform_dashboard",
+      "target": "platform_dashboard_stats",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/dashboard.ts",
+      "source_location": "L14",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "values",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L1",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "server",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L2",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_server_js",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "generated_server_mutation",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "generated_server_query",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_server_js",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "generated_server_queryctx",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_datamodel",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L5",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "generated_datamodel_id",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L5",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "lib_auth",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L6",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "lib_auth_requireplatformowner",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L6",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "lib_entitlements",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L7",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "lib_entitlements_getsubscription",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L7",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "lib_usage",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "lib_usage_getusage",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "lib_audit",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "lib_audit_writeaudit",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "lib_errors",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "lib_errors_apperror",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "lib_errors_errorcode",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "platform_orgs_requirereason",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L19",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "platform_orgs_requireorg",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L27",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "platform_orgs_list",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L35",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "platform_orgs_options",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L75",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "platform_orgs_get",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L88",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs",
+      "target": "platform_orgs_setstatus",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L130",
+      "weight": 1
+    },
+    {
+      "source": "platform_orgs_requireorg",
+      "target": "platform_orgs_get",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/orgs.ts",
+      "source_location": "L28",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "values",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L1",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "server",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L2",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_server_js",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "generated_server_mutation",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "generated_server_query",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_server_js",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "generated_server_queryctx",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_datamodel",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L5",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "generated_datamodel_id",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L5",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "lib_auth",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L6",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "lib_auth_requireplatformowner",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L6",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "lib_entitlements",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L7",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "lib_entitlements_getsubscription",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L7",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "lib_audit",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "lib_audit_writeaudit",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "lib_errors",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "lib_errors_apperror",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "lib_errors_errorcode",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "platform_subscriptions_requirereason",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L11",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "platform_subscriptions_requireorg",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L19",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "platform_subscriptions_list",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L27",
+      "weight": 1
+    },
+    {
+      "source": "platform_subscriptions",
+      "target": "platform_subscriptions_setplan",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/subscriptions.ts",
+      "source_location": "L62",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "values",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L1",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "server",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L2",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_server_js",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "generated_server_mutation",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "generated_server_query",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_server_js",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "generated_server_queryctx",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_datamodel",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L5",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "generated_datamodel_id",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L5",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "lib_auth",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L6",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "lib_auth_requireplatformowner",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L6",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "lib_audit",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L7",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "lib_audit_writeaudit",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L7",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "lib_errors",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "lib_errors_apperror",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "lib_errors_errorcode",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "platform_users_requirereason",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L12",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "platform_users_list",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L20",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "platform_users_setstatus",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L47",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "platform_users_hasotherplatformowner",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L84",
+      "weight": 1
+    },
+    {
+      "source": "platform_users",
+      "target": "platform_users_setplatformrole",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/platform/users.ts",
+      "source_location": "L97",
+      "weight": 1
+    },
+    {
       "source": "convex_results",
       "target": "values",
       "relation": "imports_from",
@@ -13069,7 +16855,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "convex/results.ts",
-      "source_location": "L139",
+      "source_location": "L140",
       "weight": 1
     },
     {
@@ -13303,7 +17089,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "convex/roundAdmin.ts",
-      "source_location": "L170",
+      "source_location": "L177",
       "weight": 1
     },
     {
@@ -13312,7 +17098,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "convex/roundAdmin.ts",
-      "source_location": "L192",
+      "source_location": "L199",
       "weight": 1
     },
     {
@@ -13321,7 +17107,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "convex/roundAdmin.ts",
-      "source_location": "L243",
+      "source_location": "L250",
       "weight": 1
     },
     {
@@ -13330,7 +17116,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "convex/roundAdmin.ts",
-      "source_location": "L265",
+      "source_location": "L272",
       "weight": 1
     },
     {
@@ -13339,7 +17125,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "convex/roundAdmin.ts",
-      "source_location": "L303",
+      "source_location": "L310",
       "weight": 1
     },
     {

@@ -1,15 +1,85 @@
 {
   "communities": {
     "0": [
-      "app_page",
-      "app_page_apphome",
-      "app_page_home",
+      "audit_page",
+      "audit_page_platformauditpage",
+      "audit_page_scopetoorgid",
+      "audit_page_scopevalue",
+      "members_page",
+      "members_page_memberspage",
+      "organizations_page",
+      "organizations_page_platformorganizationspage",
+      "organizations_page_statusfilter",
+      "orgid_page",
+      "orgid_page_backlink",
+      "orgid_page_platformorgdetailpage",
+      "orgid_page_usage_resources",
+      "platform_errors",
+      "platform_errors_platformerrormessage",
+      "platform_format",
+      "platform_format_dateformat",
+      "platform_format_datetimeformat",
+      "platform_format_formatdate",
+      "platform_format_formatdatetime",
+      "platform_platformbadge_platformbadge",
+      "platform_reasondialog",
+      "platform_reasondialog_reasondialog",
+      "platform_status",
+      "platform_status_orgstatus",
+      "platform_status_orgstatuslabel",
+      "platform_status_orgstatustone",
+      "platform_status_subscriptionstatus",
+      "platform_status_subscriptionstatuslabel",
+      "platform_status_subscriptionstatustone",
+      "platform_status_userstatus",
+      "platform_status_userstatuslabel",
+      "platform_status_userstatustone",
+      "platform_usedebouncedvalue",
+      "platform_usedebouncedvalue_usedebouncedvalue",
+      "subscriptions_page",
+      "subscriptions_page_platformsubscriptionspage",
+      "tabulation_confirmdialog",
+      "tabulation_stateblock",
+      "tabulation_stateblock_emptystate",
+      "tabulation_stateblock_tableskeleton",
+      "ui_dialog",
+      "ui_dialog_dialog",
+      "ui_dialog_dialogclose",
+      "ui_dialog_dialogcontent",
+      "ui_dialog_dialogdescription",
+      "ui_dialog_dialogfooter",
+      "ui_dialog_dialogheader",
+      "ui_dialog_dialogoverlay",
+      "ui_dialog_dialogportal",
+      "ui_dialog_dialogtitle",
+      "ui_dialog_dialogtrigger",
+      "ui_select",
+      "ui_select_selectcontent",
+      "ui_select_selectgroup",
+      "ui_select_selectitem",
+      "ui_select_selectlabel",
+      "ui_select_selectscrolldownbutton",
+      "ui_select_selectscrollupbutton",
+      "ui_select_selectseparator",
+      "ui_select_selecttrigger",
+      "ui_select_selectvalue",
+      "ui_table",
+      "ui_table_table",
+      "ui_table_tablebody",
+      "ui_table_tablecaption",
+      "ui_table_tablecell",
+      "ui_table_tablefooter",
+      "ui_table_tablehead",
+      "ui_table_tableheader",
+      "ui_table_tablerow",
+      "users_page",
+      "users_page_platformuserspage",
+      "users_page_rowaction",
+      "users_page_statusfilter"
+    ],
+    "1": [
       "categories_page",
       "categories_page_categoriespage",
-      "components_orgswitcher",
-      "components_orgswitcher_orgswitcher",
-      "components_usermenu",
-      "components_usermenu_usermenu",
       "contestantid_page",
       "contestantid_page_scoreentrypage",
       "contestantid_page_validateraw",
@@ -20,13 +90,8 @@
       "generated_api_api",
       "judges_page",
       "judges_page_judgespage",
-      "monitor_page",
-      "monitor_page_legend",
-      "monitor_page_monitorpage",
       "new_page",
       "new_page_neweventpage",
-      "orgslug_layout",
-      "orgslug_layout_orglayout",
       "overview_page",
       "overview_page_overviewpage",
       "publish_page",
@@ -41,28 +106,24 @@
       "rounds_page",
       "rounds_page_advancement_modes",
       "rounds_page_roundspage",
-      "scoring_page",
-      "scoring_page_scoringpage",
       "settings_page",
       "settings_page_eventsettingspage",
       "settings_page_settingspage",
-      "tabulation_blackoutnotice",
-      "tabulation_blackoutnotice_blackoutnotice",
+      "sign_in_page",
+      "sign_in_page_signincontent",
+      "sign_in_page_signinpage",
       "tabulation_confirmdialog_confirmdialog",
-      "tabulation_num",
-      "tabulation_num_num",
       "tabulation_roundresultscard",
+      "tabulation_roundresultscard_categorygroup",
+      "tabulation_roundresultscard_groupbycategory",
       "tabulation_roundresultscard_roundresultscard",
       "tabulation_roundresultscard_roundsummary",
+      "tabulation_roundresultscard_standingsrow",
       "tabulation_saveindicator",
       "tabulation_saveindicator_saveindicator",
       "tabulation_saveindicator_savestate",
-      "tabulation_stateblock",
-      "tabulation_stateblock_emptystate",
       "tabulation_stateblock_errorstate",
-      "tabulation_stateblock_tableskeleton",
-      "tabulation_statusbadge_statusbadge",
-      "tabulation_statusbadge_statusdot",
+      "tabulation_versionbadge_versionbadge",
       "templates_page",
       "templates_page_templatespage",
       "token_page",
@@ -75,7 +136,57 @@
       "ui_label",
       "ui_label_label"
     ],
-    "1": [
+    "2": [
+      "components_eventshell",
+      "components_eventshell_eventshell",
+      "eventslug_layout",
+      "eventslug_layout_eventlayout",
+      "lib_utils",
+      "lib_utils_cn",
+      "monitor_page",
+      "monitor_page_legend",
+      "monitor_page_monitorpage",
+      "platform_platformbadge",
+      "scoring_page",
+      "scoring_page_scoringpage",
+      "tabulation_blackoutnotice",
+      "tabulation_blackoutnotice_blackoutnotice",
+      "tabulation_num",
+      "tabulation_num_num",
+      "tabulation_status",
+      "tabulation_status_formatscore",
+      "tabulation_status_roundstatus",
+      "tabulation_status_roundstatuslabel",
+      "tabulation_status_roundstatustone",
+      "tabulation_status_sheetstatus",
+      "tabulation_status_sheetstatuslabel",
+      "tabulation_status_sheetstatustone",
+      "tabulation_status_test",
+      "tabulation_status_tieresolvedbylabel",
+      "tabulation_status_tone",
+      "tabulation_statusbadge",
+      "tabulation_statusbadge_dotclasses",
+      "tabulation_statusbadge_roundicons",
+      "tabulation_statusbadge_statusbadge",
+      "tabulation_statusbadge_statusdot",
+      "tabulation_statusbadge_toneclasses",
+      "tabulation_versionbadge",
+      "ui_avatar",
+      "ui_avatar_avatar",
+      "ui_avatar_avatarbadge",
+      "ui_avatar_avatarfallback",
+      "ui_avatar_avatargroup",
+      "ui_avatar_avatargroupcount",
+      "ui_avatar_avatarimage",
+      "ui_badge",
+      "ui_badge_badge",
+      "ui_badge_badgevariants",
+      "ui_tooltip",
+      "ui_tooltip_tooltip",
+      "ui_tooltip_tooltipcontent",
+      "ui_tooltip_tooltiptrigger"
+    ],
+    "3": [
       "convex_results",
       "convex_results_eventresults",
       "convex_results_finalizeevent",
@@ -123,52 +234,37 @@
       "lib_tabulation_unresolvedtie",
       "lib_tabulation_workrow"
     ],
-    "2": [
-      "components_eventshell",
-      "components_eventshell_eventshell",
-      "eventslug_layout",
-      "eventslug_layout_eventlayout",
-      "lib_utils",
-      "lib_utils_cn",
-      "members_page",
-      "members_page_memberspage",
-      "tabulation_versionbadge",
-      "tabulation_versionbadge_versionbadge",
-      "ui_avatar",
-      "ui_avatar_avatar",
-      "ui_avatar_avatarbadge",
-      "ui_avatar_avatarfallback",
-      "ui_avatar_avatargroup",
-      "ui_avatar_avatargroupcount",
-      "ui_avatar_avatarimage",
-      "ui_badge",
-      "ui_badge_badge",
-      "ui_badge_badgevariants",
-      "ui_select",
-      "ui_select_selectcontent",
-      "ui_select_selectgroup",
-      "ui_select_selectitem",
-      "ui_select_selectlabel",
-      "ui_select_selectscrolldownbutton",
-      "ui_select_selectscrollupbutton",
-      "ui_select_selectseparator",
-      "ui_select_selecttrigger",
-      "ui_select_selectvalue",
-      "ui_table",
-      "ui_table_table",
-      "ui_table_tablebody",
-      "ui_table_tablecaption",
-      "ui_table_tablecell",
-      "ui_table_tablefooter",
-      "ui_table_tablehead",
-      "ui_table_tableheader",
-      "ui_table_tablerow",
-      "ui_tooltip",
-      "ui_tooltip_tooltip",
-      "ui_tooltip_tooltipcontent",
-      "ui_tooltip_tooltiptrigger"
+    "4": [
+      "convex_invitations",
+      "convex_invitations_accept",
+      "convex_invitations_create",
+      "convex_invitations_getbytoken",
+      "convex_invitations_listfororg",
+      "convex_invitations_listforuser",
+      "convex_invitations_randomtoken",
+      "convex_invitations_revoke",
+      "generated_datamodel_id",
+      "generated_server_mutationctx",
+      "generated_server_queryctx",
+      "lib_entitlements",
+      "lib_entitlements_getplan",
+      "lib_entitlements_getsubscription",
+      "lib_entitlements_hasfeature",
+      "lib_entitlements_haslimit",
+      "lib_entitlements_limitkeyforresource",
+      "lib_entitlements_requirefeature",
+      "lib_entitlements_requirelimit",
+      "lib_usage",
+      "lib_usage_getusage",
+      "platform_orgs",
+      "platform_orgs_get",
+      "platform_orgs_list",
+      "platform_orgs_options",
+      "platform_orgs_requireorg",
+      "platform_orgs_requirereason",
+      "platform_orgs_setstatus"
     ],
-    "3": [
+    "5": [
       "all_route",
       "app_layout",
       "app_layout_applayout",
@@ -192,14 +288,65 @@
       "platform_layout_platformdenied",
       "platform_layout_platformlayout",
       "platform_layout_platformshell",
-      "sign_in_page",
-      "sign_in_page_signincontent",
-      "sign_in_page_signinpage",
       "ui_sonner",
       "ui_sonner_toaster",
       "ui_tooltip_tooltipprovider"
     ],
-    "4": [
+    "6": [
+      "convex_contestants",
+      "convex_contestants_add",
+      "convex_contestants_list",
+      "convex_contestants_remove",
+      "convex_contestants_update",
+      "convex_judges",
+      "convex_judges_add",
+      "convex_judges_addassignment",
+      "convex_judges_listwithassignments",
+      "convex_judges_remove",
+      "convex_judges_removeassignment",
+      "convex_scoring",
+      "convex_scoring_checkvalue",
+      "convex_scoring_loadownsheet",
+      "convex_scoring_myassignments",
+      "convex_scoring_savedraft",
+      "convex_scoring_sheetdetail",
+      "convex_scoring_submitsheet",
+      "lib_eventauthz",
+      "lib_eventauthz_requiredraftevent",
+      "lib_eventauthz_requireeventmember",
+      "lib_eventauthz_requireeventpermission",
+      "lib_eventauthz_requirejudgerow",
+      "lib_eventauthz_requirereadyevent",
+      "lib_eventauthz_resolveeventbyslug",
+      "lib_usage_incrementusage"
+    ],
+    "7": [
+      "app_page",
+      "app_page_apphome",
+      "app_page_home",
+      "billing_page",
+      "billing_page_billingpage",
+      "components_orgswitcher",
+      "components_orgswitcher_orgswitcher",
+      "components_usermenu",
+      "components_usermenu_usermenu",
+      "orgslug_layout",
+      "orgslug_layout_orglayout",
+      "platform_page",
+      "platform_page_pageheader",
+      "platform_page_platformoverviewpage",
+      "platform_statcard",
+      "platform_statcard_statcard",
+      "ui_card",
+      "ui_card_card",
+      "ui_card_cardaction",
+      "ui_card_cardcontent",
+      "ui_card_carddescription",
+      "ui_card_cardfooter",
+      "ui_card_cardheader",
+      "ui_card_cardtitle"
+    ],
+    "8": [
       "betterauth_adapter",
       "betterauth_adapter_create_findone_findmany_updateone_updatemany_deleteone_deletemany",
       "betterauth_auth",
@@ -224,30 +371,39 @@
       "generated_server_databasereader",
       "generated_server_databasewriter"
     ],
-    "5": [
-      "convex_invitations",
-      "convex_invitations_accept",
-      "convex_invitations_create",
-      "convex_invitations_getbytoken",
-      "convex_invitations_listfororg",
-      "convex_invitations_listforuser",
-      "convex_invitations_randomtoken",
-      "convex_invitations_revoke",
-      "generated_datamodel_id",
-      "generated_server_mutationctx",
-      "generated_server_queryctx",
-      "lib_entitlements",
-      "lib_entitlements_getplan",
-      "lib_entitlements_getsubscription",
-      "lib_entitlements_hasfeature",
-      "lib_entitlements_haslimit",
-      "lib_entitlements_limitkeyforresource",
-      "lib_entitlements_requirefeature",
-      "lib_entitlements_requirelimit",
-      "lib_usage",
-      "lib_usage_getusage"
+    "9": [
+      "convex_audit",
+      "convex_audit_listbyorg",
+      "convex_organizations",
+      "convex_organizations_create",
+      "convex_organizations_get",
+      "convex_organizations_listmine",
+      "convex_organizations_picksystemrole",
+      "convex_organizations_slugify",
+      "convex_organizations_update",
+      "convex_templates",
+      "convex_templates_createfromevent",
+      "convex_templates_list",
+      "convex_templates_remove",
+      "lib_authz",
+      "lib_authz_authctx",
+      "lib_authz_loadpermissions",
+      "lib_authz_requireorgadmin",
+      "lib_authz_requireorgmember",
+      "lib_authz_requireorgowner",
+      "lib_authz_requirepermission",
+      "lib_authz_resolveorgbyslug"
     ],
-    "6": [
+    "10": [
+      "convex_categories",
+      "convex_categories_add",
+      "convex_categories_list",
+      "convex_categories_remove",
+      "convex_categories_update",
+      "convex_members",
+      "convex_members_changerole",
+      "convex_members_list",
+      "convex_members_remove",
       "convex_rounds",
       "convex_rounds_add",
       "convex_rounds_advancementargs",
@@ -255,43 +411,52 @@
       "convex_rounds_remove",
       "convex_rounds_update",
       "convex_rounds_validateadvancement",
-      "convex_scoring",
-      "convex_scoring_checkvalue",
-      "convex_scoring_loadownsheet",
-      "convex_scoring_myassignments",
-      "convex_scoring_savedraft",
-      "convex_scoring_sheetdetail",
-      "convex_scoring_submitsheet",
-      "lib_eventauthz",
-      "lib_eventauthz_requiredraftevent",
-      "lib_eventauthz_requireeventmember",
-      "lib_eventauthz_requireeventpermission",
-      "lib_eventauthz_requirejudgerow",
-      "lib_eventauthz_requirereadyevent",
-      "lib_eventauthz_resolveeventbyslug"
-    ],
-    "7": [
-      "convex_categories",
-      "convex_categories_add",
-      "convex_categories_list",
-      "convex_categories_remove",
-      "convex_categories_update",
-      "convex_contestants",
-      "convex_contestants_add",
-      "convex_contestants_list",
-      "convex_contestants_remove",
-      "convex_contestants_update",
-      "convex_members",
-      "convex_members_changerole",
-      "convex_members_list",
-      "convex_members_remove",
       "lib_errors",
       "lib_errors_apperror",
       "lib_errors_apperrordata",
-      "lib_errors_errorcode",
-      "lib_usage_incrementusage"
+      "lib_errors_errorcode"
     ],
-    "8": [
+    "11": [
+      "generated_datamodel_doc",
+      "lib_auth",
+      "lib_auth_requireidentity",
+      "lib_auth_requireplatformowner",
+      "lib_auth_requireuserprofile",
+      "platform_audit",
+      "platform_audit_list",
+      "platform_dashboard",
+      "platform_dashboard_stats",
+      "platform_subscriptions",
+      "platform_subscriptions_list",
+      "platform_subscriptions_requireorg",
+      "platform_subscriptions_requirereason",
+      "platform_subscriptions_setplan",
+      "platform_users",
+      "platform_users_hasotherplatformowner",
+      "platform_users_list",
+      "platform_users_requirereason",
+      "platform_users_setplatformrole",
+      "platform_users_setstatus"
+    ],
+    "12": [
+      "convex_criteria",
+      "convex_criteria_add",
+      "convex_criteria_remove",
+      "convex_criteria_requireroundofevent",
+      "convex_criteria_update",
+      "convex_criteria_validatecriterion",
+      "convex_subscriptions",
+      "convex_subscriptions_changeplan",
+      "convex_subscriptions_getfororg",
+      "lib_audit",
+      "lib_audit_auditinput",
+      "lib_audit_writeaudit",
+      "lib_serializers",
+      "lib_serializers_deserialize",
+      "lib_serializers_serialize",
+      "platform_bootstrap"
+    ],
+    "13": [
       "ui_dropdown_menu",
       "ui_dropdown_menu_dropdownmenu",
       "ui_dropdown_menu_dropdownmenucheckboxitem",
@@ -309,7 +474,7 @@
       "ui_dropdown_menu_dropdownmenusubtrigger",
       "ui_dropdown_menu_dropdownmenutrigger"
     ],
-    "9": [
+    "14": [
       "convex_eventlifecycle",
       "convex_eventlifecycle_archive",
       "convex_eventlifecycle_publish",
@@ -326,72 +491,7 @@
       "convex_events_slugify",
       "convex_events_update"
     ],
-    "10": [
-      "convex_judges",
-      "convex_judges_add",
-      "convex_judges_addassignment",
-      "convex_judges_listwithassignments",
-      "convex_judges_remove",
-      "convex_judges_removeassignment",
-      "convex_subscriptions",
-      "convex_subscriptions_changeplan",
-      "convex_subscriptions_getfororg",
-      "lib_audit",
-      "lib_audit_auditinput",
-      "lib_audit_writeaudit",
-      "lib_serializers",
-      "lib_serializers_deserialize",
-      "lib_serializers_serialize"
-    ],
-    "11": [
-      "tabulation_status",
-      "tabulation_status_formatscore",
-      "tabulation_status_roundstatus",
-      "tabulation_status_roundstatuslabel",
-      "tabulation_status_roundstatustone",
-      "tabulation_status_sheetstatus",
-      "tabulation_status_sheetstatuslabel",
-      "tabulation_status_sheetstatustone",
-      "tabulation_status_test",
-      "tabulation_status_tieresolvedbylabel",
-      "tabulation_status_tone",
-      "tabulation_statusbadge",
-      "tabulation_statusbadge_dotclasses",
-      "tabulation_statusbadge_roundicons",
-      "tabulation_statusbadge_toneclasses"
-    ],
-    "12": [
-      "convex_audit",
-      "convex_audit_listbyorg",
-      "convex_templates",
-      "convex_templates_createfromevent",
-      "convex_templates_list",
-      "convex_templates_remove",
-      "lib_authz",
-      "lib_authz_authctx",
-      "lib_authz_loadpermissions",
-      "lib_authz_requireorgadmin",
-      "lib_authz_requireorgmember",
-      "lib_authz_requireorgowner",
-      "lib_authz_requirepermission",
-      "lib_authz_resolveorgbyslug"
-    ],
-    "13": [
-      "billing_page",
-      "billing_page_billingpage",
-      "platform_page",
-      "platform_page_pageheader",
-      "platform_page_platformoverviewpage",
-      "ui_card",
-      "ui_card_card",
-      "ui_card_cardaction",
-      "ui_card_cardcontent",
-      "ui_card_carddescription",
-      "ui_card_cardfooter",
-      "ui_card_cardheader",
-      "ui_card_cardtitle"
-    ],
-    "14": [
+    "15": [
       "convex_auth",
       "convex_auth_ensureuserprofile",
       "convex_auth_getcurrentuser",
@@ -403,126 +503,91 @@
       "lib_constants_system_permissions",
       "lib_constants_system_plans",
       "lib_constants_system_roles",
-      "lib_constants_system_templates"
-    ],
-    "15": [
-      "tabulation_confirmdialog",
-      "ui_dialog",
-      "ui_dialog_dialog",
-      "ui_dialog_dialogclose",
-      "ui_dialog_dialogcontent",
-      "ui_dialog_dialogdescription",
-      "ui_dialog_dialogfooter",
-      "ui_dialog_dialogheader",
-      "ui_dialog_dialogoverlay",
-      "ui_dialog_dialogportal",
-      "ui_dialog_dialogtitle",
-      "ui_dialog_dialogtrigger"
+      "lib_constants_system_templates",
+      "platform_bootstrap_maybebootstrapplatformowner"
     ],
     "16": [
-      "convex_organizations",
-      "convex_organizations_create",
-      "convex_organizations_get",
-      "convex_organizations_listmine",
-      "convex_organizations_picksystemrole",
-      "convex_organizations_slugify",
-      "convex_organizations_update",
-      "lib_auth",
-      "lib_auth_requireidentity",
-      "lib_auth_requireplatformowner",
-      "lib_auth_requireuserprofile"
-    ],
-    "17": [
-      "convex_criteria",
-      "convex_criteria_add",
-      "convex_criteria_remove",
-      "convex_criteria_requireroundofevent",
-      "convex_criteria_update",
-      "convex_criteria_validatecriterion",
-      "generated_datamodel_doc"
-    ],
-    "18": [
       "middleware",
       "middleware_config",
       "middleware_middleware",
       "middleware_protected"
     ],
-    "19": [
+    "17": [
       "path_route",
       "path_route_get",
       "path_route_mime_types",
       "path_route_studio_dir"
     ],
-    "20": [
+    "18": [
       "betterauth_convex_config",
       "betterauth_convex_config_component"
     ],
-    "21": [
+    "19": [
       "convex_convex_config",
       "convex_convex_config_app"
     ],
-    "22": [
+    "20": [
       "convex_plans",
       "convex_plans_list"
     ],
-    "23": [
+    "21": [
       "convex_roles",
       "convex_roles_list"
     ],
-    "24": [
+    "22": [
       "eventslug_page",
       "eventslug_page_eventroot"
     ],
-    "25": [
+    "23": [
       "generated_component",
       "generated_component_componentapi"
     ],
-    "26": [
+    "24": [
       "next_config",
       "next_config_nextconfig"
     ],
-    "27": [
+    "25": [
       "orgslug_page",
       "orgslug_page_orgroot"
     ],
-    "28": [
+    "26": [
       "postcss_config",
       "postcss_config_config"
     ],
-    "29": [
+    "27": [
       "convex_auth_config"
     ],
-    "30": [
+    "28": [
       "convex_schema"
     ],
-    "31": [
+    "29": [
       "eslint_config"
     ],
-    "32": [
+    "30": [
       "vitest_config"
     ]
   },
   "cohesion": {
-    "0": 0.06811263318112633,
-    "1": 0.06183574879227053,
-    "2": 0.06755260243632337,
-    "3": 0.08620689655172414,
-    "4": 0.1225296442687747,
-    "5": 0.15714285714285714,
-    "6": 0.1380952380952381,
-    "7": 0.14619883040935672,
-    "8": 0.125,
+    "0": 0.07171171171171171,
+    "1": 0.07393483709273183,
+    "2": 0.09219858156028368,
+    "3": 0.06183574879227053,
+    "4": 0.12169312169312169,
+    "5": 0.09846153846153846,
+    "6": 0.11384615384615385,
+    "7": 0.14130434782608695,
+    "8": 0.1225296442687747,
     "9": 0.14285714285714285,
-    "10": 0.1619047619047619,
-    "11": 0.2571428571428571,
-    "12": 0.23076923076923078,
-    "13": 0.23076923076923078,
-    "14": 0.25757575757575757,
-    "15": 0.25757575757575757,
-    "16": 0.23636363636363636,
-    "17": 0.2857142857142857,
-    "18": 0.5,
-    "19": 0.5,
+    "10": 0.13157894736842105,
+    "11": 0.1368421052631579,
+    "12": 0.15833333333333333,
+    "13": 0.125,
+    "14": 0.14285714285714285,
+    "15": 0.23076923076923078,
+    "16": 0.5,
+    "17": 0.5,
+    "18": 1,
+    "19": 1,
     "20": 1,
     "21": 1,
     "22": 1,
@@ -533,108 +598,106 @@
     "27": 1,
     "28": 1,
     "29": 1,
-    "30": 1,
-    "31": 1,
-    "32": 1
+    "30": 1
   },
   "gods": [
     {
       "id": "generated_api_api",
       "label": "api",
-      "edges": 28,
-      "degree": 28
+      "edges": 33,
+      "degree": 33
     },
     {
       "id": "ui_button_button",
       "label": "Button()",
-      "edges": 26,
-      "degree": 26
+      "edges": 31,
+      "degree": 31
     },
     {
       "id": "generated_datamodel_id",
       "label": "Id",
-      "edges": 22,
-      "degree": 22
+      "edges": 30,
+      "degree": 30
     },
     {
       "id": "lib_errors_errorcode",
       "label": "ErrorCode",
-      "edges": 19,
-      "degree": 19
+      "edges": 22,
+      "degree": 22
     },
     {
       "id": "lib_errors_apperror",
       "label": "appError()",
-      "edges": 19,
-      "degree": 19
-    },
-    {
-      "id": "lib_utils_cn",
-      "label": "cn()",
-      "edges": 17,
-      "degree": 17
+      "edges": 22,
+      "degree": 22
     },
     {
       "id": "lib_audit_writeaudit",
       "label": "writeAudit()",
+      "edges": 20,
+      "degree": 20
+    },
+    {
+      "id": "lib_utils_cn",
+      "label": "cn()",
+      "edges": 18,
+      "degree": 18
+    },
+    {
+      "id": "ui_input_input",
+      "label": "Input()",
       "edges": 16,
       "degree": 16
     },
     {
       "id": "generated_datamodel_doc",
       "label": "Doc",
-      "edges": 13,
-      "degree": 13
-    },
-    {
-      "id": "ui_input_input",
-      "label": "Input()",
-      "edges": 11,
-      "degree": 11
+      "edges": 15,
+      "degree": 15
     },
     {
       "id": "generated_server_queryctx",
       "label": "QueryCtx",
-      "edges": 11,
-      "degree": 11
+      "edges": 14,
+      "degree": 14
     }
   ],
   "surprises": [],
   "questions": [
     {
       "type": "bridge_node",
-      "question": "Why does `Id` connect `Community 5` to `Community 0`, `Community 14`, `Community 17`, `Community 9`, `Community 16`, `Community 1`, `Community 6`, `Community 4`, `Community 10`, `Community 12`?",
-      "why": "High betweenness centrality (0.395) - this node is a cross-community bridge."
+      "question": "Why does `Id` connect `Community 4` to `Community 0`, `Community 1`, `Community 15`, `Community 12`, `Community 14`, `Community 9`, `Community 3`, `Community 6`, `Community 8`, `Community 2`, `Community 11`?",
+      "why": "High betweenness centrality (0.438) - this node is a cross-community bridge."
     },
     {
       "type": "bridge_node",
-      "question": "Why does `api` connect `Community 0` to `Community 13`, `Community 3`, `Community 2`, `Community 4`?",
-      "why": "High betweenness centrality (0.154) - this node is a cross-community bridge."
+      "question": "Why does `api` connect `Community 1` to `Community 7`, `Community 0`, `Community 5`, `Community 2`, `Community 8`?",
+      "why": "High betweenness centrality (0.141) - this node is a cross-community bridge."
     },
     {
       "type": "bridge_node",
-      "question": "Why does `cn()` connect `Community 2` to `Community 3`, `Community 0`, `Community 11`, `Community 13`, `Community 15`, `Community 8`?",
-      "why": "High betweenness centrality (0.084) - this node is a cross-community bridge."
+      "question": "Why does `Doc` connect `Community 11` to `Community 1`, `Community 12`, `Community 14`, `Community 9`, `Community 3`, `Community 6`, `Community 8`, `Community 15`, `Community 4`?",
+      "why": "High betweenness centrality (0.040) - this node is a cross-community bridge."
     },
     {
       "type": "isolated_nodes",
       "question": "What connects `legend`, `contestantStatusLabel`, `ADVANCEMENT_MODES` to the rest of the system?",
-      "why": "112 weakly-connected nodes found - possible documentation gaps or missing edges."
+      "why": "133 weakly-connected nodes found - possible documentation gaps or missing edges."
     },
     {
       "type": "low_cohesion",
       "question": "Should `Community 0` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.06811263318112633 - nodes in this community are weakly interconnected."
+      "why": "Cohesion score 0.07171171171171171 - nodes in this community are weakly interconnected."
     },
     {
       "type": "low_cohesion",
       "question": "Should `Community 1` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.06183574879227053 - nodes in this community are weakly interconnected."
+      "why": "Cohesion score 0.07393483709273183 - nodes in this community are weakly interconnected."
     },
     {
       "type": "low_cohesion",
       "question": "Should `Community 2` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.06755260243632337 - nodes in this community are weakly interconnected."
+      "why": "Cohesion score 0.09219858156028368 - nodes in this community are weakly interconnected."
     }
   ],
   "labels": {
@@ -668,9 +731,7 @@
     "27": "Community 27",
     "28": "Community 28",
     "29": "Community 29",
-    "30": "Community 30",
-    "31": "Community 31",
-    "32": "Community 32"
+    "30": "Community 30"
   },
   "tokens": {
     "input": 0,

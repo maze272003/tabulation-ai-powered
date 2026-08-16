@@ -12,6 +12,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-16-phase3-ui-ux-design-modules.md` — read it before starting.
 
+> **Status (2026-08-16): COMPLETE.** Tasks 1–10 executed (commits `1e29e84`..`44818df`, Task 10 Step 3 in `3736b57`); whole-branch review in `.superpowers/sdd/reports/final-review.md`; its UI findings (I-1, M-1, M-2, M-7) were fixed in `4e99062`, `6a832ca`, and `f03c167`. Individual checkboxes were left unchecked during execution; this status block is the authoritative record.
+
 ## Global Constraints
 
 - **OS:** Windows; PowerShell 5.1. Use `;` and `if ($?) { }` — never `&&`.
