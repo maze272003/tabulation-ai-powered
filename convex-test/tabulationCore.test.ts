@@ -3,6 +3,7 @@ import type { Id } from "../convex/_generated/dataModel";
 import {
   aggregateJudgeValues, computeContestantCriteria, computeRoundScore, roundToPrecision,
 } from "../convex/lib/tabulation";
+import { computeRoundStandings, type RoundComputeInput } from "../convex/lib/tabulation";
 
 const j = (s: string) => s as Id<"judges">;
 const c = (s: string) => s as Id<"criteria">;
@@ -73,5 +74,115 @@ describe("weighting", () => {
   it("roundToPrecision rounds half up", () => {
     expect(roundToPrecision(7.335, 2)).toBe(7.34);
     expect(roundToPrecision(7.5, 0)).toBe(8);
+  });
+});
+
+const cat = (s: string) => s as Id<"categories">;
+
+function fixture(marks: { k1: [number, number]; k2: [number, number] }): RoundComputeInput {
+  return {
+    winner: "highest" as const,
+    dropHighLow: false,
+    decimalPrecision: 2,
+    criteria: [
+      { id: c("cr1"), weight: 60, minScore: 0, maxScore: 10 },
+      { id: c("cr2"), weight: 40, minScore: 0, maxScore: 10 },
+    ],
+    contestants: [
+      { id: p("k1"), categoryId: cat("A"), status: "active" as const },
+      { id: p("k2"), categoryId: cat("A"), status: "active" as const },
+    ],
+    scores: [
+      { judgeId: j("j1"), contestantId: p("k1"), criterionId: c("cr1"), value: marks.k1[0] },
+      { judgeId: j("j1"), contestantId: p("k1"), criterionId: c("cr2"), value: marks.k1[1] },
+      { judgeId: j("j1"), contestantId: p("k2"), criterionId: c("cr1"), value: marks.k2[0] },
+      { judgeId: j("j1"), contestantId: p("k2"), criterionId: c("cr2"), value: marks.k2[1] },
+    ],
+    manualTieBreaks: [],
+  };
+}
+
+describe("ranking & ties", () => {
+  it("ranks by weighted score, highest first", () => {
+    const { standings, unresolvedTies } = computeRoundStandings(fixture({ k1: [9, 9], k2: [5, 5] }));
+    expect(standings.find((s) => s.contestantId === p("k1"))?.rank).toBe(1);
+    expect(standings.find((s) => s.contestantId === p("k2"))?.rank).toBe(2);
+    expect(unresolvedTies).toEqual([]);
+    expect(standings.find((s) => s.contestantId === p("k1"))?.tieResolvedBy).toBe("none");
+  });
+
+  it("lowest-wins inverts ranking", () => {
+    const { standings } = computeRoundStandings({ ...fixture({ k1: [9, 9], k2: [5, 5] }), winner: "lowest" });
+    expect(standings.find((s) => s.contestantId === p("k2"))?.rank).toBe(1);
+    expect(standings.find((s) => s.contestantId === p("k1"))?.rank).toBe(2);
+  });
+
+  it("resolves equal totals via criteria cascade (higher weight first)", () => {
+    const { standings, unresolvedTies } = computeRoundStandings(fixture({ k1: [10, 5], k2: [8, 8] }));
+    expect(standings.find((s) => s.contestantId === p("k1"))?.rank).toBe(1);
+    expect(standings.find((s) => s.contestantId === p("k1"))?.tieResolvedBy).toBe("criteria_cascade");
+    expect(unresolvedTies).toEqual([]);
+  });
+
+  it("flags fully tied contestants as unresolved without a manual break", () => {
+    const { standings, unresolvedTies } = computeRoundStandings(fixture({ k1: [8, 8], k2: [8, 8] }));
+    expect(unresolvedTies.length).toBe(1);
+    expect([...unresolvedTies[0].contestantIds].sort()).toEqual([p("k1"), p("k2")].sort());
+    expect(standings.every((s) => s.rank === 1)).toBe(true);
+  });
+
+  it("judge firsts resolve ties before manual breaks", () => {
+    const input = fixture({ k1: [0, 0], k2: [0, 0] });
+    input.scores = [
+      { judgeId: j("j1"), contestantId: p("k1"), criterionId: c("cr1"), value: 10 },
+      { judgeId: j("j1"), contestantId: p("k1"), criterionId: c("cr2"), value: 0 },
+      { judgeId: j("j1"), contestantId: p("k2"), criterionId: c("cr1"), value: 5 },
+      { judgeId: j("j1"), contestantId: p("k2"), criterionId: c("cr2"), value: 0 },
+      { judgeId: j("j2"), contestantId: p("k1"), criterionId: c("cr1"), value: 10 },
+      { judgeId: j("j2"), contestantId: p("k1"), criterionId: c("cr2"), value: 0 },
+      { judgeId: j("j2"), contestantId: p("k2"), criterionId: c("cr1"), value: 5 },
+      { judgeId: j("j2"), contestantId: p("k2"), criterionId: c("cr2"), value: 0 },
+      { judgeId: j("j3"), contestantId: p("k1"), criterionId: c("cr1"), value: 0 },
+      { judgeId: j("j3"), contestantId: p("k1"), criterionId: c("cr2"), value: 0 },
+      { judgeId: j("j3"), contestantId: p("k2"), criterionId: c("cr1"), value: 10 },
+      { judgeId: j("j3"), contestantId: p("k2"), criterionId: c("cr2"), value: 0 },
+    ];
+    const { standings, unresolvedTies } = computeRoundStandings(input);
+    expect(unresolvedTies).toEqual([]);
+    const k1 = standings.find((s) => s.contestantId === p("k1"))!;
+    expect(k1.rank).toBe(1);
+    expect(k1.tieResolvedBy).toBe("judge_firsts");
+  });
+
+  it("manual tie breaks resolve identical totals", () => {
+    const input = fixture({ k1: [8, 8], k2: [8, 8] });
+    input.manualTieBreaks = [{ tiedContestantIds: [p("k1"), p("k2")], orderedIds: [p("k2"), p("k1")] }];
+    const { standings, unresolvedTies } = computeRoundStandings(input);
+    expect(unresolvedTies).toEqual([]);
+    expect(standings.find((s) => s.contestantId === p("k2"))?.rank).toBe(1);
+    expect(standings.find((s) => s.contestantId === p("k2"))?.tieResolvedBy).toBe("manual");
+    expect(standings.find((s) => s.contestantId === p("k1"))?.rank).toBe(2);
+  });
+
+  it("excludes scratched and disqualified from ranking", () => {
+    const input = fixture({ k1: [9, 9], k2: [5, 5] });
+    input.contestants = [
+      { id: p("k1"), categoryId: cat("A"), status: "active" },
+      { id: p("k2"), categoryId: cat("A"), status: "disqualified" },
+    ];
+    const { standings } = computeRoundStandings(input);
+    const k2 = standings.find((s) => s.contestantId === p("k2"))!;
+    expect(k2.rank).toBeNull();
+    expect(k2.roundScore).toBeNull();
+    expect(k2.criterionScores).toEqual([]);
+    expect(standings.find((s) => s.contestantId === p("k1"))?.rank).toBe(1);
+  });
+
+  it("deterministic across repeated runs", () => {
+    const input = fixture({ k1: [8, 8], k2: [8, 8] });
+    input.manualTieBreaks = [{ tiedContestantIds: [p("k1"), p("k2")], orderedIds: [p("k2"), p("k1")] }];
+    const a = computeRoundStandings(input);
+    const b = computeRoundStandings(input);
+    expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   });
 });
