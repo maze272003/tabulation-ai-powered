@@ -1,0 +1,125 @@
+﻿=== COMMITS (f9c9d9a..c724a36) ===
+c724a36 feat: readiness checklist query
+
+=== STAT ===
+ convex-test/config.test.ts | 26 +++++++++++++++++++++++++
+ convex/events.ts           | 47 +++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 72 insertions(+), 1 deletion(-)
+
+=== DIFF (-U10) ===
+diff --git a/convex-test/config.test.ts b/convex-test/config.test.ts
+index ede2cd3..1189f04 100644
+--- a/convex-test/config.test.ts
++++ b/convex-test/config.test.ts
+@@ -60,10 +60,36 @@ describe("criteria", () => {
+     await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "one", name: "R1" });
+     const roundsOne = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "one" });
+     const r1 = roundsOne.find((r) => r.name === "R1")!;
+     await expect(
+       t.withIdentity(aliceIdentity).mutation(api.criteria.add, {
+         orgSlug: "acme", eventSlug: "two", roundId: r1._id, name: "X", weight: 50, minScore: 0, maxScore: 10, decimalPrecision: 0,
+       }),
+     ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
+   });
+ });
++
++describe("readiness", () => {
++  it("fails an empty event with specific items", async () => {
++    const t = setupTest();
++    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
++    const checks = await t.withIdentity(aliceIdentity).query(api.events.readiness, { orgSlug: "acme", eventSlug: "gala" });
++    const failed = checks.filter((c) => !c.passed).map((c) => c.item);
++    expect(failed).toContain("rounds.exist");
++    expect(failed).toContain("contestants.exist");
++    expect(failed).toContain("judges.exist");
++    expect(failed).not.toContain("categories.exist");
++  });
++
++  it("flags weights that do not sum to 100", async () => {
++    const t = setupTest();
++    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
++    await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "gala", name: "R" });
++    const rounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "gala" });
++    await t.withIdentity(aliceIdentity).mutation(api.criteria.add, {
++      orgSlug: "acme", eventSlug: "gala", roundId: rounds[0]._id, name: "A", weight: 40, minScore: 0, maxScore: 10, decimalPrecision: 0,
++    });
++    const checks = await t.withIdentity(aliceIdentity).query(api.events.readiness, { orgSlug: "acme", eventSlug: "gala" });
++    const weights = checks.find((c) => c.item === "rounds.weights");
++    expect(weights?.passed).toBe(false);
++  });
++});
+diff --git a/convex/events.ts b/convex/events.ts
+index 3d7a611..1a33520 100644
+--- a/convex/events.ts
++++ b/convex/events.ts
+@@ -1,13 +1,14 @@
+ import { v } from "convex/values";
+ import { mutation, query } from "./_generated/server";
+-import type { Doc } from "./_generated/dataModel";
++import type { Doc, Id } from "./_generated/dataModel";
++import type { QueryCtx } from "./_generated/server";
+ import { appError, ErrorCode } from "./lib/errors";
+ import { requireOrgMember, requirePermission } from "./lib/authz";
+ import { requireEventMember, requireDraftEvent } from "./lib/eventAuthz";
+ import { writeAudit } from "./lib/audit";
+ import { requireLimit } from "./lib/entitlements";
+ import { incrementUsage } from "./lib/usage";
+ 
+ function slugify(name: string): string {
+   return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+ }
+@@ -102,10 +103,54 @@ export const update = mutation({
+     if (args.resultVisibility !== undefined) patch.resultVisibility = args.resultVisibility;
+     if (Object.keys(patch).length === 0) return;
+     await ctx.db.patch(eactx.event._id, patch);
+     await writeAudit(ctx, {
+       orgId: eactx.org._id, actorId: eactx.user._id, action: "event.updated",
+       resourceType: "event", resourceId: eactx.event._id,
+       before: { name: eactx.event.name }, after: { name: patch.name ?? eactx.event.name },
+     });
+   },
+ });
++
++export type ReadinessCheck = { item: string; passed: boolean; detail: string };
++
++export async function computeReadiness(
++  ctx: QueryCtx,
++  eventId: Id<"events">,
++): Promise<ReadinessCheck[]> {
++  const rounds = await ctx.db.query("rounds").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
++  const categories = await ctx.db.query("categories").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
++  const contestants = await ctx.db.query("contestants").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
++  const judges = await ctx.db.query("judges").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
++  const assignments = await ctx.db.query("judgeAssignments").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
++
++  const criteriaPerRound = await Promise.all(
++    rounds.map((r) => ctx.db.query("criteria").withIndex("by_round_id", (q) => q.eq("roundId", r._id)).collect()),
++  );
++
++  const emptyRounds = rounds.filter((_, i) => criteriaPerRound[i].length === 0);
++  const badSums = rounds.filter((_, i) => {
++    const total = criteriaPerRound[i].reduce((sum, c) => sum + c.weight, 0);
++    return total !== 100;
++  });
++  const badRanges = criteriaPerRound.flat().filter((c) => !(c.minScore < c.maxScore));
++  const activeContestants = contestants.filter((c) => c.status === "active");
++  const judgesWithAssignments = judges.filter((j) => assignments.some((a) => a.judgeId === j._id));
++
++  return [
++    { item: "rounds.exist", passed: rounds.length >= 1, detail: `${rounds.length} round(s)` },
++    { item: "rounds.criteria", passed: emptyRounds.length === 0, detail: emptyRounds.length === 0 ? "all rounds have criteria" : `${emptyRounds.length} round(s) without criteria` },
++    { item: "rounds.weights", passed: badSums.length === 0, detail: badSums.length === 0 ? "all weights sum to 100" : `${badSums.length} round(s) with weights not summing to 100` },
++    { item: "criteria.ranges", passed: badRanges.length === 0, detail: badRanges.length === 0 ? "all ranges valid" : `${badRanges.length} criterion/criteria with invalid ranges` },
++    { item: "categories.exist", passed: categories.length >= 1, detail: `${categories.length} categor(y/ies)` },
++    { item: "contestants.exist", passed: activeContestants.length >= 1, detail: `${activeContestants.length} active contestant(s)` },
++    { item: "judges.exist", passed: judgesWithAssignments.length >= 1, detail: `${judgesWithAssignments.length} judge(s) with assignments` },
++  ];
++}
++
++export const readiness = query({
++  args: { orgSlug: v.string(), eventSlug: v.string() },
++  handler: async (ctx, args): Promise<ReadinessCheck[]> => {
++    const eactx = await requireEventMember(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug });
++    return computeReadiness(ctx, eactx.event._id);
++  },
++});

@@ -1,0 +1,35 @@
+﻿=== COMMITS (2c745a7..6cc3253) ===
+6cc3253 fix: drop dead orgId null check in templates.remove
+
+=== STAT ===
+ convex/templates.ts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+=== DIFF (-U10) ===
+diff --git a/convex/templates.ts b/convex/templates.ts
+index 9f74615..ef0bbfb 100644
+--- a/convex/templates.ts
++++ b/convex/templates.ts
+@@ -61,21 +61,21 @@ export const createFromEvent = mutation({
+     });
+   },
+ });
+ 
+ export const remove = mutation({
+   args: { orgSlug: v.string(), templateId: v.id("eventTemplates") },
+   handler: async (ctx, args) => {
+     const actx = await requirePermission(ctx, { orgSlug: args.orgSlug, permission: "event.create" });
+     const tpl = await ctx.db.get(args.templateId);
+     if (!tpl) throw appError(ErrorCode.NOT_FOUND, "Template not found");
+-    if (tpl.isSystem || tpl.orgId === null) {
++    if (tpl.isSystem) {
+       throw appError(ErrorCode.FORBIDDEN, "System templates cannot be deleted");
+     }
+     if (tpl.orgId !== actx.org._id) throw appError(ErrorCode.NOT_FOUND, "Template not found");
+     await ctx.db.delete(args.templateId);
+     await writeAudit(ctx, {
+       orgId: actx.org._id, actorId: actx.user._id, action: "template.removed",
+       resourceType: "eventTemplate", resourceId: args.templateId, before: { name: tpl.name },
+     });
+   },
+ });

@@ -1,0 +1,774 @@
+﻿=== COMMITS (2c2a6cd..7632b94) ===
+7632b94 feat: config editor UI - rounds, categories, contestants, judges
+ad52efa docs: Phase 3 tabulation engine spec
+
+=== STAT ===
+ .../events/[eventSlug]/categories/page.tsx         |  43 ++
+ .../events/[eventSlug]/contestants/page.tsx        |  64 +++
+ .../[orgSlug]/events/[eventSlug]/judges/page.tsx   |  82 ++++
+ .../[orgSlug]/events/[eventSlug]/rounds/page.tsx   | 102 +++++
+ .../2026-08-16-phase3-tabulation-engine-design.md  | 440 +++++++++++++++++++++
+ 5 files changed, 731 insertions(+)
+
+=== DIFF (-U10) ===
+diff --git a/app/app/[orgSlug]/events/[eventSlug]/categories/page.tsx b/app/app/[orgSlug]/events/[eventSlug]/categories/page.tsx
+new file mode 100644
+index 0000000..61391f1
+--- /dev/null
++++ b/app/app/[orgSlug]/events/[eventSlug]/categories/page.tsx
+@@ -0,0 +1,43 @@
++"use client";
++
++import { use, useState } from "react";
++import { useMutation, useQuery } from "convex/react";
++import { api } from "@/convex/_generated/api";
++import { Button } from "@/components/ui/button";
++import { Input } from "@/components/ui/input";
++import { toast } from "sonner";
++
++export default function CategoriesPage({ params }: { params: Promise<{ orgSlug: string; eventSlug: string }> }) {
++  const { orgSlug, eventSlug } = use(params);
++  const cats = useQuery(api.categories.list, { orgSlug, eventSlug });
++  const add = useMutation(api.categories.add);
++  const remove = useMutation(api.categories.remove);
++  const [name, setName] = useState("");
++
++  const onError = (err: unknown) => {
++    const data = (err as { data?: { code?: string; message?: string } })?.data;
++    if (data?.code === "CONFLICT") toast.error(data.message ?? "Conflict.");
++    else toast.error(data?.message ?? "Action failed.");
++  };
++
++  return (
++    <div className="space-y-4">
++      <div className="flex gap-2">
++        <Input placeholder="New category name" value={name} onChange={(e) => setName(e.target.value)} />
++        <Button onClick={async () => { try { await add({ orgSlug, eventSlug, name }); setName(""); } catch (e) { onError(e); } }}>
++          Add
++        </Button>
++      </div>
++      <ul className="space-y-1 text-sm">
++        {cats?.map((c) => (
++          <li key={c._id} className="flex items-center justify-between border-b py-1">
++            <span>{c.name}</span>
++            <Button variant="ghost" size="sm" onClick={async () => { try { await remove({ orgSlug, eventSlug, categoryId: c._id }); } catch (e) { onError(e); } }}>
++              Remove
++            </Button>
++          </li>
++        ))}
++      </ul>
++    </div>
++  );
++}
+diff --git a/app/app/[orgSlug]/events/[eventSlug]/contestants/page.tsx b/app/app/[orgSlug]/events/[eventSlug]/contestants/page.tsx
+new file mode 100644
+index 0000000..44df4ca
+--- /dev/null
++++ b/app/app/[orgSlug]/events/[eventSlug]/contestants/page.tsx
+@@ -0,0 +1,64 @@
++"use client";
++
++import { use, useState } from "react";
++import { useMutation, useQuery } from "convex/react";
++import { api } from "@/convex/_generated/api";
++import { Button } from "@/components/ui/button";
++import { Input } from "@/components/ui/input";
++import { toast } from "sonner";
++
++export default function ContestantsPage({ params }: { params: Promise<{ orgSlug: string; eventSlug: string }> }) {
++  const { orgSlug, eventSlug } = use(params);
++  const list = useQuery(api.contestants.list, { orgSlug, eventSlug });
++  const cats = useQuery(api.categories.list, { orgSlug, eventSlug });
++  const add = useMutation(api.contestants.add);
++  const remove = useMutation(api.contestants.remove);
++  const [name, setName] = useState("");
++  const [number, setNumber] = useState("");
++
++  const onError = (err: unknown) => {
++    const data = (err as { data?: { code?: string; message?: string } })?.data;
++    if (data?.code === "LIMIT_EXCEEDED") toast.error("Contestant limit reached - upgrade your plan.");
++    else if (data?.code === "CONFLICT") toast.error(data.message ?? "Conflict.");
++    else toast.error(data?.message ?? "Action failed.");
++  };
++
++  return (
++    <div className="space-y-4">
++      <div className="flex gap-2">
++        <Input className="w-24" placeholder="No." value={number} onChange={(e) => setNumber(e.target.value)} />
++        <Input placeholder="Contestant name" value={name} onChange={(e) => setName(e.target.value)} />
++        <Button
++          onClick={async () => {
++            try {
++              await add({ orgSlug, eventSlug, name, number: Number(number) });
++              setName(""); setNumber("");
++            } catch (e) { onError(e); }
++          }}
++        >
++          Add
++        </Button>
++      </div>
++      <table className="w-full text-sm">
++        <thead className="text-left text-muted-foreground">
++          <tr><th className="py-1">No.</th><th>Name</th><th>Category</th><th>Status</th><th /></tr>
++        </thead>
++        <tbody>
++          {list?.map((c) => (
++            <tr key={c._id} className="border-t">
++              <td className="py-1">{c.number}</td>
++              <td>{c.name}</td>
++              <td>{cats?.find((x) => x._id === c.categoryId)?.name ?? "-"}</td>
++              <td>{c.status}</td>
++              <td className="text-right">
++                <Button variant="ghost" size="sm" onClick={async () => { try { await remove({ orgSlug, eventSlug, contestantId: c._id }); } catch (e) { onError(e); } }}>
++                  Remove
++                </Button>
++              </td>
++            </tr>
++          ))}
++        </tbody>
++      </table>
++    </div>
++  );
++}
+diff --git a/app/app/[orgSlug]/events/[eventSlug]/judges/page.tsx b/app/app/[orgSlug]/events/[eventSlug]/judges/page.tsx
+new file mode 100644
+index 0000000..2aa2347
+--- /dev/null
++++ b/app/app/[orgSlug]/events/[eventSlug]/judges/page.tsx
+@@ -0,0 +1,82 @@
++"use client";
++
++import { use, useState } from "react";
++import { useMutation, useQuery } from "convex/react";
++import { api } from "@/convex/_generated/api";
++import type { Id } from "@/convex/_generated/dataModel";
++import { Button } from "@/components/ui/button";
++import { toast } from "sonner";
++
++export default function JudgesPage({ params }: { params: Promise<{ orgSlug: string; eventSlug: string }> }) {
++  const { orgSlug, eventSlug } = use(params);
++  const judges = useQuery(api.judges.listWithAssignments, { orgSlug, eventSlug });
++  const members = useQuery(api.members.list, { orgSlug });
++  const rounds = useQuery(api.rounds.list, { orgSlug, eventSlug });
++  const add = useMutation(api.judges.add);
++  const removeJudge = useMutation(api.judges.remove);
++  const addAssignment = useMutation(api.judges.addAssignment);
++  const [picked, setPicked] = useState<Id<"userProfiles"> | "">("");
++  const [roundPick, setRoundPick] = useState<Id<"rounds"> | "">("");
++
++  const onError = (err: unknown) => {
++    const data = (err as { data?: { code?: string; message?: string } })?.data;
++    if (data?.code === "LIMIT_EXCEEDED") toast.error("Judge limit reached - upgrade your plan.");
++    else toast.error(data?.message ?? "Action failed.");
++  };
++
++  const judgeUserIds = new Set(judges?.map((j) => j.userId));
++  const candidates = members?.filter((m) => m.status === "active" && !judgeUserIds.has(m.userId)) ?? [];
++
++  return (
++    <div className="space-y-4">
++      <div className="flex gap-2">
++        <select className="rounded border px-2 py-1 text-sm" value={picked} onChange={(e) => setPicked(e.target.value as Id<"userProfiles"> | "")}>
++          <option value="">Select memberΓÇª</option>
++          {candidates.map((m) => <option key={m.userId} value={m.userId}>{m.name} ({m.email})</option>)}
++        </select>
++        <Button disabled={!picked} onClick={async () => { if (picked === "") return; try { await add({ orgSlug, eventSlug, userId: picked }); setPicked(""); } catch (e) { onError(e); } }}>
++          Add judge
++        </Button>
++      </div>
++      {judges?.map((j) => (
++        <div key={j._id} className="space-y-2 rounded-lg border p-4">
++          <div className="flex items-center justify-between">
++            <div>
++              <div className="font-medium">{j.user.name}</div>
++              <div className="text-sm text-muted-foreground">{j.user.email}</div>
++            </div>
++            <Button variant="ghost" size="sm" onClick={async () => { try { await removeJudge({ orgSlug, eventSlug, judgeId: j._id }); } catch (e) { onError(e); } }}>
++              Remove
++            </Button>
++          </div>
++          <div className="flex flex-wrap items-center gap-2 text-sm">
++            <span className="text-muted-foreground">Assignments:</span>
++            {j.assignments.map((a) => (
++              <span key={a._id} className="rounded bg-accent px-2 py-0.5">
++                {a.roundId ? rounds?.find((r) => r._id === a.roundId)?.name ?? "round" : "all rounds"}
++              </span>
++            ))}
++            <select className="rounded border px-2 py-0.5" value={roundPick} onChange={(e) => setRoundPick(e.target.value as Id<"rounds"> | "")}>
++              <option value="">All rounds</option>
++              {rounds?.map((r) => <option key={r._id} value={r._id}>{r.name}</option>)}
++            </select>
++            <Button
++              size="sm"
++              variant="outline"
++              onClick={async () => {
++                try {
++                  await addAssignment({ orgSlug, eventSlug, judgeId: j._id, roundId: roundPick === "" ? undefined : roundPick });
++                } catch (e) { onError(e); }
++              }}
++            >
++              Assign
++            </Button>
++          </div>
++        </div>
++      ))}
++      {candidates.length === 0 && judges !== undefined && judges.length > 0 && (
++        <p className="text-sm text-muted-foreground">All active members are already judges. Invite more via Members.</p>
++      )}
++    </div>
++  );
++}
+diff --git a/app/app/[orgSlug]/events/[eventSlug]/rounds/page.tsx b/app/app/[orgSlug]/events/[eventSlug]/rounds/page.tsx
+new file mode 100644
+index 0000000..f695aca
+--- /dev/null
++++ b/app/app/[orgSlug]/events/[eventSlug]/rounds/page.tsx
+@@ -0,0 +1,102 @@
++"use client";
++
++import { use, useState } from "react";
++import { useMutation, useQuery } from "convex/react";
++import { api } from "@/convex/_generated/api";
++import { Button } from "@/components/ui/button";
++import { Input } from "@/components/ui/input";
++import { toast } from "sonner";
++
++export default function RoundsPage({ params }: { params: Promise<{ orgSlug: string; eventSlug: string }> }) {
++  const { orgSlug, eventSlug } = use(params);
++  const rounds = useQuery(api.rounds.list, { orgSlug, eventSlug });
++  const ev = useQuery(api.events.get, { orgSlug, eventSlug });
++  const addRound = useMutation(api.rounds.add);
++  const removeRound = useMutation(api.rounds.remove);
++  const addCriterion = useMutation(api.criteria.add);
++  const removeCriterion = useMutation(api.criteria.remove);
++  const [roundName, setRoundName] = useState("");
++  const [form, setForm] = useState<Record<string, { name: string; weight: string; min: string; max: string }>>({});
++
++  const locked = ev !== undefined && ev !== null && ev.status !== "draft";
++  const onError = (err: unknown) => {
++    const data = (err as { data?: { code?: string; message?: string } })?.data;
++    if (data?.code === "CONFLICT") toast.error("Configuration is locked.");
++    else toast.error(data?.message ?? "Action failed.");
++  };
++
++  return (
++    <div className="space-y-6">
++      {!locked && (
++        <div className="flex gap-2">
++          <Input placeholder="New round name" value={roundName} onChange={(e) => setRoundName(e.target.value)} />
++          <Button onClick={async () => { try { await addRound({ orgSlug, eventSlug, name: roundName }); setRoundName(""); } catch (e) { onError(e); } }}>
++            Add round
++          </Button>
++        </div>
++      )}
++      {rounds?.map((r) => {
++        const f = form[r._id] ?? { name: "", weight: "", min: "0", max: "100" };
++        const sum = r.criteria.reduce((s, c) => s + c.weight, 0);
++        return (
++          <div key={r._id} className="space-y-2 rounded-lg border p-4">
++            <div className="flex items-center justify-between">
++              <div className="font-medium">{r.name}</div>
++              <div className="flex items-center gap-2 text-sm">
++                <span className={sum === 100 ? "text-muted-foreground" : "text-destructive"}>weights: {sum}%</span>
++                {!locked && (
++                  <Button variant="ghost" size="sm" onClick={async () => { try { await removeRound({ orgSlug, eventSlug, roundId: r._id }); } catch (e) { onError(e); } }}>
++                    Remove
++                  </Button>
++                )}
++              </div>
++            </div>
++            <table className="w-full text-sm">
++              <thead className="text-left text-muted-foreground">
++                <tr><th className="py-1">Criterion</th><th>Weight %</th><th>Range</th><th /></tr>
++              </thead>
++              <tbody>
++                {r.criteria.map((c) => (
++                  <tr key={c._id} className="border-t">
++                    <td className="py-1">{c.name}</td>
++                    <td>{c.weight}</td>
++                    <td>{c.minScore} - {c.maxScore}</td>
++                    <td className="text-right">
++                      {!locked && (
++                        <Button variant="ghost" size="sm" onClick={async () => { try { await removeCriterion({ orgSlug, eventSlug, criterionId: c._id }); } catch (e) { onError(e); } }}>
++                          Remove
++                        </Button>
++                      )}
++                    </td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++            {!locked && (
++              <div className="flex flex-wrap gap-2">
++                <Input className="w-40" placeholder="Criterion" value={f.name} onChange={(e) => setForm({ ...form, [r._id]: { ...f, name: e.target.value } })} />
++                <Input className="w-24" placeholder="Weight" value={f.weight} onChange={(e) => setForm({ ...form, [r._id]: { ...f, weight: e.target.value } })} />
++                <Input className="w-20" placeholder="Min" value={f.min} onChange={(e) => setForm({ ...form, [r._id]: { ...f, min: e.target.value } })} />
++                <Input className="w-20" placeholder="Max" value={f.max} onChange={(e) => setForm({ ...form, [r._id]: { ...f, max: e.target.value } })} />
++                <Button
++                  size="sm"
++                  onClick={async () => {
++                    try {
++                      await addCriterion({
++                        orgSlug, eventSlug, roundId: r._id, name: f.name,
++                        weight: Number(f.weight), minScore: Number(f.min), maxScore: Number(f.max), decimalPrecision: 0,
++                      });
++                      setForm({ ...form, [r._id]: { ...f, name: "", weight: "" } });
++                    } catch (e) { onError(e); }
++                  }}
++                >
++                  Add criterion
++                </Button>
++              </div>
++            )}
++          </div>
++        );
++      })}
++    </div>
++  );
++}
+diff --git a/docs/superpowers/specs/2026-08-16-phase3-tabulation-engine-design.md b/docs/superpowers/specs/2026-08-16-phase3-tabulation-engine-design.md
+new file mode 100644
+index 0000000..e5146b8
+--- /dev/null
++++ b/docs/superpowers/specs/2026-08-16-phase3-tabulation-engine-design.md
+@@ -0,0 +1,440 @@
++# Phase 3 ΓÇö Tabulation Engine (Design Spec)
++
++**Project:** Tabulation SaaS (`tabulation-ai-powered`)
++**Phase:** 3 of 7 (Tabulation Engine)
++**Status:** Approved design ΓÇö pending user review
++**Date:** 2026-08-16
++**Builds on:** Phase 1 Foundation + Phase 2 Competition Config Engine (backend complete on `phase2-competition-config` @ `2c745a7`)
++
++---
++
++## 0. Context
++
++Phase 1 shipped auth, multi-tenancy, RBAC, entitlements, audit, and the app shell.
++Phase 2 shipped the full competition-config backend: events, categories, rounds,
++criteria + weights, contestants, judges + scoped assignments, score-sheet
++skeletons, templates, readiness checklist, and the `draft ΓåÆ ready ΓåÆ archived`
++lifecycle with sheet generation. Phase 2's admin UI (plan tasks 12ΓÇô14) and final
++verification (task 15) were **deferred** and are executed as the first stage of
++this phase's build order (┬º8).
++
++**Phase 3 ships the deterministic tabulation engine + all remaining UI**: judge
++score entry, tabulator round management, results with versioning and
++finalization ΓÇö plus the Phase 2 Event Control Center screens so the whole flow
++is usable end-to-end.
++
++**In scope:** judge score entry (autosave draft, submit), strict score
++immutability, a pure deterministic scoring core (aggregation with optional
++drop-hi/lo, weighting, ranking, tie-break cascade, advancement rules), round
++lifecycle (`open ΓåÆ closed ΓåÆ published`), result snapshots with versions and
++post-publish corrections, event finalization, blackout-before-publish
++visibility, judge/tabulator/results UI, Phase 2 admin UI.
++**Out of scope:** public results portal (Phase 5), notifications/email (Phase
++5), simulation mode (Phase 5), reports/PDF/certificates (Phase 4),
++judge-consistency analytics (Phase 7), offline scoring (Phase 7).
++
++### Decisions captured during brainstorm
++
++| # | Decision | Choice |
++|---|---|---|
++| 1 | UI scope | Engine + judge/tabulator/results UI **+ Phase 2 admin UI** (existing plan tasks 12ΓÇô15 executed first) |
++| 2 | Judge aggregation | **Configurable drop hi/lo** per event (`events.scoringRules.dropHighLow`, default false); applies only when ΓëÑ 3 judges scored that contestant-criterion; drop one highest + one lowest |
++| 3 | Tie-breaking | Cascade: (a) higher score in highest-weight criterion (descending weights), (b) per-judge first-place counts among the tied group, (c) manual `tieBreaks` rows, (d) else publish blocked `TIES_UNRESOLVED` |
++| 4 | Advancement | Event-level `eliminationEnabled` + per-round `advancement` rule: `none / top_count / top_percent / manual`, with `allowOverride`; overrides force advance/cut. Extensible shape (mode union + params object) |
++| 5 | Score edits | **Strict immutable on submit.** No unlock flow, no edits. Corrections only via a new `resultVersions` entry (reason required) after publish |
++| 6 | Visibility | **Blackout until publish.** No standings query exists for unpublished rounds; tabulators see submission progress (counts) only |
++| 7 | Cross-round combination | Per-round integer `weight` (sums to 100 across the event); final standing = ╬ú roundScore ├ù roundWeight; "final round standing" expressed as 100/0/0 weights |
++| 8 | Architecture | **A: deterministic pure-function core** (`convex/lib/tabulation.ts`, no I/O) + immutable `resultVersions` snapshots persisted at publish/correction |
++
++### Phase 2 interfaces Phase 3 builds on
++
++- `scoreSheets` skeleton rows (judge ├ù round ├ù contestant, status
++  `not_started | in_progress | submitted | locked`) generated on `draft ΓåÆ ready`.
++- `criteria` carry `weight` (integer %, sums to 100 per round), `minScore`,
++  `maxScore`, `decimalPrecision`.
++- `judgeAssignments` scope a judge by round/category/criterion (null = all in scope).
++- `rounds.qualifiesToNextRound`, `rounds.scoringRules.winner`
++  (`highest | lowest`), `events.decimalPrecision`, `events.resultVisibility`.
++- `requireEventMember` / `requireEventPermission` / `requireDraftEvent`
++  (`convex/lib/eventAuthz.ts`) returning `EventAuthCtx`.
++- Entitlements, `writeAudit`, typed `appError` codes, convex-test harness,
++  RBAC permission tables + `seedReferenceData` idempotent seeding.
++
++---
++
++## 1. Data Model
++
++### Schema changes to existing tables (all draft-gated edits via `requireDraftEvent`)
++
++**`events`**
++- `status: union<"draft", "ready", "finalized", "archived">` (new `finalized`)
++- `scoringRules: object<{ dropHighLow: boolean }>` (new; default `{ dropHighLow: false }`)
++- `eliminationEnabled: boolean` (new; default `true`)
++
++**`rounds`**
++- `weight: number` (new; integer 0ΓÇô100, cross-round combination share)
++- `status: union<"open", "closed", "published">` (new; default `"open"`)
++- `advancement: object<{
++    mode: union<"none", "top_count", "top_percent", "manual">,
++    count: optional<number>,
++    percent: optional<number>,
++    allowOverride: boolean,
++  }>` (new; default `{ mode: "none", allowOverride: true }`)
++
++**`scoreSheets`** gains:
++- `draftValues: optional<record<v.string(), v.number()>>` ΓÇö autosaved draft
++  scores keyed by criterionId (bounded by criteria-in-scope count); cleared on
++  submit. Keyed record (not array) so partial drafts stay small and mergeable.
++
++Readiness checklist (┬º4) extends: when the event has > 1 round, round weights
++must sum to exactly 100 (single-round events: the round's weight must be 100).
++`advancement.count` required when `mode: "top_count"`; `advancement.percent`
++(1ΓÇô100) required when `mode: "top_percent"`. An `advancement` rule is only
++meaningful when `qualifiesToNextRound && eliminationEnabled`; the UI hides it
++otherwise (validation stays server-side regardless).
++
++### New tables
++
++**`scores`** ΓÇö the immutable score history. One row per submitted sheet per criterion.
++- `sheetId: Id<"scoreSheets">`
++- `eventId: Id<"events">`, `roundId: Id<"rounds">`
++- `judgeId: Id<"judges">`, `contestantId: Id<"contestants">`, `criterionId: Id<"criteria">`
++- `value: number` (validated: within criterion min/max at criterion precision)
++- `submittedAt: number` (ms since epoch), `submittedById: Id<"userProfiles">`
++- Indexes: `by_sheet_id`, `by_event_id_and_round_id`,
++  `by_event_id_and_round_id_and_contestant_id`.
++- **Never patched, never deleted** by any application mutation.
++
++**`resultVersions`** ΓÇö immutable computed-result snapshots.
++- `eventId: Id<"events">`, `roundId: Id<"rounds">`
++- `version: number` (1 on publish; +1 per correction; highest per round is authoritative)
++- `snapshot: object<{ ΓÇª }>` ΓÇö precise shape in ┬º5
++- `createdById: Id<"userProfiles">`, `createdAt: number`
++- `reason: optional<string>` (required on corrections v ΓëÑ 2)
++- Indexes: `by_round_id`, `by_event_id`.
++- Immutable once inserted.
++
++**`advancementOverrides`** ΓÇö tabulator decisions layered on the computed cut.
++- `roundId: Id<"rounds">`, `eventId: Id<"events">`
++- `contestantId: Id<"contestants">`
++- `action: union<"force_advance", "force_cut">`
++- `createdById: Id<"userProfiles">`, `createdAt: number`
++- Indexes: `by_round_id`, `by_event_id_and_contestant_id`.
++- Settable only while `rounds.status === "closed"`. Applied by the compute core
++  at publish; frozen verbatim into the snapshot.
++
++**`tieBreaks`** ΓÇö manual tie resolutions (cascade step c).
++- `roundId: Id<"rounds">`, `eventId: Id<"events">`
++- `tiedContestantIds: array<Id<"contestants">>` (the tie group, ΓëÑ 2)
++- `orderedIds: array<Id<"contestants">>` (explicit final order of that group)
++- `createdById: Id<"userProfiles">`, `createdAt: number`
++- Indexes: `by_round_id`, `by_event_id`.
++- Same window as overrides (`closed` only); arrays are bounded by category size.
++
++### Key schema decisions
++
++- Draft values live on the sheet doc (small, bounded record); submitted values
++  live in immutable `scores` rows. The two never mix.
++- Snapshots are write-once `v.object`s ΓÇö no `v.any()`; a precise snapshot
++  validator makes historical versions forever parseable.
++- Tie-break and override decisions are separate small tables (not blob fields)
++  so they are individually auditable and testable; they freeze into the
++  snapshot at publish.
++- No standings table, no live-standings query ΓÇö blackout is enforced
++  structurally (Decision 6 / Architecture A).
++
++---
++
++## 2. Permissions Extension
++
++New permissions seeded into `SYSTEM_PERMISSIONS` and wired into
++`ROLE_PERMISSIONS` (idempotent `seedReferenceData` extension):
++
++- `score.enter` ΓÇö submit own score sheets
++- `score.manage` ΓÇö close/reopen/publish rounds, tie-breaks, advancement
++  overrides, corrections, finalize event
++- `result.view` ΓÇö view published results
++
++| Role | New permissions |
++|---|---|
++| Org Owner, Org Admin | `score.manage`, `result.view` |
++| Event Admin | `score.manage`, `result.view` |
++| Tabulator | `score.manage`, `result.view` |
++| Judge | `score.enter`, `result.view` |
++| Staff | `result.view` |
++| Viewer | `result.view` |
++
++**`score.enter` enforcement is ownership-based:** the server resolves the
++caller's `judges` row for the event (by `userId`); a mutation referencing a
++sheet whose `judgeId` does not match ΓåÆ `NOT_FOUND` (indistinguishable from a
++missing sheet ΓÇö no existence leak). Cross-judge IDOR is tested explicitly.
++
++**`result.view` enforcement is visibility-based:** published results are
++readable by permission holders subject to `events.resultVisibility`:
++- `"private"` ΓåÆ requires `score.manage` (org staff inner circle)
++- `"organization"` ΓåÆ any active org member with `result.view`
++- `"public"` ΓåÆ same as organization for now; the public portal lands in Phase 5
++
++---
++
++## 3. Authorization Helpers (extend `convex/lib/eventAuthz.ts`)
++
++- `requireJudgeSheet(ctx, { orgSlug, eventSlug, sheetId })` ΓåÆ `{ actx, sheet }` ΓÇö
++  `requireEventPermission("score.enter")` + resolves the caller's judges row +
++  verifies sheet ownership and `sheet.eventId === event._id`.
++- `requireScoringRound(ctx, { orgSlug, eventSlug, roundId })` ΓåÆ `{ actx, round }` ΓÇö
++  `requireEventPermission("score.manage")` + `round.eventId` check + event
++  `status === "ready"` (scoring flows only on ready events).
++- `requireClosedRound(...)` / `requirePublishedRound(...)` ΓÇö status gates for
++  the review/publish/correction windows.
++- `requireReadyEvent(ctx, ...)` ΓÇö reused from event scoring entry; `finalized`
++  and `archived` events refuse all score mutations.
++
++All new mutations derive identity server-side; every ID-bearing argument is
++verified against the resolved event (`NOT_FOUND` on mismatch), matching the
++Phase 2 IDOR-guard pattern.
++
++---
++
++## 4. Lifecycle & Flows
++
++### Round lifecycle (`rounds.status`)
++
++- **`open`** ΓÇö judges enter/submit sheets (event must be `ready`, round `open`).
++  Tabulator sees the monitor grid (counts only).
++- **`closed`** ΓÇö tabulator action (audited). Unsubmitted sheets are blocked from
++  submitting. The review screen becomes available: computed standings (via the
++  pure core, inside `score.manage`-gated functions only), tie-resolution
++  controls, advancement cut preview + overrides.
++- **`published`** ΓÇö tabulator action (audited). Runs the full compute +
++  validation (ties must be resolved ΓåÆ else `TIES_UNRESOLVED`; advancement
++  config must be satisfiable), inserts `resultVersions` v1, patches round
++  status. Results now visible per ┬º2. Terminal for the round.
++- **`closed ΓåÆ open` reopen** ΓÇö allowed while unpublished (audited); re-enables
++  pending submissions.
++
++### Event lifecycle
++
++- **`ready ΓåÆ finalized`** ΓÇö `finalize event` mutation: requires every round
++  `published`; patches event status to `finalized`, which locks the ability to
++  create new result versions or move the event back. Audited. Event-final
++  cross-round standings are **computed on read** by a query over published
++  round versions (┬º5 step 7) ΓÇö all inputs are immutable, so the query is
++  deterministic and cheap; no separate event-final snapshot is stored.
++- **`finalized ΓåÆ archived`** and **`ready ΓåÆ archived`** ΓÇö as in Phase 2.
++- **`ready ΓåÆ draft` reopen (Phase 2) is tightened:** refused (`CONFLICT`) once
++  any sheet is `submitted`/`locked` or any round is beyond `open`. This
++  protects the immutable score history from the sheet-deleting reopen path.
++
++### Score entry flow (judge)
++
++1. Judge opens `scoring` ΓåÆ sees only rounds/categories/criteria in their
++   assignment scope where sheets exist for them.
++2. Opens a contestant sheet ΓåÆ criteria list with min/max/precision hints.
++3. Keystrokes debounced ΓåÆ `saveDraft` patches `sheet.draftValues` (valid values
++   only; sheet status ΓåÆ `in_progress`).
++4. **Submit** ΓÇö validates: every in-scope criterion present, each within
++   `[minScore, maxScore]` at `decimalPrecision`; inserts one `scores` row per
++   criterion, patches sheet status `submitted`, clears `draftValues`, writes
++   audit (`score.submitted`), stamps `submittedAt/By`. Strictly immutable
++   afterward ΓÇö no mutation exists that can alter or delete these rows.
++
++### Correction flow (tabulator, post-publish)
++
++- `resultVersions` correction mutation: requires round `published` + event not
++  `finalized`; inserts version N+1 ΓÇö a superseding standings snapshot produced
++  under the same deterministic core (e.g. after an advancement-decision
++  change) ΓÇö plus a required `reason`; audited. Scores rows are never touched:
++  corrections document judging outcomes, not score edits.
++
++---
++
++## 5. Tabulation Core (`convex/lib/tabulation.ts`)
++
++Pure, deterministic, no Convex imports beyond types. Inputs are plain data
++(config + score rows + decisions); outputs are plain standings structures
++persisted verbatim into `resultVersions.snapshot`. Directly unit-testable in
++vitest without the Convex harness.
++
++**Pipeline per round, per category:**
++
++1. **Collect** ΓÇö sheets with status `submitted` or `locked`. Contestants with
++   status `scratched` or `disqualified` are excluded from ranking (a
++   `disqualified` flag is carried in the snapshot; `scratched` is omitted).
++2. **Aggregate per contestant ├ù criterion** ΓÇö average judge raw values; if
++   `events.scoringRules.dropHighLow` and ΓëÑ 3 judges scored that
++   contestant-criterion, drop exactly one highest and one lowest first.
++   Participation is per-criterion: a judge who scored 3 of 5 criteria counts
++   for those 3 only.
++3. **Weight** ΓÇö criterion contribution = `(avgRaw / maxScore) ├ù weight`; round
++   score = ╬ú contributions (0ΓÇô100), computed at fixed internal precision
++   (1e-6), emitted at event `decimalPrecision`.
++4. **Rank** ΓÇö within category; `rounds.scoringRules.winner === "lowest"`
++   inverts ordering.
++5. **Tie-break cascade** ΓÇö (a) higher score in the highest-weight criterion,
++   then next-highest, ΓÇª; (b) among the still-tied group, count per-judge
++   first places (each judge's internal ordering of that group by their own raw
++   round totals); (c) `tieBreaks` rows for the group; (d) still tied ΓåÆ
++   `TIES_UNRESOLVED` (publish blocked). Determinism: inputs sorted by id;
++   identical inputs ΓåÆ identical output.
++6. **Advancement** ΓÇö applied when `qualifiesToNextRound && eliminationEnabled
++   && mode Γëá "none"`: cut by `top_count` (N), `top_percent` (ΓîêN%Γîë of ranked
++   eligible), or `manual` (no auto cut); then `advancementOverrides` force
++   advance/cut regardless of the computed cut (only honored when
++   `allowOverride`; else `VALIDATION_ERROR`). Emits `advanced: boolean` per
++   contestant.
++7. **Cross-round final standings** (deterministic query over published
++   versions, or inside finalize checks) ΓÇö per contestant: ╬ú `roundScore ├ù
++   roundWeight` over rounds they appear in; contestants advancing out of the
++   last round rank above eliminated ones; eliminated contestants rank by
++   elimination round descending, then score. Per category.
++
++**`resultVersions.snapshot` shape (precise v.object):**
++```ts
++{
++  computedAt: number,
++  decimalPrecision: number,
++  categories: array<{
++    categoryId: Id,
++    standings: array<{
++      contestantId: Id, rank: number,
++      roundScore: number,                 // 0ΓÇô100 weighted
++      criterionScores: array<{ criterionId: Id, avgRaw: number, contribution: number }>,
++      droppedJudges: optional<array<{ criterionId: Id, judgeId: Id, value: number }>>, // when dropHighLow applied
++      tieResolvedBy: union<"criteria_cascade", "judge_firsts", "manual">,
++      advanced: optional<boolean>,        // elimination rounds only
++    }>,
++  }>,
++  judgeParticipation: array<{ judgeId: Id, sheetsSubmitted: number, sheetsTotal: number }>,
++  decisions: {
++    tieBreaks: array<{ tiedContestantIds: Id[], orderedIds: Id[], createdById: Id }>,
++    advancementOverrides: array<{ contestantId: Id, action: string, createdById: Id }>,
++  },
++}
++```
++
++---
++
++## 6. UI Architecture
++
++### Phase 3 routes (extend `/app/[orgSlug]/events/[eventSlug]/`)
++
++```
++scoring                                  judge home: assigned rounds + sheet status
++scoring/[roundId]                        judge's sheet list for a round
++scoring/[roundId]/[contestantId]         score entry form (autosave + submit)
++rounds/[roundId]/monitor                 tabulator: submission progress grid (counts only)
++rounds/[roundId]/review                  tabulator: post-close standings, tie + advancement controls, publish
++results                                  published standings per round/category, version badges, finalize
++```
++
++- **Score entry form** ΓÇö inputs constrained by criterion min/max/precision;
++  debounced autosave with "saved" indicator; submit runs full client
++  validation first (server re-validates); success renders a locked
++  confirmation state. Error UX reads `.data.code` (Phase 1 convention).
++- **Monitor grid** ΓÇö judges ├ù contestants matrix of submission status dots;
++  live via reactive query on sheet statuses; **no score values ever included**
++  in any pre-publish query payload.
++- **Review screen** ΓÇö standings table with tie groups highlighted and
++  resolution controls, advancement cut preview with override toggles, publish
++  action with `TIES_UNRESOLVED` inline error handling.
++- **Results screen** ΓÇö published versions only; version selector when > 1;
++  finalize-event action (enabled when all rounds published); correction dialog
++  (reason required).
++
++### Phase 2 UI (executed first, from the existing plan)
++
++Events list/new, event shell + overview, config editors (rounds, categories,
++contestants, judges), settings/readiness/publish, templates library ΓÇö plan
++tasks 12ΓÇô15. Phase 3's new config fields (round `weight` + `advancement`,
++event `scoringRules.dropHighLow` + `eliminationEnabled`) are added into these
++editors as part of Phase 3 backend tasks, with the elimination settings shown
++only when enabled (user requirement).
++
++Design system: existing shadcn/ui + Tailwind v4 + lucide-react conventions;
++all states (loading/empty/error/success) validated per the project UI/UX rules.
++
++---
++
++## 7. Testing & Acceptance
++
++**Pure-core unit tests (vitest, no Convex harness):**
++- Aggregation: mean; drop-hi/lo at exactly 3 judges; > 3 judges; not applied
++  with 2; per-criterion participation.
++- Weighting/normalization: mixed maxScores; weights sum; `decimalPrecision`
++  emission; `lowest` winner inversion.
++- Tie cascade: each tier triggers correctly; manual rows only when needed;
++  unresolved tie flagged.
++- Advancement: none/top_count/top_percent (ceiling)/manual; overrides
++  force-cut and force-advance; `allowOverride: false` rejects overrides.
++- Cross-round: weights; eliminated ranking (elimination round desc, then
++  score); single "final round standing" (100/0/0).
++- Determinism: same input ΓåÆ byte-identical output (repeat runs).
++
++**Integration tests (convex-test, existing harness):**
++- **Authz matrix** for every new public mutation: unauthenticated /
++  non-member / member-without-permission / cross-org / cross-event /
++  judge-accessing-another-judge's-sheet ΓåÆ correct `.data.code`.
++- **Blackout:** result queries refuse (or omit) unpublished rounds for every
++  role including `score.manage` holders outside the publish flow; monitor
++  query payload contains no score values.
++- **Immutability:** after submit, no mutation alters/deletes `scores` rows;
++  correction creates v2 with reason; event `finalized` blocks corrections.
++- **Lifecycle legality:** submit only on `ready` event + `open` round; close ΓåÆ
++  submit blocked; reopen ΓåÆ allowed; publish ΓåÆ terminal; finalize requires all
++  published; Phase 2 reopen-to-draft blocked after any submission.
++- **Readiness extension:** publish blocked when round weights Γëá 100 (multi-round).
++
++**Acceptance ΓÇö Phase 3 is "done" when:**
++1. Phase 2 UI tasks 12ΓÇô15 are complete (Event Control Center usable).
++2. A judge signs in, sees exactly their scoped sheets, autosaves, submits ΓÇö
++   and can never edit after submit (verified by test).
++3. A Tabulator monitors progress (counts only), closes a round, resolves a
++   tie, previews + overrides the advancement cut, publishes ΓÇö and results
++   appear per `resultVisibility` exactly at publish, never before.
++4. Corrections create superseding result versions with reasons; finalization
++   locks the event; final cross-round standings are correct.
++5. The pure core passes the full determinism suite; integration authz,
++   blackout, immutability, and lifecycle tests are green.
++6. `npm run typecheck && npm run lint && npm run build` pass; the
++   `convex-authz` scan is clean for the new functions.
++
++### Risks & mitigations
++
++| Risk | Mitigation |
++|---|---|
++| Compute-core floating-point drift | Fixed internal precision (1e-6), id-sorted inputs, integer weights, display-only rounding ΓÇö determinism unit-tested with repeated runs. |
++| Snapshot shape evolves in Phase 4 (reports) | Snapshot is a precise versioned `v.object`; Phase 4 reads/extends it rather than rewriting history. |
++| Ties blocking publish at a live event | Review screen surfaces tie groups pre-publish with manual resolution; `TIES_UNRESOLVED` is actionable, not a crash. |
++| Judge submits incomplete sheets under time pressure | Submit validates completeness + ranges client- and server-side; per-criterion state is explicit in the form. |
++| Phase 2 UI + Phase 3 backend interleaving | Build order: Phase 2 UI first (frozen plan), then Phase 3 schema/core/mutations/UI; each stage independently verifiable. |
++| `advancement` config invalid combos (`top_count` without count) | Readiness checklist + server validation; UI hides irrelevant modes. |
++
++---
++
++## 8. Build Order
++
++1. **Phase 2 UI** ΓÇö execute existing plan tasks 12ΓÇô15 verbatim.
++2. **Schema + core** ΓÇö new tables/fields, permission seeding, pure
++   `tabulation.ts` + full unit suite.
++3. **Mutations & lifecycle** ΓÇö score entry, close/reopen, review + decisions,
++   publish, corrections, finalize; integration tests.
++4. **Judge UI** ΓÇö scoring home, sheet entry form.
++5. **Tabulator UI** ΓÇö monitor, review/publish, results + corrections +
++   finalize.
++6. **Full verification** ΓÇö typecheck, lint, build, complete test suite,
++   `convex-authz` scan.
++
++---
++
++## 9. Open items deferred to implementation planning
++
++- Exact `draftValues` debounce interval and offline-tab warning (Phase 7 does
++  true offline; v1 is a plain debounce).
++- Correction mutation input ergonomics (full snapshot fragment vs. decision
++  recompute) ΓÇö decided at implementation time; both keep scores immutable.
++- Whether `resultVersions` gains a compact per-contestant rollup index for
++  large categories (current standings arrays are bounded by category size).
++- `tieBreaks` UI affordance details (group highlight, drag-order vs. select).
++- Public portal URL shape (Phase 5) ΓÇö `"public"` visibility behaves as
++  organization until then.

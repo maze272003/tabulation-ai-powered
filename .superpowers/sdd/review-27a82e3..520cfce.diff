@@ -1,0 +1,285 @@
+﻿=== COMMITS (27a82e3..520cfce) ===
+520cfce feat: categories and rounds with draft gating and cascade delete
+
+=== STAT ===
+ convex-test/config.test.ts | 31 ++++++++++++++++++
+ convex/_generated/api.d.ts |  4 +++
+ convex/categories.ts       | 68 ++++++++++++++++++++++++++++++++++++++
+ convex/rounds.ts           | 82 ++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 185 insertions(+)
+
+=== DIFF (-U10) ===
+diff --git a/convex-test/config.test.ts b/convex-test/config.test.ts
+new file mode 100644
+index 0000000..5ccc9b8
+--- /dev/null
++++ b/convex-test/config.test.ts
+@@ -0,0 +1,31 @@
++import { describe, expect, it } from "vitest";
++import { api } from "../convex/_generated/api";
++import { aliceIdentity, createOrgAndEvent, setupTest } from "./setup";
++
++describe("categories and rounds", () => {
++  it("adds and lists categories in order", async () => {
++    const t = setupTest();
++    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
++    await t.withIdentity(aliceIdentity).mutation(api.categories.add, { orgSlug: "acme", eventSlug: "gala", name: "Juniors" });
++    const cats = await t.withIdentity(aliceIdentity).query(api.categories.list, { orgSlug: "acme", eventSlug: "gala" });
++    expect(cats.map((c) => c.name)).toEqual(["Open", "Juniors"]);
++  });
++
++  it("adds rounds and lists them with criteria joined", async () => {
++    const t = setupTest();
++    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
++    await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "gala", name: "Preliminary" });
++    await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "gala", name: "Final" });
++    const rounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "gala" });
++    expect(rounds.map((r) => r.name)).toEqual(["Preliminary", "Final"]);
++    expect(Array.isArray(rounds[0].criteria)).toBe(true);
++  });
++
++  it("unknown event slug yields NOT_FOUND", async () => {
++    const t = setupTest();
++    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
++    await expect(
++      t.withIdentity(aliceIdentity).mutation(api.categories.add, { orgSlug: "acme", eventSlug: "nope", name: "X" }),
++    ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
++  });
++});
+diff --git a/convex/_generated/api.d.ts b/convex/_generated/api.d.ts
+index 031f2d3..9d18a70 100644
+--- a/convex/_generated/api.d.ts
++++ b/convex/_generated/api.d.ts
+@@ -3,66 +3,70 @@
+  * Generated `api` utility.
+  *
+  * THIS CODE IS AUTOMATICALLY GENERATED.
+  *
+  * To regenerate, run `npx convex dev`.
+  * @module
+  */
+ 
+ import type * as audit from "../audit.js";
+ import type * as auth from "../auth.js";
++import type * as categories from "../categories.js";
+ import type * as events from "../events.js";
+ import type * as http from "../http.js";
+ import type * as invitations from "../invitations.js";
+ import type * as lib_audit from "../lib/audit.js";
+ import type * as lib_auth from "../lib/auth.js";
+ import type * as lib_authz from "../lib/authz.js";
+ import type * as lib_constants from "../lib/constants.js";
+ import type * as lib_entitlements from "../lib/entitlements.js";
+ import type * as lib_errors from "../lib/errors.js";
+ import type * as lib_eventAuthz from "../lib/eventAuthz.js";
+ import type * as lib_serializers from "../lib/serializers.js";
+ import type * as lib_usage from "../lib/usage.js";
+ import type * as members from "../members.js";
+ import type * as organizations from "../organizations.js";
+ import type * as plans from "../plans.js";
+ import type * as platform from "../platform.js";
+ import type * as roles from "../roles.js";
++import type * as rounds from "../rounds.js";
+ import type * as seed from "../seed.js";
+ import type * as subscriptions from "../subscriptions.js";
+ 
+ import type {
+   ApiFromModules,
+   FilterApi,
+   FunctionReference,
+ } from "convex/server";
+ 
+ declare const fullApi: ApiFromModules<{
+   audit: typeof audit;
+   auth: typeof auth;
++  categories: typeof categories;
+   events: typeof events;
+   http: typeof http;
+   invitations: typeof invitations;
+   "lib/audit": typeof lib_audit;
+   "lib/auth": typeof lib_auth;
+   "lib/authz": typeof lib_authz;
+   "lib/constants": typeof lib_constants;
+   "lib/entitlements": typeof lib_entitlements;
+   "lib/errors": typeof lib_errors;
+   "lib/eventAuthz": typeof lib_eventAuthz;
+   "lib/serializers": typeof lib_serializers;
+   "lib/usage": typeof lib_usage;
+   members: typeof members;
+   organizations: typeof organizations;
+   plans: typeof plans;
+   platform: typeof platform;
+   roles: typeof roles;
++  rounds: typeof rounds;
+   seed: typeof seed;
+   subscriptions: typeof subscriptions;
+ }>;
+ 
+ /**
+  * A utility for referencing Convex functions in your app's public API.
+  *
+  * Usage:
+  * ```js
+  * const myFunctionReference = api.myModule.myFunction;
+diff --git a/convex/categories.ts b/convex/categories.ts
+new file mode 100644
+index 0000000..fd97e49
+--- /dev/null
++++ b/convex/categories.ts
+@@ -0,0 +1,68 @@
++import { v } from "convex/values";
++import { mutation, query } from "./_generated/server";
++import { appError, ErrorCode } from "./lib/errors";
++import { requireDraftEvent, requireEventMember } from "./lib/eventAuthz";
++import { writeAudit } from "./lib/audit";
++
++export const add = mutation({
++  args: { orgSlug: v.string(), eventSlug: v.string(), name: v.string(), description: v.optional(v.string()) },
++  handler: async (ctx, args) => {
++    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.update" });
++    const existing = await ctx.db.query("categories").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
++    const id = await ctx.db.insert("categories", {
++      eventId: eactx.event._id,
++      name: args.name.trim(),
++      description: args.description,
++      order: existing.length,
++    });
++    await writeAudit(ctx, {
++      orgId: eactx.org._id, actorId: eactx.user._id, action: "category.added",
++      resourceType: "category", resourceId: id, after: { name: args.name },
++    });
++  },
++});
++
++export const update = mutation({
++  args: { orgSlug: v.string(), eventSlug: v.string(), categoryId: v.id("categories"), name: v.optional(v.string()), description: v.optional(v.string()) },
++  handler: async (ctx, args) => {
++    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.update" });
++    const cat = await ctx.db.get(args.categoryId);
++    if (!cat || cat.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Category not found");
++    const patch: { name?: string; description?: string } = {};
++    if (args.name !== undefined) patch.name = args.name.trim();
++    if (args.description !== undefined) patch.description = args.description;
++    if (Object.keys(patch).length === 0) return;
++    await ctx.db.patch(args.categoryId, patch);
++    await writeAudit(ctx, {
++      orgId: eactx.org._id, actorId: eactx.user._id, action: "category.updated",
++      resourceType: "category", resourceId: args.categoryId, before: { name: cat.name }, after: patch,
++    });
++  },
++});
++
++export const remove = mutation({
++  args: { orgSlug: v.string(), eventSlug: v.string(), categoryId: v.id("categories") },
++  handler: async (ctx, args) => {
++    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.update" });
++    const cat = await ctx.db.get(args.categoryId);
++    if (!cat || cat.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Category not found");
++    const contestants = await ctx.db
++      .query("contestants")
++      .withIndex("by_event_id_and_category_id", (q) => q.eq("eventId", eactx.event._id).eq("categoryId", args.categoryId))
++      .first();
++    if (contestants) throw appError(ErrorCode.CONFLICT, "Category still has contestants");
++    await ctx.db.delete(args.categoryId);
++    await writeAudit(ctx, {
++      orgId: eactx.org._id, actorId: eactx.user._id, action: "category.removed",
++      resourceType: "category", resourceId: args.categoryId, before: { name: cat.name },
++    });
++  },
++});
++
++export const list = query({
++  args: { orgSlug: v.string(), eventSlug: v.string() },
++  handler: async (ctx, args) => {
++    const eactx = await requireEventMember(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug });
++    return await ctx.db.query("categories").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
++  },
++});
+diff --git a/convex/rounds.ts b/convex/rounds.ts
+new file mode 100644
+index 0000000..eee17e0
+--- /dev/null
++++ b/convex/rounds.ts
+@@ -0,0 +1,82 @@
++import { v } from "convex/values";
++import { mutation, query } from "./_generated/server";
++import { appError, ErrorCode } from "./lib/errors";
++import { requireDraftEvent, requireEventMember } from "./lib/eventAuthz";
++import { writeAudit } from "./lib/audit";
++
++export const add = mutation({
++  args: {
++    orgSlug: v.string(), eventSlug: v.string(), name: v.string(),
++    description: v.optional(v.string()), qualifiesToNextRound: v.optional(v.boolean()),
++  },
++  handler: async (ctx, args) => {
++    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.update" });
++    const existing = await ctx.db.query("rounds").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
++    const id = await ctx.db.insert("rounds", {
++      eventId: eactx.event._id,
++      name: args.name.trim(),
++      description: args.description,
++      order: existing.length,
++      qualifiesToNextRound: args.qualifiesToNextRound ?? false,
++    });
++    await writeAudit(ctx, {
++      orgId: eactx.org._id, actorId: eactx.user._id, action: "round.added",
++      resourceType: "round", resourceId: id, after: { name: args.name },
++    });
++  },
++});
++
++export const update = mutation({
++  args: {
++    orgSlug: v.string(), eventSlug: v.string(), roundId: v.id("rounds"),
++    name: v.optional(v.string()), description: v.optional(v.string()),
++    qualifiesToNextRound: v.optional(v.boolean()),
++    scoringRules: v.optional(v.object({ winner: v.union(v.literal("highest"), v.literal("lowest")) })),
++  },
++  handler: async (ctx, args) => {
++    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.update" });
++    const round = await ctx.db.get(args.roundId);
++    if (!round || round.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Round not found");
++    const patch: Record<string, unknown> = {};
++    if (args.name !== undefined) patch.name = args.name.trim();
++    if (args.description !== undefined) patch.description = args.description;
++    if (args.qualifiesToNextRound !== undefined) patch.qualifiesToNextRound = args.qualifiesToNextRound;
++    if (args.scoringRules !== undefined) patch.scoringRules = args.scoringRules;
++    if (Object.keys(patch).length === 0) return;
++    await ctx.db.patch(args.roundId, patch);
++    await writeAudit(ctx, {
++      orgId: eactx.org._id, actorId: eactx.user._id, action: "round.updated",
++      resourceType: "round", resourceId: args.roundId, before: { name: round.name }, after: patch,
++    });
++  },
++});
++
++export const remove = mutation({
++  args: { orgSlug: v.string(), eventSlug: v.string(), roundId: v.id("rounds") },
++  handler: async (ctx, args) => {
++    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.update" });
++    const round = await ctx.db.get(args.roundId);
++    if (!round || round.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Round not found");
++    const criteria = await ctx.db.query("criteria").withIndex("by_round_id", (q) => q.eq("roundId", args.roundId)).collect();
++    for (const c of criteria) await ctx.db.delete(c._id);
++    await ctx.db.delete(args.roundId);
++    await writeAudit(ctx, {
++      orgId: eactx.org._id, actorId: eactx.user._id, action: "round.removed",
++      resourceType: "round", resourceId: args.roundId, before: { name: round.name, criteriaDeleted: criteria.length },
++    });
++  },
++});
++
++export const list = query({
++  args: { orgSlug: v.string(), eventSlug: v.string() },
++  handler: async (ctx, args) => {
++    const eactx = await requireEventMember(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug });
++    const rounds = await ctx.db.query("rounds").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
++    return Promise.all(
++      rounds.map(async (r) => ({
++        ...r,
++        criteria: await ctx.db.query("criteria").withIndex("by_round_id", (q) => q.eq("roundId", r._id)).collect(),
++      })),
++    );
++  },
++});

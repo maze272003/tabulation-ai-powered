@@ -1,0 +1,214 @@
+﻿=== COMMITS (c724a36..cc66eb3) ===
+cc66eb3 feat: publish/reopen/archive lifecycle with sheet generation
+
+=== STAT ===
+ convex-test/lifecycle.test.ts | 64 ++++++++++++++++++++++++++++++++++
+ convex/_generated/api.d.ts    |  2 ++
+ convex/eventLifecycle.ts      | 80 +++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 146 insertions(+)
+
+=== DIFF (-U10) ===
+diff --git a/convex-test/lifecycle.test.ts b/convex-test/lifecycle.test.ts
+new file mode 100644
+index 0000000..d8be7e3
+--- /dev/null
++++ b/convex-test/lifecycle.test.ts
+@@ -0,0 +1,64 @@
++import { describe, expect, it } from "vitest";
++import { api } from "../convex/_generated/api";
++import { aliceIdentity, bobIdentity, createOrgAndEvent, setupTest } from "./setup";
++
++async function configureValidEvent(t: ReturnType<typeof setupTest>) {
++  await t.withIdentity(bobIdentity).mutation(api.auth.ensureUserProfile, {});
++  await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "gala", name: "R" });
++  const rounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "gala" });
++  const roundId = rounds[0]._id;
++  await t.withIdentity(aliceIdentity).mutation(api.criteria.add, { orgSlug: "acme", eventSlug: "gala", roundId, name: "A", weight: 60, minScore: 0, maxScore: 10, decimalPrecision: 0 });
++  await t.withIdentity(aliceIdentity).mutation(api.criteria.add, { orgSlug: "acme", eventSlug: "gala", roundId, name: "B", weight: 40, minScore: 0, maxScore: 10, decimalPrecision: 0 });
++  await t.withIdentity(aliceIdentity).mutation(api.contestants.add, { orgSlug: "acme", eventSlug: "gala", name: "Maria", number: 1 });
++  await t.withIdentity(aliceIdentity).mutation(api.invitations.create, { orgSlug: "acme", email: "bob@example.com", roleName: "Judge" });
++  const pending = await t.withIdentity(bobIdentity).query(api.invitations.listForUser, {});
++  await t.withIdentity(bobIdentity).mutation(api.invitations.accept, { token: pending[0].token });
++  const members = await t.withIdentity(aliceIdentity).query(api.members.list, { orgSlug: "acme" });
++  const bobId = members.find((m: { email: string }) => m.email === "bob@example.com")!.userId;
++  await t.withIdentity(aliceIdentity).mutation(api.judges.add, { orgSlug: "acme", eventSlug: "gala", userId: bobId });
++  const judges = await t.withIdentity(aliceIdentity).query(api.judges.listWithAssignments, { orgSlug: "acme", eventSlug: "gala" });
++  await t.withIdentity(aliceIdentity).mutation(api.judges.addAssignment, { orgSlug: "acme", eventSlug: "gala", judgeId: judges[0]._id });
++}
++
++describe("lifecycle", () => {
++  it("blocks publish when readiness fails", async () => {
++    const t = setupTest();
++    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
++    await expect(
++      t.withIdentity(aliceIdentity).mutation(api.eventLifecycle.publish, { orgSlug: "acme", eventSlug: "gala" }),
++    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
++  });
++
++  it("publishes a valid event, generates sheets, freezes config; reopen deletes sheets", async () => {
++    const t = setupTest();
++    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
++    await configureValidEvent(t);
++    await t.withIdentity(aliceIdentity).mutation(api.eventLifecycle.publish, { orgSlug: "acme", eventSlug: "gala" });
++    const ev = await t.withIdentity(aliceIdentity).query(api.events.get, { orgSlug: "acme", eventSlug: "gala" });
++    expect(ev?.status).toBe("ready");
++    const sheetCount = await t.run(async (q) =>
++      (await q.db.query("scoreSheets").collect()).filter((s) => s.eventId === ev!._id).length,
++    );
++    expect(sheetCount).toBe(1);
++    await expect(
++      t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "gala", name: "Late" }),
++    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
++    await t.withIdentity(aliceIdentity).mutation(api.eventLifecycle.reopen, { orgSlug: "acme", eventSlug: "gala" });
++    const after = await t.withIdentity(aliceIdentity).query(api.events.get, { orgSlug: "acme", eventSlug: "gala" });
++    expect(after?.status).toBe("draft");
++    const sheetsAfter = await t.run(async (q) =>
++      (await q.db.query("scoreSheets").collect()).filter((s) => s.eventId === after!._id).length,
++    );
++    expect(sheetsAfter).toBe(0);
++  });
++
++  it("archives a ready event", async () => {
++    const t = setupTest();
++    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
++    await configureValidEvent(t);
++    await t.withIdentity(aliceIdentity).mutation(api.eventLifecycle.publish, { orgSlug: "acme", eventSlug: "gala" });
++    await t.withIdentity(aliceIdentity).mutation(api.eventLifecycle.archive, { orgSlug: "acme", eventSlug: "gala" });
++    const ev = await t.withIdentity(aliceIdentity).query(api.events.get, { orgSlug: "acme", eventSlug: "gala" });
++    expect(ev?.status).toBe("archived");
++  });
++});
+diff --git a/convex/_generated/api.d.ts b/convex/_generated/api.d.ts
+index a5662b7..c1b6299 100644
+--- a/convex/_generated/api.d.ts
++++ b/convex/_generated/api.d.ts
+@@ -6,20 +6,21 @@
+  *
+  * To regenerate, run `npx convex dev`.
+  * @module
+  */
+ 
+ import type * as audit from "../audit.js";
+ import type * as auth from "../auth.js";
+ import type * as categories from "../categories.js";
+ import type * as contestants from "../contestants.js";
+ import type * as criteria from "../criteria.js";
++import type * as eventLifecycle from "../eventLifecycle.js";
+ import type * as events from "../events.js";
+ import type * as http from "../http.js";
+ import type * as invitations from "../invitations.js";
+ import type * as judges from "../judges.js";
+ import type * as lib_audit from "../lib/audit.js";
+ import type * as lib_auth from "../lib/auth.js";
+ import type * as lib_authz from "../lib/authz.js";
+ import type * as lib_constants from "../lib/constants.js";
+ import type * as lib_entitlements from "../lib/entitlements.js";
+ import type * as lib_errors from "../lib/errors.js";
+@@ -40,20 +41,21 @@ import type {
+   FilterApi,
+   FunctionReference,
+ } from "convex/server";
+ 
+ declare const fullApi: ApiFromModules<{
+   audit: typeof audit;
+   auth: typeof auth;
+   categories: typeof categories;
+   contestants: typeof contestants;
+   criteria: typeof criteria;
++  eventLifecycle: typeof eventLifecycle;
+   events: typeof events;
+   http: typeof http;
+   invitations: typeof invitations;
+   judges: typeof judges;
+   "lib/audit": typeof lib_audit;
+   "lib/auth": typeof lib_auth;
+   "lib/authz": typeof lib_authz;
+   "lib/constants": typeof lib_constants;
+   "lib/entitlements": typeof lib_entitlements;
+   "lib/errors": typeof lib_errors;
+diff --git a/convex/eventLifecycle.ts b/convex/eventLifecycle.ts
+new file mode 100644
+index 0000000..569401c
+--- /dev/null
++++ b/convex/eventLifecycle.ts
+@@ -0,0 +1,80 @@
++import { v } from "convex/values";
++import { mutation } from "./_generated/server";
++import { appError, ErrorCode } from "./lib/errors";
++import { requireEventPermission } from "./lib/eventAuthz";
++import { computeReadiness } from "./events";
++import { writeAudit } from "./lib/audit";
++
++export const publish = mutation({
++  args: { orgSlug: v.string(), eventSlug: v.string() },
++  handler: async (ctx, args) => {
++    const eactx = await requireEventPermission(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.publish" });
++    if (eactx.event.status !== "draft") {
++      throw appError(ErrorCode.CONFLICT, "Only draft events can be published");
++    }
++    const checks = await computeReadiness(ctx, eactx.event._id);
++    const failures = checks.filter((c) => !c.passed);
++    if (failures.length > 0) {
++      throw appError(ErrorCode.VALIDATION_ERROR, "Event is not ready to publish", { failures });
++    }
++    const rounds = await ctx.db.query("rounds").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
++    const judges = await ctx.db.query("judges").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
++    const contestants = await ctx.db.query("contestants").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
++    const active = contestants.filter((c) => c.status === "active");
++    let generated = 0;
++    for (const judge of judges) {
++      for (const round of rounds) {
++        for (const contestant of active) {
++          await ctx.db.insert("scoreSheets", {
++            eventId: eactx.event._id, roundId: round._id, judgeId: judge._id,
++            contestantId: contestant._id, status: "not_started",
++          });
++          generated++;
++        }
++      }
++    }
++    await ctx.db.patch(eactx.event._id, { status: "ready" });
++    await writeAudit(ctx, {
++      orgId: eactx.org._id, actorId: eactx.user._id, action: "event.published",
++      resourceType: "event", resourceId: eactx.event._id,
++      before: { status: "draft" }, after: { status: "ready", scoreSheetsGenerated: generated },
++    });
++  },
++});
++
++export const reopen = mutation({
++  args: { orgSlug: v.string(), eventSlug: v.string() },
++  handler: async (ctx, args) => {
++    const eactx = await requireEventPermission(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.publish" });
++    if (eactx.event.status !== "ready") {
++      throw appError(ErrorCode.CONFLICT, "Only ready events can be reopened");
++    }
++    const sheets = await ctx.db
++      .query("scoreSheets")
++      .withIndex("by_event_id_and_round_id", (q) => q.eq("eventId", eactx.event._id))
++      .collect();
++    for (const s of sheets) await ctx.db.delete(s._id);
++    await ctx.db.patch(eactx.event._id, { status: "draft" });
++    await writeAudit(ctx, {
++      orgId: eactx.org._id, actorId: eactx.user._id, action: "event.reopened",
++      resourceType: "event", resourceId: eactx.event._id,
++      before: { status: "ready" }, after: { status: "draft", scoreSheetsDeleted: sheets.length },
++    });
++  },
++});
++
++export const archive = mutation({
++  args: { orgSlug: v.string(), eventSlug: v.string() },
++  handler: async (ctx, args) => {
++    const eactx = await requireEventPermission(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.archive" });
++    if (eactx.event.status !== "ready") {
++      throw appError(ErrorCode.CONFLICT, "Only ready events can be archived");
++    }
++    await ctx.db.patch(eactx.event._id, { status: "archived" });
++    await writeAudit(ctx, {
++      orgId: eactx.org._id, actorId: eactx.user._id, action: "event.archived",
++      resourceType: "event", resourceId: eactx.event._id,
++      before: { status: "ready" }, after: { status: "archived" },
++    });
++  },
++});

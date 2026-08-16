@@ -1,0 +1,235 @@
+﻿=== COMMITS (2ace183..927e831) ===
+927e831 feat: settings, readiness, publish, templates UI
+
+=== STAT ===
+ .../[orgSlug]/events/[eventSlug]/publish/page.tsx  | 59 ++++++++++++++++++
+ .../events/[eventSlug]/readiness/page.tsx          | 20 +++++++
+ .../[orgSlug]/events/[eventSlug]/settings/page.tsx | 52 ++++++++++++++++
+ app/app/[orgSlug]/templates/page.tsx               | 69 ++++++++++++++++++++++
+ 4 files changed, 200 insertions(+)
+
+=== DIFF (-U10) ===
+diff --git a/app/app/[orgSlug]/events/[eventSlug]/publish/page.tsx b/app/app/[orgSlug]/events/[eventSlug]/publish/page.tsx
+new file mode 100644
+index 0000000..75f6a1d
+--- /dev/null
++++ b/app/app/[orgSlug]/events/[eventSlug]/publish/page.tsx
+@@ -0,0 +1,59 @@
++"use client";
++
++import { use } from "react";
++import { useMutation, useQuery } from "convex/react";
++import { api } from "@/convex/_generated/api";
++import { Button } from "@/components/ui/button";
++import { toast } from "sonner";
++
++export default function PublishPage({ params }: { params: Promise<{ orgSlug: string; eventSlug: string }> }) {
++  const { orgSlug, eventSlug } = use(params);
++  const ev = useQuery(api.events.get, { orgSlug, eventSlug });
++  const checks = useQuery(api.events.readiness, { orgSlug, eventSlug });
++  const publish = useMutation(api.eventLifecycle.publish);
++  const reopen = useMutation(api.eventLifecycle.reopen);
++  const archive = useMutation(api.eventLifecycle.archive);
++  const failed = checks?.filter((c) => !c.passed) ?? [];
++
++  const run = async (fn: () => Promise<unknown>, success: string) => {
++    try {
++      await fn();
++      toast.success(success);
++    } catch (err: unknown) {
++      const data = (err as { data?: { code?: string; message?: string } })?.data;
++      if (data?.code === "VALIDATION_ERROR") {
++        toast.error("Not ready - fix the failing items first.");
++      } else {
++        toast.error(data?.message ?? "Action failed.");
++      }
++    }
++  };
++
++  return (
++    <div className="space-y-4">
++      <ul className="space-y-1 text-sm">
++        {checks?.map((c) => (
++          <li key={c.item} className={c.passed ? "text-muted-foreground" : "text-destructive"}>
++            {c.passed ? "PASS" : "FAIL"} - {c.item} ({c.detail})
++          </li>
++        ))}
++      </ul>
++      {ev?.status === "draft" && (
++        <Button disabled={failed.length > 0} onClick={() => run(() => publish({ orgSlug, eventSlug }), "Event published.")}>
++          Publish event
++        </Button>
++      )}
++      {ev?.status === "ready" && (
++        <div className="flex gap-2">
++          <Button variant="outline" onClick={() => run(() => reopen({ orgSlug, eventSlug }), "Event reopened.")}>
++            Reopen (delete score sheets)
++          </Button>
++          <Button variant="secondary" onClick={() => run(() => archive({ orgSlug, eventSlug }), "Event archived.")}>
++            Archive
++          </Button>
++        </div>
++      )}
++      {ev?.status === "archived" && <p className="text-sm text-muted-foreground">This event is archived.</p>}
++    </div>
++  );
++}
+diff --git a/app/app/[orgSlug]/events/[eventSlug]/readiness/page.tsx b/app/app/[orgSlug]/events/[eventSlug]/readiness/page.tsx
+new file mode 100644
+index 0000000..2680e6b
+--- /dev/null
++++ b/app/app/[orgSlug]/events/[eventSlug]/readiness/page.tsx
+@@ -0,0 +1,20 @@
++"use client";
++
++import { use } from "react";
++import { useQuery } from "convex/react";
++import { api } from "@/convex/_generated/api";
++
++export default function ReadinessPage({ params }: { params: Promise<{ orgSlug: string; eventSlug: string }> }) {
++  const { orgSlug, eventSlug } = use(params);
++  const checks = useQuery(api.events.readiness, { orgSlug, eventSlug });
++
++  return (
++    <ul className="space-y-1 text-sm">
++      {checks?.map((c) => (
++        <li key={c.item} className={c.passed ? "text-muted-foreground" : "text-destructive"}>
++          {c.passed ? "PASS" : "FAIL"} - {c.item} ({c.detail})
++        </li>
++      ))}
++    </ul>
++  );
++}
+diff --git a/app/app/[orgSlug]/events/[eventSlug]/settings/page.tsx b/app/app/[orgSlug]/events/[eventSlug]/settings/page.tsx
+new file mode 100644
+index 0000000..ddd61be
+--- /dev/null
++++ b/app/app/[orgSlug]/events/[eventSlug]/settings/page.tsx
+@@ -0,0 +1,52 @@
++"use client";
++
++import { use, useState } from "react";
++import { useMutation, useQuery } from "convex/react";
++import { api } from "@/convex/_generated/api";
++import { Button } from "@/components/ui/button";
++import { Input } from "@/components/ui/input";
++import { toast } from "sonner";
++
++export default function EventSettingsPage({ params }: { params: Promise<{ orgSlug: string; eventSlug: string }> }) {
++  const { orgSlug, eventSlug } = use(params);
++  const ev = useQuery(api.events.get, { orgSlug, eventSlug });
++  const update = useMutation(api.events.update);
++  const [name, setName] = useState("");
++  const [venue, setVenue] = useState("");
++  const [prevKey, setPrevKey] = useState<string | null>(null);
++
++  if (ev !== undefined && ev !== null && prevKey !== ev._id) {
++    setPrevKey(ev._id);
++    setName(ev.name);
++    setVenue(ev.venue ?? "");
++  }
++
++  if (ev === undefined) return <div>LoadingΓÇª</div>;
++  if (ev === null) return <div>Event not found.</div>;
++
++  return (
++    <div className="space-y-4">
++      <div className="flex gap-2">
++        <Input value={name} onChange={(e) => setName(e.target.value)} />
++        <Button
++          disabled={ev.status !== "draft" || !name || name === ev.name}
++          onClick={async () => {
++            try {
++              await update({ orgSlug, eventSlug, name, venue });
++              toast.success("Saved.");
++            } catch (err: unknown) {
++              const data = (err as { data?: { code?: string; message?: string } })?.data;
++              toast.error(data?.code === "CONFLICT" ? "Configuration is locked." : data?.message ?? "Could not save.");
++            }
++          }}
++        >
++          Save
++        </Button>
++      </div>
++      <div className="flex gap-2">
++        <Input value={venue} placeholder="Venue" onChange={(e) => setVenue(e.target.value)} />
++      </div>
++      <p className="text-sm text-muted-foreground">Slug: {ev.slug} - Status: {ev.status}</p>
++    </div>
++  );
++}
+diff --git a/app/app/[orgSlug]/templates/page.tsx b/app/app/[orgSlug]/templates/page.tsx
+new file mode 100644
+index 0000000..b804562
+--- /dev/null
++++ b/app/app/[orgSlug]/templates/page.tsx
+@@ -0,0 +1,69 @@
++"use client";
++
++import { use, useState } from "react";
++import { useMutation, useQuery } from "convex/react";
++import { api } from "@/convex/_generated/api";
++import { Button } from "@/components/ui/button";
++import { Input } from "@/components/ui/input";
++import { toast } from "sonner";
++
++export default function TemplatesPage({ params }: { params: Promise<{ orgSlug: string }> }) {
++  const { orgSlug } = use(params);
++  const templates = useQuery(api.templates.list, { orgSlug });
++  const events = useQuery(api.events.listByOrg, { orgSlug });
++  const createFromEvent = useMutation(api.templates.createFromEvent);
++  const remove = useMutation(api.templates.remove);
++  const [name, setName] = useState("");
++  const [eventSlug, setEventSlug] = useState("");
++
++  const drafts = events?.filter((e) => e.status === "draft") ?? [];
++
++  return (
++    <div className="space-y-6">
++      <h1 className="text-2xl font-semibold">Templates</h1>
++      <div className="flex flex-wrap gap-2">
++        <Input className="w-48" placeholder="Template name" value={name} onChange={(e) => setName(e.target.value)} />
++        <select className="rounded border px-2 py-1 text-sm" value={eventSlug} onChange={(e) => setEventSlug(e.target.value)}>
++          <option value="">From draft eventΓÇª</option>
++          {drafts.map((e) => <option key={e._id} value={e.slug}>{e.name}</option>)}
++        </select>
++        <Button
++          disabled={!name || !eventSlug}
++          onClick={async () => {
++            try {
++              await createFromEvent({ orgSlug, eventSlug, name });
++              setName(""); setEventSlug("");
++              toast.success("Template saved.");
++            } catch (err: unknown) {
++              toast.error((err as { data?: { message?: string } })?.data?.message ?? "Could not save template.");
++            }
++          }}
++        >
++          Save as template
++        </Button>
++      </div>
++      <ul className="space-y-1 text-sm">
++        {templates?.map((tpl) => (
++          <li key={tpl._id} className="flex items-center justify-between border-b py-1">
++            <span>
++              {tpl.name} {tpl.isSystem ? <span className="text-muted-foreground">(system)</span> : null}
++              <span className="text-muted-foreground"> - {tpl.description}</span>
++            </span>
++            {!tpl.isSystem && (
++              <Button
++                variant="ghost"
++                size="sm"
++                onClick={async () => {
++                  try { await remove({ orgSlug, templateId: tpl._id }); }
++                  catch (err: unknown) { toast.error((err as { data?: { message?: string } })?.data?.message ?? "Failed."); }
++                }}
++              >
++                Delete
++              </Button>
++            )}
++          </li>
++        ))}
++      </ul>
++    </div>
++  );
++}

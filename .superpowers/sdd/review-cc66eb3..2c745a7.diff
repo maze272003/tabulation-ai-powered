@@ -1,0 +1,289 @@
+﻿=== COMMITS (cc66eb3..2c745a7) ===
+2c745a7 feat: event templates - list, instantiate, save-as-template
+
+=== STAT ===
+ convex-test/templates.test.ts | 56 ++++++++++++++++++++++++++++++
+ convex/_generated/api.d.ts    |  2 ++
+ convex/events.ts              | 66 +++++++++++++++++++++++++++++++++++
+ convex/templates.ts           | 81 +++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 205 insertions(+)
+
+=== DIFF (-U10) ===
+diff --git a/convex-test/templates.test.ts b/convex-test/templates.test.ts
+new file mode 100644
+index 0000000..13cf8c0
+--- /dev/null
++++ b/convex-test/templates.test.ts
+@@ -0,0 +1,56 @@
++import { describe, expect, it } from "vitest";
++import { api } from "../convex/_generated/api";
++import { aliceIdentity, createOrgAndEvent, setupTest } from "./setup";
++
++async function templateIdByName(t: ReturnType<typeof setupTest>, name: string) {
++  const list = await t.withIdentity(aliceIdentity).query(api.templates.list, { orgSlug: "acme" });
++  const tpl = list.find((x: { name: string }) => x.name === name);
++  if (!tpl) throw new Error(`template ${name} not found`);
++  return tpl._id;
++}
++
++describe("templates", () => {
++  it("instantiates the Pageant preset with its rounds and criteria", async () => {
++    const t = setupTest();
++    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "holder" });
++    await t.withIdentity(aliceIdentity).mutation(api.subscriptions.changePlan, { orgSlug: "acme", planName: "Pro" });
++    const tplId = await templateIdByName(t, "Pageant");
++    const slug = await t.withIdentity(aliceIdentity).mutation(api.events.createFromTemplate, {
++      orgSlug: "acme", name: "Miss Acme", templateId: tplId,
++    });
++    expect(slug).toBe("miss-acme");
++    const rounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "miss-acme" });
++    expect(rounds.length).toBe(1);
++    expect(rounds[0].name).toBe("Preliminary");
++    expect(rounds[0].criteria.map((c) => c.name)).toEqual(["Beauty", "Personality", "Talent", "Q&A"]);
++    expect(rounds[0].criteria.reduce((s, c) => s + c.weight, 0)).toBe(100);
++  });
++
++  it("save-as-template round-trips a draft event config", async () => {
++    const t = setupTest();
++    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
++    await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "gala", name: "Solo" });
++    const rounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "gala" });
++    await t.withIdentity(aliceIdentity).mutation(api.criteria.add, {
++      orgSlug: "acme", eventSlug: "gala", roundId: rounds[0]._id, name: "Tech", weight: 100, minScore: 0, maxScore: 10, decimalPrecision: 0,
++    });
++    await t.withIdentity(aliceIdentity).mutation(api.templates.createFromEvent, { orgSlug: "acme", eventSlug: "gala", name: "My Solo Comp" });
++    const tplId = await templateIdByName(t, "My Solo Comp");
++    await t.withIdentity(aliceIdentity).mutation(api.subscriptions.changePlan, { orgSlug: "acme", planName: "Pro" });
++    const slug = await t.withIdentity(aliceIdentity).mutation(api.events.createFromTemplate, {
++      orgSlug: "acme", name: "Clone", templateId: tplId,
++    });
++    const cloneRounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "clone" });
++    expect(cloneRounds[0].name).toBe("Solo");
++    expect(cloneRounds[0].criteria[0].name).toBe("Tech");
++  });
++
++  it("refuses to delete a system template", async () => {
++    const t = setupTest();
++    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
++    const tplId = await templateIdByName(t, "Quiz");
++    await expect(
++      t.withIdentity(aliceIdentity).mutation(api.templates.remove, { orgSlug: "acme", templateId: tplId }),
++    ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
++  });
++});
+diff --git a/convex/_generated/api.d.ts b/convex/_generated/api.d.ts
+index c1b6299..6b05bf4 100644
+--- a/convex/_generated/api.d.ts
++++ b/convex/_generated/api.d.ts
+@@ -28,20 +28,21 @@ import type * as lib_eventAuthz from "../lib/eventAuthz.js";
+ import type * as lib_serializers from "../lib/serializers.js";
+ import type * as lib_usage from "../lib/usage.js";
+ import type * as members from "../members.js";
+ import type * as organizations from "../organizations.js";
+ import type * as plans from "../plans.js";
+ import type * as platform from "../platform.js";
+ import type * as roles from "../roles.js";
+ import type * as rounds from "../rounds.js";
+ import type * as seed from "../seed.js";
+ import type * as subscriptions from "../subscriptions.js";
++import type * as templates from "../templates.js";
+ 
+ import type {
+   ApiFromModules,
+   FilterApi,
+   FunctionReference,
+ } from "convex/server";
+ 
+ declare const fullApi: ApiFromModules<{
+   audit: typeof audit;
+   auth: typeof auth;
+@@ -63,20 +64,21 @@ declare const fullApi: ApiFromModules<{
+   "lib/serializers": typeof lib_serializers;
+   "lib/usage": typeof lib_usage;
+   members: typeof members;
+   organizations: typeof organizations;
+   plans: typeof plans;
+   platform: typeof platform;
+   roles: typeof roles;
+   rounds: typeof rounds;
+   seed: typeof seed;
+   subscriptions: typeof subscriptions;
++  templates: typeof templates;
+ }>;
+ 
+ /**
+  * A utility for referencing Convex functions in your app's public API.
+  *
+  * Usage:
+  * ```js
+  * const myFunctionReference = api.myModule.myFunction;
+  * ```
+  */
+diff --git a/convex/events.ts b/convex/events.ts
+index 1a33520..cbf9b79 100644
+--- a/convex/events.ts
++++ b/convex/events.ts
+@@ -147,10 +147,76 @@ export async function computeReadiness(
+   ];
+ }
+ 
+ export const readiness = query({
+   args: { orgSlug: v.string(), eventSlug: v.string() },
+   handler: async (ctx, args): Promise<ReadinessCheck[]> => {
+     const eactx = await requireEventMember(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug });
+     return computeReadiness(ctx, eactx.event._id);
+   },
+ });
++
++export const createFromTemplate = mutation({
++  args: { orgSlug: v.string(), name: v.string(), slug: v.optional(v.string()), templateId: v.id("eventTemplates") },
++  handler: async (ctx, args): Promise<string> => {
++    const actx = await requirePermission(ctx, { orgSlug: args.orgSlug, permission: "event.create" });
++    await requireLimit(ctx, actx.subscription, "events");
++    const tpl = await ctx.db.get(args.templateId);
++    if (!tpl || !(tpl.isSystem || tpl.orgId === actx.org._id)) {
++      throw appError(ErrorCode.NOT_FOUND, "Template not found");
++    }
++    const slug = slugify(args.slug ?? args.name);
++    if (!slug) throw appError(ErrorCode.VALIDATION_ERROR, "Event name must contain letters or digits");
++    const existing = await ctx.db
++      .query("events")
++      .withIndex("by_org_id_and_slug", (q) => q.eq("orgId", actx.org._id).eq("slug", slug))
++      .unique();
++    if (existing) throw appError(ErrorCode.CONFLICT, "Event slug already taken", { slug });
++    const snap = tpl.configSnapshot;
++    const eventId = await ctx.db.insert("events", {
++      orgId: actx.org._id,
++      slug,
++      name: args.name.trim(),
++      description: "",
++      status: "draft",
++      decimalPrecision: snap.decimalPrecision,
++      resultVisibility: snap.resultVisibility,
++      branding: {},
++      templateId: tpl._id,
++      createdById: actx.user._id,
++    });
++    if (snap.categories && snap.categories.length > 0) {
++      for (const c of snap.categories) {
++        await ctx.db.insert("categories", { eventId, name: c.name, order: c.order });
++      }
++    } else {
++      await ctx.db.insert("categories", { eventId, name: "Open", order: 0 });
++    }
++    for (const r of snap.rounds) {
++      const roundId = await ctx.db.insert("rounds", {
++        eventId,
++        name: r.name,
++        order: r.order,
++        qualifiesToNextRound: r.qualifiesToNextRound,
++        scoringRules: r.scoringRules,
++      });
++      for (const c of r.criteria) {
++        await ctx.db.insert("criteria", {
++          roundId,
++          name: c.name,
++          order: c.order,
++          weight: c.weight,
++          minScore: c.minScore,
++          maxScore: c.maxScore,
++          decimalPrecision: c.decimalPrecision,
++        });
++      }
++    }
++    await incrementUsage(ctx, actx.org._id, "events", 1);
++    await writeAudit(ctx, {
++      orgId: actx.org._id, actorId: actx.user._id, action: "event.created",
++      resourceType: "event", resourceId: eventId,
++      after: { slug, name: args.name, fromTemplate: tpl.name },
++    });
++    return slug;
++  },
++});
+diff --git a/convex/templates.ts b/convex/templates.ts
+new file mode 100644
+index 0000000..9f74615
+--- /dev/null
++++ b/convex/templates.ts
+@@ -0,0 +1,81 @@
++import { v } from "convex/values";
++import { mutation, query } from "./_generated/server";
++import { appError, ErrorCode } from "./lib/errors";
++import { requireOrgMember, requirePermission } from "./lib/authz";
++import { requireDraftEvent } from "./lib/eventAuthz";
++import { writeAudit } from "./lib/audit";
++
++export const list = query({
++  args: { orgSlug: v.string() },
++  handler: async (ctx, args) => {
++    const actx = await requireOrgMember(ctx, { orgSlug: args.orgSlug });
++    const system = await ctx.db
++      .query("eventTemplates")
++      .filter((q) => q.eq(q.field("isSystem"), true))
++      .collect();
++    const orgTemplates = await ctx.db
++      .query("eventTemplates")
++      .withIndex("by_org_id", (q) => q.eq("orgId", actx.org._id))
++      .collect();
++    return [...system, ...orgTemplates];
++  },
++});
++
++export const createFromEvent = mutation({
++  args: { orgSlug: v.string(), eventSlug: v.string(), name: v.string(), description: v.optional(v.string()) },
++  handler: async (ctx, args) => {
++    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.create" });
++    const rounds = await ctx.db.query("rounds").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
++    const categories = await ctx.db.query("categories").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
++    const roundsWithCriteria = await Promise.all(
++      rounds.map(async (r) => ({
++        name: r.name,
++        order: r.order,
++        qualifiesToNextRound: r.qualifiesToNextRound,
++        scoringRules: r.scoringRules,
++        criteria: await ctx.db.query("criteria").withIndex("by_round_id", (q) => q.eq("roundId", r._id)).collect(),
++      })),
++    );
++    const id = await ctx.db.insert("eventTemplates", {
++      orgId: eactx.org._id,
++      name: args.name.trim(),
++      description: args.description ?? "",
++      configSnapshot: {
++        decimalPrecision: eactx.event.decimalPrecision,
++        resultVisibility: eactx.event.resultVisibility,
++        categories: categories.map((c) => ({ name: c.name, order: c.order })),
++        rounds: roundsWithCriteria.map((r) => ({
++          name: r.name, order: r.order, qualifiesToNextRound: r.qualifiesToNextRound,
++          scoringRules: r.scoringRules,
++          criteria: r.criteria.map((c) => ({
++            name: c.name, order: c.order, weight: c.weight,
++            minScore: c.minScore, maxScore: c.maxScore, decimalPrecision: c.decimalPrecision,
++          })),
++        })),
++      },
++      isSystem: false,
++    });
++    await writeAudit(ctx, {
++      orgId: eactx.org._id, actorId: eactx.user._id, action: "template.created",
++      resourceType: "eventTemplate", resourceId: id, after: { name: args.name },
++    });
++  },
++});
++
++export const remove = mutation({
++  args: { orgSlug: v.string(), templateId: v.id("eventTemplates") },
++  handler: async (ctx, args) => {
++    const actx = await requirePermission(ctx, { orgSlug: args.orgSlug, permission: "event.create" });
++    const tpl = await ctx.db.get(args.templateId);
++    if (!tpl) throw appError(ErrorCode.NOT_FOUND, "Template not found");
++    if (tpl.isSystem || tpl.orgId === null) {
++      throw appError(ErrorCode.FORBIDDEN, "System templates cannot be deleted");
++    }
++    if (tpl.orgId !== actx.org._id) throw appError(ErrorCode.NOT_FOUND, "Template not found");
++    await ctx.db.delete(args.templateId);
++    await writeAudit(ctx, {
++      orgId: actx.org._id, actorId: actx.user._id, action: "template.removed",
++      resourceType: "eventTemplate", resourceId: args.templateId, before: { name: tpl.name },
++    });
++  },
++});

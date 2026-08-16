@@ -1,0 +1,220 @@
+﻿=== COMMITS (520cfce..6f9a242) ===
+6f9a242 feat: criteria with range validation and cross-event IDOR guard
+
+=== STAT ===
+ convex-test/config.test.ts |  38 +++++++++++++++++
+ convex/_generated/api.d.ts |   2 +
+ convex/criteria.ts         | 103 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 143 insertions(+)
+
+=== DIFF (-U10) ===
+diff --git a/convex-test/config.test.ts b/convex-test/config.test.ts
+index 5ccc9b8..ede2cd3 100644
+--- a/convex-test/config.test.ts
++++ b/convex-test/config.test.ts
+@@ -22,10 +22,48 @@ describe("categories and rounds", () => {
+   });
+ 
+   it("unknown event slug yields NOT_FOUND", async () => {
+     const t = setupTest();
+     await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+     await expect(
+       t.withIdentity(aliceIdentity).mutation(api.categories.add, { orgSlug: "acme", eventSlug: "nope", name: "X" }),
+     ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
+   });
+ });
++
++describe("criteria", () => {
++  it("adds criteria and validates ranges and weight bounds", async () => {
++    const t = setupTest();
++    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
++    await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "gala", name: "R" });
++    const rounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "gala" });
++    const roundId = rounds[0]._id;
++    await t.withIdentity(aliceIdentity).mutation(api.criteria.add, {
++      orgSlug: "acme", eventSlug: "gala", roundId, name: "Beauty", weight: 50, minScore: 0, maxScore: 100, decimalPrecision: 0,
++    });
++    await expect(
++      t.withIdentity(aliceIdentity).mutation(api.criteria.add, {
++        orgSlug: "acme", eventSlug: "gala", roundId, name: "Bad", weight: 50, minScore: 100, maxScore: 0, decimalPrecision: 0,
++      }),
++    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
++    await expect(
++      t.withIdentity(aliceIdentity).mutation(api.criteria.add, {
++        orgSlug: "acme", eventSlug: "gala", roundId, name: "BadWeight", weight: 0, minScore: 0, maxScore: 10, decimalPrecision: 0,
++      }),
++    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
++  });
++
++  it("refuses criteria for a round belonging to a different event (IDOR)", async () => {
++    const t = setupTest();
++    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "one" });
++    await t.withIdentity(aliceIdentity).mutation(api.subscriptions.changePlan, { orgSlug: "acme", planName: "Pro" });
++    await t.withIdentity(aliceIdentity).mutation(api.events.create, { orgSlug: "acme", name: "Two", slug: "two" });
++    await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "one", name: "R1" });
++    const roundsOne = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "one" });
++    const r1 = roundsOne.find((r) => r.name === "R1")!;
++    await expect(
++      t.withIdentity(aliceIdentity).mutation(api.criteria.add, {
++        orgSlug: "acme", eventSlug: "two", roundId: r1._id, name: "X", weight: 50, minScore: 0, maxScore: 10, decimalPrecision: 0,
++      }),
++    ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
++  });
++});
+diff --git a/convex/_generated/api.d.ts b/convex/_generated/api.d.ts
+index 9d18a70..1b34c5d 100644
+--- a/convex/_generated/api.d.ts
++++ b/convex/_generated/api.d.ts
+@@ -4,20 +4,21 @@
+  *
+  * THIS CODE IS AUTOMATICALLY GENERATED.
+  *
+  * To regenerate, run `npx convex dev`.
+  * @module
+  */
+ 
+ import type * as audit from "../audit.js";
+ import type * as auth from "../auth.js";
+ import type * as categories from "../categories.js";
++import type * as criteria from "../criteria.js";
+ import type * as events from "../events.js";
+ import type * as http from "../http.js";
+ import type * as invitations from "../invitations.js";
+ import type * as lib_audit from "../lib/audit.js";
+ import type * as lib_auth from "../lib/auth.js";
+ import type * as lib_authz from "../lib/authz.js";
+ import type * as lib_constants from "../lib/constants.js";
+ import type * as lib_entitlements from "../lib/entitlements.js";
+ import type * as lib_errors from "../lib/errors.js";
+ import type * as lib_eventAuthz from "../lib/eventAuthz.js";
+@@ -35,20 +36,21 @@ import type * as subscriptions from "../subscriptions.js";
+ import type {
+   ApiFromModules,
+   FilterApi,
+   FunctionReference,
+ } from "convex/server";
+ 
+ declare const fullApi: ApiFromModules<{
+   audit: typeof audit;
+   auth: typeof auth;
+   categories: typeof categories;
++  criteria: typeof criteria;
+   events: typeof events;
+   http: typeof http;
+   invitations: typeof invitations;
+   "lib/audit": typeof lib_audit;
+   "lib/auth": typeof lib_auth;
+   "lib/authz": typeof lib_authz;
+   "lib/constants": typeof lib_constants;
+   "lib/entitlements": typeof lib_entitlements;
+   "lib/errors": typeof lib_errors;
+   "lib/eventAuthz": typeof lib_eventAuthz;
+diff --git a/convex/criteria.ts b/convex/criteria.ts
+new file mode 100644
+index 0000000..7d4d598
+--- /dev/null
++++ b/convex/criteria.ts
+@@ -0,0 +1,103 @@
++import { v } from "convex/values";
++import { mutation } from "./_generated/server";
++import type { QueryCtx } from "./_generated/server";
++import type { Doc, Id } from "./_generated/dataModel";
++import { appError, ErrorCode } from "./lib/errors";
++import { requireDraftEvent } from "./lib/eventAuthz";
++import { writeAudit } from "./lib/audit";
++
++function validateCriterion(weight: number, minScore: number, maxScore: number, decimalPrecision: number) {
++  if (!Number.isInteger(weight) || weight < 1 || weight > 100) {
++    throw appError(ErrorCode.VALIDATION_ERROR, "weight must be an integer between 1 and 100");
++  }
++  if (!(minScore < maxScore)) {
++    throw appError(ErrorCode.VALIDATION_ERROR, "minScore must be less than maxScore");
++  }
++  if (!Number.isInteger(decimalPrecision) || decimalPrecision < 0 || decimalPrecision > 4) {
++    throw appError(ErrorCode.VALIDATION_ERROR, "decimalPrecision must be an integer 0-4");
++  }
++}
++
++async function requireRoundOfEvent(ctx: QueryCtx, roundId: Id<"rounds">, eventId: Id<"events">): Promise<Doc<"rounds">> {
++  const round = await ctx.db.get(roundId);
++  if (!round || round.eventId !== eventId) throw appError(ErrorCode.NOT_FOUND, "Round not found");
++  return round;
++}
++
++export const add = mutation({
++  args: {
++    orgSlug: v.string(), eventSlug: v.string(), roundId: v.id("rounds"), name: v.string(),
++    description: v.optional(v.string()), weight: v.number(), minScore: v.number(),
++    maxScore: v.number(), decimalPrecision: v.number(),
++  },
++  handler: async (ctx, args) => {
++    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.update" });
++    await requireRoundOfEvent(ctx, args.roundId, eactx.event._id);
++    validateCriterion(args.weight, args.minScore, args.maxScore, args.decimalPrecision);
++    const existing = await ctx.db.query("criteria").withIndex("by_round_id", (q) => q.eq("roundId", args.roundId)).collect();
++    const id = await ctx.db.insert("criteria", {
++      roundId: args.roundId,
++      name: args.name.trim(),
++      description: args.description,
++      order: existing.length,
++      weight: args.weight,
++      minScore: args.minScore,
++      maxScore: args.maxScore,
++      decimalPrecision: args.decimalPrecision,
++    });
++    await writeAudit(ctx, {
++      orgId: eactx.org._id, actorId: eactx.user._id, action: "criterion.added",
++      resourceType: "criterion", resourceId: id, after: { name: args.name, weight: args.weight },
++    });
++  },
++});
++
++export const update = mutation({
++  args: {
++    orgSlug: v.string(), eventSlug: v.string(), criterionId: v.id("criteria"), name: v.optional(v.string()),
++    description: v.optional(v.string()), weight: v.optional(v.number()), minScore: v.optional(v.number()),
++    maxScore: v.optional(v.number()), decimalPrecision: v.optional(v.number()),
++  },
++  handler: async (ctx, args) => {
++    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.update" });
++    const criterion = await ctx.db.get(args.criterionId);
++    if (!criterion) throw appError(ErrorCode.NOT_FOUND, "Criterion not found");
++    await requireRoundOfEvent(ctx, criterion.roundId, eactx.event._id);
++    const next = {
++      weight: args.weight ?? criterion.weight,
++      minScore: args.minScore ?? criterion.minScore,
++      maxScore: args.maxScore ?? criterion.maxScore,
++      decimalPrecision: args.decimalPrecision ?? criterion.decimalPrecision,
++    };
++    validateCriterion(next.weight, next.minScore, next.maxScore, next.decimalPrecision);
++    const patch: Record<string, string | number> = {};
++    if (args.name !== undefined) patch.name = args.name.trim();
++    if (args.description !== undefined) patch.description = args.description;
++    if (args.weight !== undefined) patch.weight = args.weight;
++    if (args.minScore !== undefined) patch.minScore = args.minScore;
++    if (args.maxScore !== undefined) patch.maxScore = args.maxScore;
++    if (args.decimalPrecision !== undefined) patch.decimalPrecision = args.decimalPrecision;
++    if (Object.keys(patch).length === 0) return;
++    await ctx.db.patch(args.criterionId, patch);
++    await writeAudit(ctx, {
++      orgId: eactx.org._id, actorId: eactx.user._id, action: "criterion.updated",
++      resourceType: "criterion", resourceId: args.criterionId,
++      before: { weight: criterion.weight }, after: { weight: next.weight },
++    });
++  },
++});
++
++export const remove = mutation({
++  args: { orgSlug: v.string(), eventSlug: v.string(), criterionId: v.id("criteria") },
++  handler: async (ctx, args) => {
++    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.update" });
++    const criterion = await ctx.db.get(args.criterionId);
++    if (!criterion) throw appError(ErrorCode.NOT_FOUND, "Criterion not found");
++    await requireRoundOfEvent(ctx, criterion.roundId, eactx.event._id);
++    await ctx.db.delete(args.criterionId);
++    await writeAudit(ctx, {
++      orgId: eactx.org._id, actorId: eactx.user._id, action: "criterion.removed",
++      resourceType: "criterion", resourceId: args.criterionId, before: { name: criterion.name },
++    });
++  },
++});

@@ -1,0 +1,242 @@
+﻿=== COMMITS (adb1d6e..f9c9d9a) ===
+f9c9d9a feat: judges and scoped assignments with IDOR guards
+
+=== STAT ===
+ convex-test/judges.test.ts |  56 ++++++++++++++++++++++
+ convex/_generated/api.d.ts |   2 +
+ convex/judges.ts           | 116 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 174 insertions(+)
+
+=== DIFF (-U10) ===
+diff --git a/convex-test/judges.test.ts b/convex-test/judges.test.ts
+new file mode 100644
+index 0000000..be791b5
+--- /dev/null
++++ b/convex-test/judges.test.ts
+@@ -0,0 +1,56 @@
++import { describe, expect, it } from "vitest";
++import { api } from "../convex/_generated/api";
++import { aliceIdentity, bobIdentity, createOrgAndEvent, setupTest } from "./setup";
++
++async function addBobAsJudgeMember(t: ReturnType<typeof setupTest>) {
++  await t.withIdentity(bobIdentity).mutation(api.auth.ensureUserProfile, {});
++  await t.withIdentity(aliceIdentity).mutation(api.invitations.create, { orgSlug: "acme", email: "bob@example.com", roleName: "Judge" });
++  const pending = await t.withIdentity(bobIdentity).query(api.invitations.listForUser, {});
++  await t.withIdentity(bobIdentity).mutation(api.invitations.accept, { token: pending[0].token });
++  const members = await t.withIdentity(aliceIdentity).query(api.members.list, { orgSlug: "acme" });
++  return members.find((m: { email: string }) => m.email === "bob@example.com")!.userId;
++}
++
++describe("judges", () => {
++  it("adds a judge from org members, unique per event", async () => {
++    const t = setupTest();
++    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
++    const bobId = await addBobAsJudgeMember(t);
++    await t.withIdentity(aliceIdentity).mutation(api.judges.add, { orgSlug: "acme", eventSlug: "gala", userId: bobId });
++    await expect(
++      t.withIdentity(aliceIdentity).mutation(api.judges.add, { orgSlug: "acme", eventSlug: "gala", userId: bobId }),
++    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
++    const list = await t.withIdentity(aliceIdentity).query(api.judges.listWithAssignments, { orgSlug: "acme", eventSlug: "gala" });
++    expect(list.length).toBe(1);
++    expect(list[0].user.email).toBe("bob@example.com");
++  });
++
++  it("refuses a non-member userId", async () => {
++    const t = setupTest();
++    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
++    const bobProfile = await t.withIdentity(bobIdentity).mutation(api.auth.ensureUserProfile, {});
++    await expect(
++      t.withIdentity(aliceIdentity).mutation(api.judges.add, { orgSlug: "acme", eventSlug: "gala", userId: bobProfile }),
++    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
++  });
++
++  it("adds and removes scoped assignments; IDOR on foreign judge", async () => {
++    const t = setupTest();
++    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "one" });
++    const bobId = await addBobAsJudgeMember(t);
++    await t.withIdentity(aliceIdentity).mutation(api.judges.add, { orgSlug: "acme", eventSlug: "one", userId: bobId });
++    await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "one", name: "R" });
++    const rounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "one" });
++    const judges = await t.withIdentity(aliceIdentity).query(api.judges.listWithAssignments, { orgSlug: "acme", eventSlug: "one" });
++    await t.withIdentity(aliceIdentity).mutation(api.judges.addAssignment, {
++      orgSlug: "acme", eventSlug: "one", judgeId: judges[0]._id, roundId: rounds[0]._id,
++    });
++    const withAssignments = await t.withIdentity(aliceIdentity).query(api.judges.listWithAssignments, { orgSlug: "acme", eventSlug: "one" });
++    expect(withAssignments[0].assignments.length).toBe(1);
++    await t.withIdentity(aliceIdentity).mutation(api.judges.removeAssignment, {
++      orgSlug: "acme", eventSlug: "one", assignmentId: withAssignments[0].assignments[0]._id,
++    });
++    const cleared = await t.withIdentity(aliceIdentity).query(api.judges.listWithAssignments, { orgSlug: "acme", eventSlug: "one" });
++    expect(cleared[0].assignments.length).toBe(0);
++  });
++});
+diff --git a/convex/_generated/api.d.ts b/convex/_generated/api.d.ts
+index 4a33614..a5662b7 100644
+--- a/convex/_generated/api.d.ts
++++ b/convex/_generated/api.d.ts
+@@ -9,20 +9,21 @@
+  */
+ 
+ import type * as audit from "../audit.js";
+ import type * as auth from "../auth.js";
+ import type * as categories from "../categories.js";
+ import type * as contestants from "../contestants.js";
+ import type * as criteria from "../criteria.js";
+ import type * as events from "../events.js";
+ import type * as http from "../http.js";
+ import type * as invitations from "../invitations.js";
++import type * as judges from "../judges.js";
+ import type * as lib_audit from "../lib/audit.js";
+ import type * as lib_auth from "../lib/auth.js";
+ import type * as lib_authz from "../lib/authz.js";
+ import type * as lib_constants from "../lib/constants.js";
+ import type * as lib_entitlements from "../lib/entitlements.js";
+ import type * as lib_errors from "../lib/errors.js";
+ import type * as lib_eventAuthz from "../lib/eventAuthz.js";
+ import type * as lib_serializers from "../lib/serializers.js";
+ import type * as lib_usage from "../lib/usage.js";
+ import type * as members from "../members.js";
+@@ -42,20 +43,21 @@ import type {
+ 
+ declare const fullApi: ApiFromModules<{
+   audit: typeof audit;
+   auth: typeof auth;
+   categories: typeof categories;
+   contestants: typeof contestants;
+   criteria: typeof criteria;
+   events: typeof events;
+   http: typeof http;
+   invitations: typeof invitations;
++  judges: typeof judges;
+   "lib/audit": typeof lib_audit;
+   "lib/auth": typeof lib_auth;
+   "lib/authz": typeof lib_authz;
+   "lib/constants": typeof lib_constants;
+   "lib/entitlements": typeof lib_entitlements;
+   "lib/errors": typeof lib_errors;
+   "lib/eventAuthz": typeof lib_eventAuthz;
+   "lib/serializers": typeof lib_serializers;
+   "lib/usage": typeof lib_usage;
+   members: typeof members;
+diff --git a/convex/judges.ts b/convex/judges.ts
+new file mode 100644
+index 0000000..f2d2a65
+--- /dev/null
++++ b/convex/judges.ts
+@@ -0,0 +1,116 @@
++import { v } from "convex/values";
++import { mutation, query } from "./_generated/server";
++import { appError, ErrorCode } from "./lib/errors";
++import { requireDraftEvent, requireEventMember } from "./lib/eventAuthz";
++import { writeAudit } from "./lib/audit";
++import { requireLimit } from "./lib/entitlements";
++import { incrementUsage } from "./lib/usage";
++
++export const add = mutation({
++  args: { orgSlug: v.string(), eventSlug: v.string(), userId: v.id("userProfiles") },
++  handler: async (ctx, args) => {
++    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "judge.manage" });
++    await requireLimit(ctx, eactx.subscription, "judges");
++    const membership = await ctx.db
++      .query("organizationMembers")
++      .withIndex("by_org_id_and_user_id", (q) => q.eq("orgId", eactx.org._id).eq("userId", args.userId))
++      .unique();
++    if (!membership || membership.status !== "active") {
++      throw appError(ErrorCode.VALIDATION_ERROR, "User is not an active member of this organization");
++    }
++    const dup = await ctx.db
++      .query("judges")
++      .withIndex("by_event_id_and_user_id", (q) => q.eq("eventId", eactx.event._id).eq("userId", args.userId))
++      .unique();
++    if (dup) throw appError(ErrorCode.CONFLICT, "User is already a judge for this event");
++    const id = await ctx.db.insert("judges", {
++      orgId: eactx.org._id, eventId: eactx.event._id, userId: args.userId, status: "assigned",
++    });
++    await incrementUsage(ctx, eactx.org._id, "judges", 1);
++    await writeAudit(ctx, {
++      orgId: eactx.org._id, actorId: eactx.user._id, action: "judge.added",
++      resourceType: "judge", resourceId: id, after: { userId: args.userId },
++    });
++  },
++});
++
++export const remove = mutation({
++  args: { orgSlug: v.string(), eventSlug: v.string(), judgeId: v.id("judges") },
++  handler: async (ctx, args) => {
++    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "judge.manage" });
++    const judge = await ctx.db.get(args.judgeId);
++    if (!judge || judge.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Judge not found");
++    const assignments = await ctx.db.query("judgeAssignments").withIndex("by_judge_id", (q) => q.eq("judgeId", args.judgeId)).collect();
++    for (const a of assignments) await ctx.db.delete(a._id);
++    await ctx.db.delete(args.judgeId);
++    await incrementUsage(ctx, eactx.org._id, "judges", -1);
++    await writeAudit(ctx, {
++      orgId: eactx.org._id, actorId: eactx.user._id, action: "judge.removed",
++      resourceType: "judge", resourceId: args.judgeId,
++    });
++  },
++});
++
++export const listWithAssignments = query({
++  args: { orgSlug: v.string(), eventSlug: v.string() },
++  handler: async (ctx, args) => {
++    const eactx = await requireEventMember(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug });
++    const judges = await ctx.db.query("judges").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
++    return Promise.all(
++      judges.map(async (j) => {
++        const user = await ctx.db.get(j.userId);
++        const assignments = await ctx.db.query("judgeAssignments").withIndex("by_judge_id", (q) => q.eq("judgeId", j._id)).collect();
++        return { ...j, user: { name: user?.name ?? "", email: user?.email ?? "", image: user?.image ?? "" }, assignments };
++      }),
++    );
++  },
++});
++
++export const addAssignment = mutation({
++  args: {
++    orgSlug: v.string(), eventSlug: v.string(), judgeId: v.id("judges"),
++    roundId: v.optional(v.id("rounds")), categoryId: v.optional(v.id("categories")), criterionId: v.optional(v.id("criteria")),
++  },
++  handler: async (ctx, args) => {
++    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "judge.manage" });
++    const judge = await ctx.db.get(args.judgeId);
++    if (!judge || judge.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Judge not found");
++    if (args.roundId) {
++      const r = await ctx.db.get(args.roundId);
++      if (!r || r.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Round not found");
++    }
++    if (args.categoryId) {
++      const c = await ctx.db.get(args.categoryId);
++      if (!c || c.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Category not found");
++    }
++    if (args.criterionId) {
++      const cr = await ctx.db.get(args.criterionId);
++      if (!cr) throw appError(ErrorCode.NOT_FOUND, "Criterion not found");
++      const r = await ctx.db.get(cr.roundId);
++      if (!r || r.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Criterion not found");
++    }
++    const id = await ctx.db.insert("judgeAssignments", {
++      judgeId: args.judgeId, eventId: eactx.event._id,
++      roundId: args.roundId, categoryId: args.categoryId, criterionId: args.criterionId,
++    });
++    await writeAudit(ctx, {
++      orgId: eactx.org._id, actorId: eactx.user._id, action: "judge.assignment.added",
++      resourceType: "judgeAssignment", resourceId: id,
++      after: { judgeId: args.judgeId, roundId: args.roundId ?? null, categoryId: args.categoryId ?? null },
++    });
++  },
++});
++
++export const removeAssignment = mutation({
++  args: { orgSlug: v.string(), eventSlug: v.string(), assignmentId: v.id("judgeAssignments") },
++  handler: async (ctx, args) => {
++    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "judge.manage" });
++    const a = await ctx.db.get(args.assignmentId);
++    if (!a || a.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Assignment not found");
++    await ctx.db.delete(args.assignmentId);
++    await writeAudit(ctx, {
++      orgId: eactx.org._id, actorId: eactx.user._id, action: "judge.assignment.removed",
++      resourceType: "judgeAssignment", resourceId: args.assignmentId,
++    });
++  },
++});
