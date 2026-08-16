@@ -33,9 +33,23 @@ export default function MembersPage({ params }: { params: Promise<{ orgSlug: str
           onClick={async () => {
             setInviting(true);
             try {
-              await invite({ orgSlug, email, roleName: role });
+              const token = await invite({ orgSlug, email, roleName: role });
               setEmail("");
-              toast.success("Invitation sent");
+              const inviteUrl = `${window.location.origin}/invite/${token}`;
+              try {
+                const response = await fetch("/api/invitations/send", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ orgSlug, token }),
+                });
+                if (!response.ok) throw new Error(`Send failed with status ${response.status}`);
+                toast.success("Invitation sent");
+              } catch {
+                toast.warning("Invitation created, but the email could not be sent.", {
+                  description: `Share this link manually: ${inviteUrl}`,
+                  duration: 15000,
+                });
+              }
             } catch (err: unknown) {
               const code = (err as { data?: { code?: string } })?.data?.code;
               if (code === "LIMIT_EXCEEDED") {

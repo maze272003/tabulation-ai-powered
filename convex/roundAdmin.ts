@@ -157,7 +157,7 @@ export const addTieBreak = mutation({
       .withIndex("by_round_id", (q) => q.eq("roundId", round._id))
       .collect();
     if (existingBreaks.some((b) => b.tiedContestantIds.some((id) => tied.includes(id)))) {
-      throw appError(ErrorCode.CONFLICT, "An existing tie break already covers one of these contestants");
+      throw appError(ErrorCode.CONFLICT, "Remove the existing tie break covering these contestants first");
     }
     const id = await ctx.db.insert("tieBreaks", {
       eventId: eactx.event._id,
@@ -288,6 +288,7 @@ export const publishRound = mutation({
       .query("resultVersions")
       .withIndex("by_round_id", (q) => q.eq("roundId", args.roundId))
       .collect();
+    // OCC serializes this allocation: a concurrent insert into the read by_round_id range forces a retry, so duplicate versions cannot commit.
     const version = existing.reduce((max, v) => Math.max(max, v.version), 0) + 1;
     const now = Date.now();
     await ctx.db.insert("resultVersions", {
@@ -346,6 +347,7 @@ export const correctResults = mutation({
       .query("resultVersions")
       .withIndex("by_round_id", (q) => q.eq("roundId", args.roundId))
       .collect();
+    // OCC serializes this allocation: a concurrent insert into the read by_round_id range forces a retry, so duplicate versions cannot commit.
     const version = existing.reduce((max, v) => Math.max(max, v.version), 0) + 1;
     const now = Date.now();
     await ctx.db.insert("resultVersions", {
