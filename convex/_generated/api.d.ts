@@ -26,6 +26,7 @@ import type * as lib_entitlements from "../lib/entitlements.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_eventAuthz from "../lib/eventAuthz.js";
 import type * as lib_eventCode from "../lib/eventCode.js";
+import type * as lib_password from "../lib/password.js";
 import type * as lib_roundCompute from "../lib/roundCompute.js";
 import type * as lib_serializers from "../lib/serializers.js";
 import type * as lib_tabulation from "../lib/tabulation.js";
@@ -73,6 +74,7 @@ declare const fullApi: ApiFromModules<{
   "lib/errors": typeof lib_errors;
   "lib/eventAuthz": typeof lib_eventAuthz;
   "lib/eventCode": typeof lib_eventCode;
+  "lib/password": typeof lib_password;
   "lib/roundCompute": typeof lib_roundCompute;
   "lib/serializers": typeof lib_serializers;
   "lib/tabulation": typeof lib_tabulation;
