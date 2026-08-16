@@ -33,6 +33,7 @@ import type * as organizations from "../organizations.js";
 import type * as plans from "../plans.js";
 import type * as platform from "../platform.js";
 import type * as roles from "../roles.js";
+import type * as roundAdmin from "../roundAdmin.js";
 import type * as rounds from "../rounds.js";
 import type * as scoring from "../scoring.js";
 import type * as seed from "../seed.js";
@@ -71,6 +72,7 @@ declare const fullApi: ApiFromModules<{
   plans: typeof plans;
   platform: typeof platform;
   roles: typeof roles;
+  roundAdmin: typeof roundAdmin;
   rounds: typeof rounds;
   scoring: typeof scoring;
   seed: typeof seed;
