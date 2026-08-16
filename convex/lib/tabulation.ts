@@ -243,3 +243,106 @@ export function computeRoundStandings(input: RoundComputeInput): {
     unresolvedTies,
   };
 }
+
+export type AdvancementConfig = {
+  enabled: boolean;
+  mode: "none" | "top_count" | "top_percent" | "manual";
+  count: number | null;
+  percent: number | null;
+  allowOverride: boolean;
+};
+
+export type AdvancementOverrideRow = {
+  contestantId: Id<"contestants">;
+  action: "force_advance" | "force_cut";
+};
+
+export function applyAdvancement(
+  standings: StandingRow[],
+  config: AdvancementConfig,
+  overrides: AdvancementOverrideRow[],
+): Map<Id<"contestants">, boolean | null> {
+  const outcome = new Map<Id<"contestants">, boolean | null>();
+  for (const s of standings) outcome.set(s.contestantId, null);
+  if (!config.enabled) return outcome;
+  const rankable = standings
+    .filter((s) => s.rank !== null && s.status === "active")
+    .sort((a, b) => a.rank! - b.rank!);
+  let advancing = new Set<Id<"contestants">>();
+  if (config.mode === "top_count") {
+    advancing = new Set(rankable.slice(0, config.count ?? 0).map((s) => s.contestantId));
+  } else if (config.mode === "top_percent") {
+    const n = Math.ceil(((config.percent ?? 0) / 100) * rankable.length);
+    advancing = new Set(rankable.slice(0, n).map((s) => s.contestantId));
+  }
+  for (const s of rankable) outcome.set(s.contestantId, advancing.has(s.contestantId));
+  for (const o of overrides) {
+    outcome.set(o.contestantId, o.action === "force_advance");
+  }
+  return outcome;
+}
+
+export type RoundStandingSummary = {
+  roundId: Id<"rounds">;
+  order: number;
+  weight: number;
+  standings: StandingRow[];
+  advancement: Record<string, boolean | null>;
+};
+
+export type FinalStandingRow = {
+  contestantId: Id<"contestants">;
+  categoryId: Id<"categories">;
+  totalScore: number;
+  eliminatedInRoundOrder: number | null;
+  rank: number;
+};
+
+export function computeEventFinal(rounds: RoundStandingSummary[], decimalPrecision: number): FinalStandingRow[] {
+  type Work = { contestantId: Id<"contestants">; category: Id<"categories">; total: number; eliminated: number | null; rank: number };
+  const byContestant = new Map<Id<"contestants">, { total: number; category: Id<"categories">; eliminated: number | null }>();
+  for (const round of rounds) {
+    for (const s of round.standings) {
+      if (s.roundScore === null) continue;
+      const entry = byContestant.get(s.contestantId) ?? { total: 0, category: s.categoryId, eliminated: null };
+      entry.total += (s.roundScore * round.weight) / 100;
+      if (round.advancement[s.contestantId] === false && (entry.eliminated === null || round.order > entry.eliminated)) {
+        entry.eliminated = round.order;
+      }
+      byContestant.set(s.contestantId, entry);
+    }
+  }
+  const rows: Work[] = [...byContestant.entries()]
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .map(([contestantId, e]) => ({
+      contestantId,
+      category: e.category,
+      total: roundToPrecision(e.total, decimalPrecision),
+      eliminated: e.eliminated,
+      rank: 0,
+    }));
+  const byCategory = new Map<Id<"categories">, Work[]>();
+  for (const row of rows) {
+    const list = byCategory.get(row.category) ?? [];
+    list.push(row);
+    byCategory.set(row.category, list);
+  }
+  for (const list of byCategory.values()) {
+    list.sort(
+      (a, b) =>
+        (a.eliminated === null ? 0 : 1) - (b.eliminated === null ? 0 : 1) ||
+        (b.eliminated ?? 0) - (a.eliminated ?? 0) ||
+        b.total - a.total,
+    );
+    list.forEach((row, i) => {
+      row.rank = i + 1;
+    });
+  }
+  return rows.map((r) => ({
+    contestantId: r.contestantId,
+    categoryId: r.category,
+    totalScore: r.total,
+    eliminatedInRoundOrder: r.eliminated,
+    rank: r.rank,
+  }));
+}

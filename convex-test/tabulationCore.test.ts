@@ -186,3 +186,108 @@ describe("ranking & ties", () => {
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   });
 });
+
+import { applyAdvancement, computeEventFinal, type StandingRow } from "../convex/lib/tabulation";
+
+const rd = (s: string) => s as Id<"rounds">;
+
+function standingRow(id: string, rank: number | null, categoryId = "A"): StandingRow {
+  return {
+    contestantId: p(id),
+    categoryId: cat(categoryId),
+    status: "active",
+    roundScore: rank === null ? null : 100 - rank,
+    criterionScores: [],
+    rank,
+    tieResolvedBy: "none",
+  };
+}
+
+describe("advancement", () => {
+  const standings = [standingRow("k1", 1), standingRow("k2", 2), standingRow("k3", 3), standingRow("k4", 4)];
+
+  it("disabled advancement returns all null", () => {
+    const m = applyAdvancement(standings, { enabled: false, mode: "top_count", count: 2, percent: null, allowOverride: true }, []);
+    expect([...m.values()].every((v) => v === null)).toBe(true);
+  });
+
+  it("top_count advances first N ranked", () => {
+    const m = applyAdvancement(standings, { enabled: true, mode: "top_count", count: 2, percent: null, allowOverride: true }, []);
+    expect(m.get(p("k1"))).toBe(true);
+    expect(m.get(p("k2"))).toBe(true);
+    expect(m.get(p("k3"))).toBe(false);
+    expect(m.get(p("k4"))).toBe(false);
+  });
+
+  it("top_percent uses ceiling", () => {
+    const m = applyAdvancement(
+      [...standings, standingRow("k5", 5), standingRow("k6", 6)],
+      { enabled: true, mode: "top_percent", count: null, percent: 50, allowOverride: true },
+      [],
+    );
+    expect(m.get(p("k3"))).toBe(true);
+    expect(m.get(p("k4"))).toBe(false);
+  });
+
+  it("manual mode advances nobody automatically", () => {
+    const m = applyAdvancement(standings, { enabled: true, mode: "manual", count: null, percent: null, allowOverride: true }, []);
+    expect(m.get(p("k1"))).toBe(false);
+    expect(m.get(p("k4"))).toBe(false);
+  });
+
+  it("overrides force through the computed cut", () => {
+    const m = applyAdvancement(
+      standings,
+      { enabled: true, mode: "top_count", count: 2, percent: null, allowOverride: true },
+      [{ contestantId: p("k4"), action: "force_advance" }, { contestantId: p("k1"), action: "force_cut" }],
+    );
+    expect(m.get(p("k4"))).toBe(true);
+    expect(m.get(p("k1"))).toBe(false);
+  });
+});
+
+describe("event final", () => {
+  it("combines round scores by weight and ranks survivors first", () => {
+    const rounds = [
+      {
+        roundId: rd("rd1"), order: 0, weight: 40,
+        standings: [standingRow("k1", 1), standingRow("k2", 2), standingRow("k3", 3)],
+        advancement: { [p("k1")]: true, [p("k2")]: true, [p("k3")]: false },
+      },
+      {
+        roundId: rd("rd2"), order: 1, weight: 60,
+        standings: [standingRow("k1", 2), standingRow("k2", 1)],
+        advancement: { [p("k1")]: null, [p("k2")]: null },
+      },
+    ];
+    const final = computeEventFinal(rounds, 2);
+    const k1 = final.find((f) => f.contestantId === p("k1"))!;
+    const k3 = final.find((f) => f.contestantId === p("k3"))!;
+    expect(k1.totalScore).toBeCloseTo((99 * 40 + 98 * 60) / 100, 6);
+    expect(k1.eliminatedInRoundOrder).toBeNull();
+    expect(k3.eliminatedInRoundOrder).toBe(0);
+    expect(k1.rank).toBeLessThan(k3.rank);
+  });
+
+  it("eliminated contestants rank by later elimination then score", () => {
+    const rounds = [{
+      roundId: rd("rd1"), order: 0, weight: 100,
+      standings: [standingRow("k1", 1), standingRow("k2", 2), standingRow("k3", 3)],
+      advancement: { [p("k1")]: true, [p("k2")]: false, [p("k3")]: false },
+    }];
+    const final = computeEventFinal(rounds, 2);
+    expect(final.map((f) => f.contestantId)).toEqual([p("k1"), p("k2"), p("k3")]);
+  });
+
+  it("non-elimination events rank purely by weighted total", () => {
+    const rounds = [{
+      roundId: rd("rd1"), order: 0, weight: 100,
+      standings: [standingRow("k1", 1), standingRow("k2", 2)],
+      advancement: {},
+    }];
+    const final = computeEventFinal(rounds, 2);
+    expect(final[0].rank).toBe(1);
+    expect(final[0].contestantId).toBe(p("k1"));
+    expect(final.every((f) => f.eliminatedInRoundOrder === null)).toBe(true);
+  });
+});
