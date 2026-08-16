@@ -97,6 +97,41 @@ describe("review & decisions", () => {
     ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
   });
 
+  it("rejects an overlapping tie break for already-covered contestants", async () => {
+    const t = setupTest();
+    const ids = await prepareScoredEvent(t);
+    await submitJudgeScores(t, bobIdentity, ids, [[7, 7], [7, 7]]);
+    await submitJudgeScores(t, carolIdentity, ids, [[7, 7], [7, 7]]);
+    await closeRound(t, ids.roundId);
+    await t.withIdentity(aliceIdentity).mutation(api.roundAdmin.addTieBreak, {
+      orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId,
+      tiedContestantIds: ids.contestantIds, orderedIds: ids.contestantIds,
+    });
+    await expect(
+      t.withIdentity(aliceIdentity).mutation(api.roundAdmin.addTieBreak, {
+        orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId,
+        tiedContestantIds: ids.contestantIds,
+        orderedIds: [ids.contestantIds[1], ids.contestantIds[0]],
+      }),
+    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
+    const review = await t.withIdentity(aliceIdentity).query(api.roundAdmin.roundReview, {
+      orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId,
+    });
+    expect(review.tieBreaks.length).toBe(1);
+    await t.withIdentity(aliceIdentity).mutation(api.roundAdmin.removeTieBreak, {
+      orgSlug: "acme", eventSlug: "gala", tieBreakId: review.tieBreaks[0]._id,
+    });
+    await t.withIdentity(aliceIdentity).mutation(api.roundAdmin.addTieBreak, {
+      orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId,
+      tiedContestantIds: ids.contestantIds,
+      orderedIds: [ids.contestantIds[1], ids.contestantIds[0]],
+    });
+    const after = await t.withIdentity(aliceIdentity).query(api.roundAdmin.roundReview, {
+      orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId,
+    });
+    expect(after.tieBreaks.length).toBe(1);
+  });
+
   it("advancement preview honors top_count and overrides", async () => {
     const t = setupTest();
     const ids = await prepareScoredEvent(t, {

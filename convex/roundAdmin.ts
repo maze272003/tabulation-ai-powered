@@ -152,6 +152,13 @@ export const addTieBreak = mutation({
     if (tied.some((id) => !contestants.some((k) => k._id === id))) {
       throw appError(ErrorCode.NOT_FOUND, "Contestant not found");
     }
+    const existingBreaks = await ctx.db
+      .query("tieBreaks")
+      .withIndex("by_round_id", (q) => q.eq("roundId", round._id))
+      .collect();
+    if (existingBreaks.some((b) => b.tiedContestantIds.some((id) => tied.includes(id)))) {
+      throw appError(ErrorCode.CONFLICT, "An existing tie break already covers one of these contestants");
+    }
     const id = await ctx.db.insert("tieBreaks", {
       eventId: eactx.event._id,
       roundId: round._id,
