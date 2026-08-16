@@ -307,12 +307,12 @@ export default defineSchema({
         tieBreaks: v.array(v.object({
           tiedContestantIds: v.array(v.id("contestants")),
           orderedIds: v.array(v.id("contestants")),
-          createdById: v.id("userProfiles"),
+          createdById: v.union(v.null(), v.id("userProfiles")),
         })),
         advancementOverrides: v.array(v.object({
           contestantId: v.id("contestants"),
           action: v.string(),
-          createdById: v.id("userProfiles"),
+          createdById: v.union(v.null(), v.id("userProfiles")),
           source: v.optional(v.union(v.literal("persisted"), v.literal("correction"))),
         })),
       }),
@@ -330,7 +330,8 @@ export default defineSchema({
     roundId: v.id("rounds"),
     contestantId: v.id("contestants"),
     action: v.union(v.literal("force_advance"), v.literal("force_cut")),
-    createdById: v.id("userProfiles"),
+    createdById: v.union(v.null(), v.id("userProfiles")),
+    createdByAccountId: v.optional(v.id("eventAccounts")),
     createdAt: v.number(),
   })
     .index("by_round_id", ["roundId"])
@@ -341,7 +342,8 @@ export default defineSchema({
     roundId: v.id("rounds"),
     tiedContestantIds: v.array(v.id("contestants")),
     orderedIds: v.array(v.id("contestants")),
-    createdById: v.id("userProfiles"),
+    createdById: v.union(v.null(), v.id("userProfiles")),
+    createdByAccountId: v.optional(v.id("eventAccounts")),
     createdAt: v.number(),
   })
     .index("by_round_id", ["roundId"])

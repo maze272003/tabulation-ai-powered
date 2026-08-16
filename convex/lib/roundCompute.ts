@@ -1,6 +1,6 @@
 import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
-import { loadRound, type EventAuthCtx } from "./eventAuthz";
+import { loadRound } from "./eventAuthz";
 import {
   applyAdvancement, computeRoundStandings,
   type AdvancementConfig, type AdvancementOverrideRow, type CoreContestant, type CoreCriterion,
@@ -19,39 +19,39 @@ export type RoundComputeResult = {
   overrideDecisions: {
     contestantId: Id<"contestants">;
     action: "force_advance" | "force_cut";
-    createdById: Id<"userProfiles">;
+    createdById: Id<"userProfiles"> | null;
     source: "persisted" | "correction";
   }[];
 };
 
 export async function loadRoundCompute(
   ctx: QueryCtx,
-  eactx: EventAuthCtx,
+  scope: { event: Doc<"events">; actorId?: Id<"userProfiles"> | null },
   roundId: Id<"rounds">,
   extraOverrides: AdvancementOverrideRow[] = [],
 ): Promise<RoundComputeResult> {
-  const round = await loadRound(ctx, eactx, roundId);
+  const round = await loadRound(ctx, scope, roundId);
   const criteriaDocs = await ctx.db
     .query("criteria")
     .withIndex("by_round_id", (q) => q.eq("roundId", round._id))
     .collect();
   const contestants = await ctx.db
     .query("contestants")
-    .withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id))
+    .withIndex("by_event_id", (q) => q.eq("eventId", scope.event._id))
     .collect();
   const sheets = await ctx.db
     .query("scoreSheets")
     .withIndex("by_event_id_and_round_id", (q) =>
-      q.eq("eventId", eactx.event._id).eq("roundId", round._id))
+      q.eq("eventId", scope.event._id).eq("roundId", round._id))
     .collect();
   const scoreDocs = await ctx.db
     .query("scores")
     .withIndex("by_event_id_and_round_id", (q) =>
-      q.eq("eventId", eactx.event._id).eq("roundId", round._id))
+      q.eq("eventId", scope.event._id).eq("roundId", round._id))
     .collect();
   const judges = await ctx.db
     .query("eventAccounts")
-    .withIndex("by_event_id_and_kind", (q) => q.eq("eventId", eactx.event._id).eq("kind", "judge"))
+    .withIndex("by_event_id_and_kind", (q) => q.eq("eventId", scope.event._id).eq("kind", "judge"))
     .collect();
   const tieBreaks = await ctx.db
     .query("tieBreaks")
@@ -73,8 +73,8 @@ export async function loadRoundCompute(
   }));
   const input: RoundComputeInput = {
     winner: round.scoringRules?.winner ?? "highest",
-    dropHighLow: eactx.event.scoringRules.dropHighLow,
-    decimalPrecision: eactx.event.decimalPrecision,
+    dropHighLow: scope.event.scoringRules.dropHighLow,
+    decimalPrecision: scope.event.decimalPrecision,
     criteria,
     contestants: coreContestants,
     scores,
@@ -85,7 +85,7 @@ export async function loadRoundCompute(
   const { standings, unresolvedTies } = computeRoundStandings(input);
   const advancementConfig: AdvancementConfig = {
     enabled:
-      eactx.event.eliminationEnabled &&
+      scope.event.eliminationEnabled &&
       round.qualifiesToNextRound &&
       round.advancement.mode !== "none",
     mode: round.advancement.mode,
@@ -99,7 +99,8 @@ export async function loadRoundCompute(
       source: "persisted" as const,
     })),
     ...extraOverrides.map((o) => ({
-      contestantId: o.contestantId, action: o.action, createdById: eactx.user._id,
+      contestantId: o.contestantId, action: o.action,
+      createdById: scope.actorId !== undefined ? scope.actorId : (scope as { user?: { _id: Id<"userProfiles"> } }).user?._id ?? null,
       source: "correction" as const,
     })),
   ];
