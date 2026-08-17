@@ -4,7 +4,7 @@ import {
   MONTHLY_PERIOD_MS,
   YEARLY_PERIOD_MS,
 } from "../convex/lib/billing";
-import { verifyPaymongoSignature } from "../convex/lib/paymongo";
+import { createCheckoutSession, verifyPaymongoSignature } from "../convex/lib/paymongo";
 
 async function hmacHex(secret: string, payload: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -64,6 +64,24 @@ describe("paymongo signature verification", () => {
     const header = await signedHeader(body, Math.floor(now / 1000));
     await expect(verifyPaymongoSignature(body, header, "other-secret", now)).resolves.toBe(false);
     await expect(verifyPaymongoSignature(body, null, SECRET, now)).resolves.toBe(false);
+  });
+});
+
+describe("paymongo checkout session", () => {
+  it("maps a network-level fetch failure to a PAYMENT_PROVIDER error", async () => {
+    vi.stubEnv("PAYMONGO_SECRET_KEY", "sk_test_secret");
+    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("fetch failed"))));
+    await expect(
+      createCheckoutSession({
+        lineItemName: "Pro monthly",
+        amountCents: 49900,
+        currency: "PHP",
+        referenceNumber: "ref_test_1",
+        successUrl: "https://example.com/success",
+        cancelUrl: "https://example.com/cancel",
+        metadata: { userId: "user_1" },
+      }),
+    ).rejects.toMatchObject({ data: { code: "PAYMENT_PROVIDER" } });
   });
 });
 

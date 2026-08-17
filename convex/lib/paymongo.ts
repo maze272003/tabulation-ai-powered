@@ -131,31 +131,41 @@ function extractCheckoutUrl(json: unknown): string | null {
 export async function createCheckoutSession(
   input: CheckoutSessionInput,
 ): Promise<PaymongoCheckoutSession> {
-  const response = await fetch(`${PAYMONGO_API_BASE}/checkout_sessions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${paymongoSecretKey()}:`).toString("base64")}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      data: {
-        attributes: {
-          line_items: [
-            {
-              name: input.lineItemName,
-              amount: input.amountCents,
-              currency: input.currency,
-              quantity: 1,
-            },
-          ],
-          success_url: input.successUrl,
-          cancel_url: input.cancelUrl,
-          reference_number: input.referenceNumber,
-          metadata: input.metadata,
-        },
+  let response: Response;
+  try {
+    response = await fetch(`${PAYMONGO_API_BASE}/checkout_sessions`, {
+      method: "POST",
+      headers: {
+        // PayMongo secret keys are ASCII, so btoa (unlike Buffer) is safe in
+        // Convex's default V8-isolates runtime where Node globals are absent.
+        Authorization: `Basic ${btoa(`${paymongoSecretKey()}:`)}`,
+        "Content-Type": "application/json",
       },
-    }),
-  });
+      body: JSON.stringify({
+        data: {
+          attributes: {
+            line_items: [
+              {
+                name: input.lineItemName,
+                amount: input.amountCents,
+                currency: input.currency,
+                quantity: 1,
+              },
+            ],
+            success_url: input.successUrl,
+            cancel_url: input.cancelUrl,
+            reference_number: input.referenceNumber,
+            metadata: input.metadata,
+          },
+        },
+      }),
+    });
+  } catch (error) {
+    throw appError(
+      ErrorCode.PAYMENT_PROVIDER,
+      `PayMongo request failed: ${error instanceof Error ? error.message : "network error"}`,
+    );
+  }
   const json: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     const detail = extractErrorMessage(json);
