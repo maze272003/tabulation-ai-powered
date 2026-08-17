@@ -1,12 +1,14 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import type { QueryCtx } from "../_generated/server";
+import type { Doc, Id } from "../_generated/dataModel";
 import { appError, ErrorCode } from "../lib/errors";
 import { requireEventSession, touchSession } from "../lib/eventSession";
 import { loadRound } from "../lib/eventAuthz";
 import { buildSnapshot, loadRoundCompute } from "../lib/roundCompute";
 import { writeAudit } from "../lib/audit";
 import { latestVersion } from "../lib/eventResults";
+import { computeJudgeIntegrity, type JudgeIntegrityReport } from "../lib/judgeIntegrity";
 
 export const list = query({
   args: { sessionToken: v.string() },
@@ -41,6 +43,36 @@ export const list = query({
   },
 });
 
+/**
+ * Loads every integrity input for one round in a single parallel pass and
+ * delegates to the pure statistics helper. Read-only and advisory: results
+ * never feed tabulation. "locked" sheets count as submitted because locking
+ * freezes an already-judged sheet.
+ */
+async function loadIntegrity(
+  ctx: QueryCtx,
+  args: { eventId: Id<"events">; round: Doc<"rounds"> },
+): Promise<JudgeIntegrityReport[]> {
+  const [criteria, scores, sheets] = await Promise.all([
+    ctx.db.query("criteria").withIndex("by_round_id", (q) => q.eq("roundId", args.round._id)).collect(),
+    ctx.db.query("scores").withIndex("by_event_id_and_round_id", (q) => q.eq("eventId", args.eventId).eq("roundId", args.round._id)).collect(),
+    ctx.db.query("scoreSheets").withIndex("by_event_id_and_round_id", (q) => q.eq("eventId", args.eventId).eq("roundId", args.round._id)).collect(),
+  ]);
+  const sheetCounts = new Map<Id<"eventAccounts">, { submitted: number; total: number }>();
+  for (const sheet of sheets) {
+    const counts = sheetCounts.get(sheet.judgeId) ?? { submitted: 0, total: 0 };
+    counts.total += 1;
+    if (sheet.status === "submitted" || sheet.status === "locked") counts.submitted += 1;
+    sheetCounts.set(sheet.judgeId, counts);
+  }
+  return computeJudgeIntegrity({
+    roundStatus: args.round.status,
+    criteria: criteria.map((c) => ({ id: c._id, weight: c.weight, minScore: c.minScore, maxScore: c.maxScore })),
+    scores: scores.map((s) => ({ judgeId: s.judgeId, contestantId: s.contestantId, criterionId: s.criterionId, value: s.value })),
+    sheets: [...sheetCounts.entries()].map(([judgeId, counts]) => ({ judgeId, ...counts })),
+  });
+}
+
 export const roundMonitor = query({
   args: { sessionToken: v.string(), roundId: v.id("rounds") },
   handler: async (ctx, args) => {
@@ -61,6 +93,7 @@ export const roundMonitor = query({
       .withIndex("by_event_id_and_round_id", (q) =>
         q.eq("eventId", sctx.event._id).eq("roundId", round._id))
       .collect();
+    const integrity = await loadIntegrity(ctx, { eventId: sctx.event._id, round });
     const judgesOut: { judgeId: Id<"eventAccounts">; name: string }[] = judges.map((j) => ({
       judgeId: j._id,
       name: j.displayName,
@@ -70,6 +103,46 @@ export const roundMonitor = query({
       judges: judgesOut,
       contestants: contestants.map((k) => ({ contestantId: k._id, name: k.name, number: k.number })),
       sheets: sheets.map((s) => ({ judgeId: s.judgeId, contestantId: s.contestantId, status: s.status })),
+      integrity: integrity.map((report) => ({
+        judgeId: report.judgeId,
+        completion: report.completion,
+        flags: report.flags,
+      })),
+    };
+  },
+});
+
+export const integrityReport = query({
+  args: { sessionToken: v.string(), roundId: v.id("rounds") },
+  handler: async (ctx, args) => {
+    const sctx = await requireEventSession(ctx, {
+      sessionToken: args.sessionToken, kind: "staff",
+    });
+    const round = await loadRound(ctx, sctx, args.roundId);
+    const judges = await ctx.db
+      .query("eventAccounts")
+      .withIndex("by_event_id_and_kind", (q) => q.eq("eventId", sctx.event._id).eq("kind", "judge"))
+      .collect();
+    const integrity = await loadIntegrity(ctx, { eventId: sctx.event._id, round });
+    const byId = new Map(integrity.map((report) => [report.judgeId, report]));
+    return {
+      roundName: round.name,
+      judges: judges
+        .map((judge) => {
+          // Judges with no scores yet (nothing submitted) still appear so the
+          // review page can show an empty, in-progress panel.
+          const metrics = byId.get(judge._id);
+          return {
+            judgeId: judge._id,
+            name: judge.displayName,
+            biasZ: metrics?.biasZ ?? null,
+            differentiationRatio: metrics?.differentiationRatio ?? null,
+            agreement: metrics?.agreement ?? null,
+            completion: metrics?.completion ?? 1,
+            flags: metrics?.flags ?? [],
+          };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name)),
     };
   },
 });

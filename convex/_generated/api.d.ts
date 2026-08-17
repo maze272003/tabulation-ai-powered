@@ -38,6 +38,8 @@ import type * as lib_eventAuthz from "../lib/eventAuthz.js";
 import type * as lib_eventCode from "../lib/eventCode.js";
 import type * as lib_eventResults from "../lib/eventResults.js";
 import type * as lib_eventSession from "../lib/eventSession.js";
+import type * as lib_gemini from "../lib/gemini.js";
+import type * as lib_judgeIntegrity from "../lib/judgeIntegrity.js";
 import type * as lib_password from "../lib/password.js";
 import type * as lib_paymongo from "../lib/paymongo.js";
 import type * as lib_roundCompute from "../lib/roundCompute.js";
@@ -110,6 +112,8 @@ declare const fullApi: ApiFromModules<{
   "lib/eventCode": typeof lib_eventCode;
   "lib/eventResults": typeof lib_eventResults;
   "lib/eventSession": typeof lib_eventSession;
+  "lib/gemini": typeof lib_gemini;
+  "lib/judgeIntegrity": typeof lib_judgeIntegrity;
   "lib/password": typeof lib_password;
   "lib/paymongo": typeof lib_paymongo;
   "lib/roundCompute": typeof lib_roundCompute;
