@@ -2,10 +2,10 @@
 
 import { use, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { EyeOff, Flag, History } from "lucide-react";
+import { Download, EyeOff, Flag, History, Printer } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -20,6 +20,8 @@ import { ConfirmDialog } from "@/components/tabulation/ConfirmDialog";
 import { Num } from "@/components/tabulation/Num";
 import { RoundResultsCard } from "@/components/tabulation/RoundResultsCard";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/tabulation/StateBlock";
+import { downloadTextFile, toCsv } from "@/lib/download";
+import { cn } from "@/lib/utils";
 
 export default function ResultsPage({
   params,
@@ -30,12 +32,16 @@ export default function ResultsPage({
   const results = useQuery(api.results.eventResults, { orgSlug, eventSlug });
   const ev = useQuery(api.events.get, { orgSlug, eventSlug });
   const categories = useQuery(api.categories.list, { orgSlug, eventSlug });
+  const sub = useQuery(api.subscriptions.getForOrg, { orgSlug });
+  const exportData = useQuery(api.results.exportData, { orgSlug, eventSlug });
   const finalize = useMutation(api.results.finalizeEvent);
   const correct = useMutation(api.roundAdmin.correctResults);
   const [correctFor, setCorrectFor] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const canExport = sub?.plan?.features?.canExportReports === true && !(exportData instanceof Error);
 
   const nameMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -74,6 +80,28 @@ export default function ResultsPage({
     toast.error(data?.message ?? "Action failed.");
   };
 
+  function downloadStandings() {
+    if (!exportData || exportData instanceof Error) return;
+    const csv = toCsv(
+      ["category", "rank", "number", "name", ...exportData.standings[0]?.roundScores.map((r) => `round: ${r.round}`) ?? [], "total"],
+      exportData.standings.map((s) => [
+        s.category, s.rank, s.number, s.name, ...s.roundScores.map((r) => r.score), s.total,
+      ]),
+    );
+    downloadTextFile(`${eventSlug}-standings.csv`, csv);
+  }
+
+  function downloadScorecards() {
+    if (!exportData || exportData instanceof Error) return;
+    const csv = toCsv(
+      ["round", "judge", "number", "contestant", "criterion", "value", "dropped"],
+      exportData.scorecards.map((s) => [
+        s.round, s.judge, s.number, s.contestant, s.criterion, s.value, s.dropped ? "yes" : "no",
+      ]),
+    );
+    downloadTextFile(`${eventSlug}-scorecards.csv`, csv);
+  }
+
   if (results === undefined || ev === undefined || categories === undefined)
     return <TableSkeleton rows={6} cols={4} />;
   if (results instanceof Error) {
@@ -85,17 +113,50 @@ export default function ResultsPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">Results</h2>
-        {canManage && (
-          <Button
-            disabled={busy || results.rounds.length === 0}
-            onClick={() => setFinalizeOpen(true)}
+        <div className="flex flex-wrap items-center gap-2">
+          <a
+            href={`/app/${orgSlug}/events/${eventSlug}/results/print`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
           >
-            <Flag aria-hidden />
-            Finalize event
-          </Button>
-        )}
+            <Printer aria-hidden className="size-4" />
+            Print view
+          </a>
+          {canExport && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={exportData === undefined}
+                onClick={downloadStandings}
+              >
+                <Download aria-hidden className="size-4" />
+                Standings CSV
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={exportData === undefined}
+                onClick={downloadScorecards}
+              >
+                <Download aria-hidden className="size-4" />
+                Scorecards CSV
+              </Button>
+            </>
+          )}
+          {canManage && (
+            <Button
+              disabled={busy || results.rounds.length === 0}
+              onClick={() => setFinalizeOpen(true)}
+            >
+              <Flag aria-hidden className="size-4" />
+              Finalize event
+            </Button>
+          )}
+        </div>
       </div>
 
       {results.rounds.length === 0 && (
