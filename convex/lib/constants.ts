@@ -39,6 +39,10 @@ export const SYSTEM_PLANS = [
     },
     limits: { maxMembers: 5, maxEvents: 1, maxJudges: 5, maxContestants: 20 },
     isSystem: true,
+    priceCents: 0,
+    currency: "PHP",
+    billingInterval: "monthly",
+    isActive: true,
   },
   {
     name: "Starter",
@@ -49,6 +53,10 @@ export const SYSTEM_PLANS = [
     },
     limits: { maxMembers: 15, maxEvents: 5, maxJudges: 20, maxContestants: 100 },
     isSystem: true,
+    priceCents: 49900,
+    currency: "PHP",
+    billingInterval: "monthly",
+    isActive: true,
   },
   {
     name: "Pro",
@@ -59,6 +67,10 @@ export const SYSTEM_PLANS = [
     },
     limits: { maxMembers: 50, maxEvents: 25, maxJudges: 100, maxContestants: 500 },
     isSystem: true,
+    priceCents: 149900,
+    currency: "PHP",
+    billingInterval: "monthly",
+    isActive: true,
   },
 ] as const;
 

@@ -106,7 +106,43 @@ export default defineSchema({
     stripeCustomerId: v.union(v.null(), v.string()),
     stripeSubscriptionId: v.union(v.null(), v.string()),
   })
-    .index("by_org_id", ["orgId"]),
+    .index("by_org_id", ["orgId"])
+    .index("by_status_and_period_end", ["status", "currentPeriodEndAt"]),
+
+  billingPayments: defineTable({
+    orgId: v.id("organizations"),
+    planId: v.id("plans"),
+    createdById: v.id("userProfiles"),
+    checkoutSessionId: v.union(v.null(), v.string()),
+    checkoutUrl: v.union(v.null(), v.string()),
+    referenceNumber: v.string(),
+    amountCents: v.number(),
+    currency: v.string(),
+    billingInterval: v.union(v.literal("monthly"), v.literal("yearly")),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("paid"),
+      v.literal("failed"),
+      v.literal("expired"),
+      v.literal("cancelled"),
+      v.literal("flagged"),
+    ),
+    periodStartAt: v.union(v.null(), v.number()),
+    periodEndAt: v.union(v.null(), v.number()),
+    paidAt: v.union(v.null(), v.number()),
+    failureReason: v.union(v.null(), v.string()),
+  })
+    .index("by_org_id", ["orgId"])
+    .index("by_status", ["status"])
+    .index("by_checkout_session_id", ["checkoutSessionId"])
+    .index("by_reference_number", ["referenceNumber"]),
+
+  processedWebhookEvents: defineTable({
+    eventId: v.string(),
+    eventType: v.string(),
+    receivedAt: v.number(),
+  })
+    .index("by_event_id", ["eventId"]),
 
   usage: defineTable({
     orgId: v.id("organizations"),
