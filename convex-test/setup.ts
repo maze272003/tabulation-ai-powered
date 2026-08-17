@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
 import type { UserIdentity } from "convex/server";
+import { vi } from "vitest";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
 import schema from "../convex/schema";
@@ -146,5 +147,63 @@ export async function prepareScoredEvent(
       bob: bobLogin.token,
       carol: carolLogin.token,
     },
+  };
+}
+
+let checkoutCounter = 0;
+
+export async function createOrgWithPendingCheckout(
+  t: ReturnType<typeof setupTest>,
+  opts: { planName?: string; sessionSuffix?: string } = {},
+): Promise<{
+  orgSlug: string;
+  paymentId: string;
+  checkoutSessionId: string;
+  amountCents: number;
+}> {
+  const orgSlug = "acme";
+  // Safe to call multiple times per test (e.g. renewals): only bootstrap once.
+  const existing = await t
+    .withIdentity(aliceIdentity)
+    .query(api.organizations.get, { orgSlug });
+  if (existing === null) {
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug, eventSlug: "gala" });
+  }
+  checkoutCounter += 1;
+  const suffix = opts.sessionSuffix ?? `auto${checkoutCounter}`;
+  vi.stubGlobal(
+    "fetch",
+    async () =>
+      new Response(
+        JSON.stringify({
+          data: {
+            id: `cs_test_${suffix}`,
+            attributes: { checkout_url: `https://checkout.paymongo.com/test/${suffix}` },
+          },
+        }),
+        { status: 200 },
+      ),
+  );
+  vi.stubEnv("PAYMONGO_SECRET_KEY", `sk_test_${suffix}`);
+  try {
+    await t
+      .withIdentity(aliceIdentity)
+      .action(api.billing.checkout.createCheckout, {
+        orgSlug,
+        planName: opts.planName ?? "Starter",
+      });
+  } finally {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  }
+  const active = await t
+    .withIdentity(aliceIdentity)
+    .query(api.billing.payments.getActiveCheckout, { orgSlug });
+  if (!active) throw new Error("pending checkout not found after createCheckout");
+  return {
+    orgSlug,
+    paymentId: active.paymentId,
+    checkoutSessionId: `cs_test_${suffix}`,
+    amountCents: active.amountCents,
   };
 }

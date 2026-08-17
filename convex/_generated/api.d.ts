@@ -12,6 +12,7 @@ import type * as accounts from "../accounts.js";
 import type * as announcements from "../announcements.js";
 import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
+import type * as billing_checkout from "../billing/checkout.js";
 import type * as billing_payments from "../billing/payments.js";
 import type * as categories from "../categories.js";
 import type * as contestants from "../contestants.js";
@@ -80,6 +81,7 @@ declare const fullApi: ApiFromModules<{
   announcements: typeof announcements;
   audit: typeof audit;
   auth: typeof auth;
+  "billing/checkout": typeof billing_checkout;
   "billing/payments": typeof billing_payments;
   categories: typeof categories;
   contestants: typeof contestants;
