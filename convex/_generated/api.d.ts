@@ -54,6 +54,7 @@ import type * as platform_dashboard from "../platform/dashboard.js";
 import type * as platform_orgs from "../platform/orgs.js";
 import type * as platform_subscriptions from "../platform/subscriptions.js";
 import type * as platform_users from "../platform/users.js";
+import type * as publicResults from "../publicResults.js";
 import type * as reset from "../reset.js";
 import type * as results from "../results.js";
 import type * as roles from "../roles.js";
@@ -125,6 +126,7 @@ declare const fullApi: ApiFromModules<{
   "platform/orgs": typeof platform_orgs;
   "platform/subscriptions": typeof platform_subscriptions;
   "platform/users": typeof platform_users;
+  publicResults: typeof publicResults;
   reset: typeof reset;
   results: typeof results;
   roles: typeof roles;
