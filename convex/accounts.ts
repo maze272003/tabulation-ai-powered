@@ -6,8 +6,8 @@ import type { Id } from "./_generated/dataModel";
 import { appError, ErrorCode } from "./lib/errors";
 import { requireDraftEvent, requireEventPermission } from "./lib/eventAuthz";
 import { writeAudit } from "./lib/audit";
-import { requireLimit } from "./lib/entitlements";
-import { incrementUsage } from "./lib/usage";
+import { getPlan, requireLimit } from "./lib/entitlements";
+import { getUsage, incrementUsage } from "./lib/usage";
 import { hashPassword, MIN_PASSWORD_LENGTH, USERNAME_PATTERN } from "./lib/password";
 
 const AUTO_PASSWORD_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
@@ -342,4 +342,168 @@ export const removeAssignment = mutation({
     });
   },
 });
+
+export const MAX_BULK_ACCOUNTS = 100;
+
+function slugifyUsername(displayName: string, fallback: string): string {
+  const slug = displayName
+    .toLowerCase()
+    .replace(/[^a-z0-9_.-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 28);
+  return USERNAME_PATTERN.test(slug) ? slug : fallback;
+}
+
+export const bulkCreate = action({
+  args: {
+    orgSlug: v.string(),
+    eventSlug: v.string(),
+    kind: v.union(v.literal("staff"), v.literal("judge")),
+    entries: v.array(
+      v.object({ displayName: v.string(), username: v.optional(v.string()) }),
+    ),
+  },
+  handler: async (ctx, args): Promise<{
+    accounts: { accountId: Id<"eventAccounts">; displayName: string; username: string; password: string }[];
+  }> => {
+    const normalized = args.entries.map((entry) => ({
+      displayName: entry.displayName.trim(),
+      username: entry.username?.toLowerCase().trim(),
+    }));
+    for (const entry of normalized) {
+      if (entry.username !== undefined && !USERNAME_PATTERN.test(entry.username)) {
+        throw appError(ErrorCode.VALIDATION_ERROR, "Username must be 3-32 chars: a-z, 0-9, dot, dash, underscore");
+      }
+    }
+    const prepared = normalized.map((entry) => ({ ...entry, password: generateAutoPassword() }));
+    const passwordHashes: string[] = [];
+    for (const entry of prepared) {
+      passwordHashes.push(await hashPassword(entry.password));
+    }
+    return await ctx.runMutation(internal.accounts.bulkCreateAccounts, {
+      orgSlug: args.orgSlug,
+      eventSlug: args.eventSlug,
+      kind: args.kind,
+      entries: prepared.map((entry, i) => ({
+        displayName: entry.displayName,
+        username: entry.username,
+        password: entry.password,
+        passwordHash: passwordHashes[i],
+      })),
+    });
+  },
+});
+
+export const bulkCreateAccounts = internalMutation({
+  args: {
+    orgSlug: v.string(),
+    eventSlug: v.string(),
+    kind: v.union(v.literal("staff"), v.literal("judge")),
+    entries: v.array(
+      v.object({
+        displayName: v.string(),
+        username: v.optional(v.string()),
+        password: v.string(),
+        passwordHash: v.string(),
+      }),
+    ),
+  },
+  handler: async (ctx, args): Promise<{
+    accounts: { accountId: Id<"eventAccounts">; displayName: string; username: string; password: string }[];
+  }> => {
+    const eactx = await requireEventPermission(ctx, {
+      orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "judge.manage",
+    });
+    if (args.entries.length === 0) {
+      throw appError(ErrorCode.VALIDATION_ERROR, "No entries provided");
+    }
+    if (args.entries.length > MAX_BULK_ACCOUNTS) {
+      throw appError(ErrorCode.VALIDATION_ERROR, `Bulk creation is limited to ${MAX_BULK_ACCOUNTS} accounts`);
+    }
+    // Same lifecycle rules as single create.
+    if (args.kind === "judge" && eactx.event.status !== "draft") {
+      throw appError(ErrorCode.CONFLICT, "Judges can only be added while the event is a draft");
+    }
+    if (args.kind === "staff" && eactx.event.status !== "draft" && eactx.event.status !== "ready") {
+      throw appError(ErrorCode.CONFLICT, "Staff can only be added before the event is finalized");
+    }
+
+    // Bulk plan-limit check (mirrors requireLimit but for a batch).
+    const plan = await getPlan(ctx, eactx.subscription);
+    const currentJudges = await getUsage(ctx, eactx.org._id, "judges");
+    const maxJudges = plan.limits.maxJudges;
+    if (typeof maxJudges === "number" && currentJudges + args.entries.length > maxJudges) {
+      throw appError(ErrorCode.LIMIT_EXCEEDED, `Bulk creation would exceed the plan limit of ${maxJudges} judges`, {
+        current: currentJudges,
+        max: maxJudges,
+      });
+    }
+
+    const existing = await ctx.db
+      .query("eventAccounts")
+      .withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id))
+      .collect();
+    const takenUsernames = new Set(existing.map((account) => account.username));
+
+    // Validate and resolve every username before the first insert.
+    const resolvedUsernames: string[] = [];
+    for (const [i, entry] of args.entries.entries()) {
+      const rowIndex = i + 1;
+      if (!entry.displayName) {
+        throw appError(ErrorCode.VALIDATION_ERROR, `Row ${rowIndex}: display name is required`, { rowIndex });
+      }
+      if (entry.username !== undefined) {
+        if (takenUsernames.has(entry.username)) {
+          throw appError(ErrorCode.CONFLICT, `Row ${rowIndex}: username "${entry.username}" is already taken`, { rowIndex });
+        }
+        takenUsernames.add(entry.username);
+        resolvedUsernames.push(entry.username);
+        continue;
+      }
+      const base = slugifyUsername(entry.displayName, `${args.kind}${existing.length + i + 1}`);
+      let candidate = base;
+      let suffix = 2;
+      while (takenUsernames.has(candidate)) {
+        candidate = `${base}-${suffix}`;
+        suffix++;
+      }
+      takenUsernames.add(candidate);
+      resolvedUsernames.push(candidate);
+    }
+
+    const accounts: { accountId: Id<"eventAccounts">; displayName: string; username: string; password: string }[] = [];
+    for (const [i, entry] of args.entries.entries()) {
+      const accountId = await ctx.db.insert("eventAccounts", {
+        orgId: eactx.org._id,
+        eventId: eactx.event._id,
+        kind: args.kind,
+        displayName: entry.displayName,
+        username: resolvedUsernames[i],
+        passwordHash: entry.passwordHash,
+        status: "active",
+        failedAttempts: 0,
+        lockedUntil: null,
+        createdById: eactx.user._id,
+      });
+      if (args.kind === "judge") {
+        await ctx.db.insert("judgeAssignments", {
+          judgeId: accountId,
+          eventId: eactx.event._id,
+        });
+      }
+      accounts.push({ accountId, displayName: entry.displayName, username: resolvedUsernames[i], password: entry.password });
+    }
+    await incrementUsage(ctx, eactx.org._id, "judges", args.entries.length);
+    await writeAudit(ctx, {
+      orgId: eactx.org._id,
+      actorId: eactx.user._id,
+      action: "eventAccount.bulk_created",
+      resourceType: "eventAccount",
+      resourceId: eactx.event._id,
+      after: { kind: args.kind, count: args.entries.length },
+    });
+    return { accounts };
+  },
+});
+
 
