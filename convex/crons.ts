@@ -30,4 +30,11 @@ crons.interval(
   {},
 );
 
+crons.interval(
+  "expire subscriptions and stale checkouts",
+  { hours: 24 },
+  internal.billing.lifecycle.expireSubscriptions,
+  {},
+);
+
 export default crons;

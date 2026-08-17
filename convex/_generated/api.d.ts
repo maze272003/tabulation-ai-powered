@@ -13,6 +13,7 @@ import type * as announcements from "../announcements.js";
 import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
 import type * as billing_checkout from "../billing/checkout.js";
+import type * as billing_lifecycle from "../billing/lifecycle.js";
 import type * as billing_payments from "../billing/payments.js";
 import type * as billing_webhook from "../billing/webhook.js";
 import type * as categories from "../categories.js";
@@ -83,6 +84,7 @@ declare const fullApi: ApiFromModules<{
   audit: typeof audit;
   auth: typeof auth;
   "billing/checkout": typeof billing_checkout;
+  "billing/lifecycle": typeof billing_lifecycle;
   "billing/payments": typeof billing_payments;
   "billing/webhook": typeof billing_webhook;
   categories: typeof categories;
