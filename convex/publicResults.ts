@@ -5,9 +5,12 @@ import { latestVersion } from "./lib/eventResults";
 export const get = query({
   args: { eventCode: v.string() },
   handler: async (ctx, args) => {
+    // Codes are user-visible and case/whitespace-insensitive; normalize the
+    // same way as eventAuth so /public/pub2026 resolves.
+    const eventCode = args.eventCode.toUpperCase().trim();
     const event = await ctx.db
       .query("events")
-      .withIndex("by_event_code", (q) => q.eq("eventCode", args.eventCode))
+      .withIndex("by_event_code", (q) => q.eq("eventCode", eventCode))
       .unique();
     // Returning null for missing, non-public, and archived events alike keeps
     // the outcome identical, so the endpoint never leaks the existence of

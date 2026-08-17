@@ -110,7 +110,15 @@ export function BulkAccountsDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        // Dismissing mid-creation would discard the one-time plaintext passwords.
+        if (!next && busy) return;
+        if (next) onOpenChange(true);
+        else close();
+      }}
+    >
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Bulk create {kind} accounts</DialogTitle>

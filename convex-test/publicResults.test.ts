@@ -70,6 +70,16 @@ describe("publicResults.get", () => {
     expect(result.rounds).toEqual([]);
   });
 
+  it("resolves public events queried with lowercase, whitespace-padded codes", async () => {
+    const t = setupTest();
+    const ids = await prepareScoredEvent(t, { resultVisibility: "public" });
+    const result = await t.query(api.publicResults.get, {
+      eventCode: ` ${ids.eventCode.toLowerCase()} `,
+    });
+    if (result === null) throw new Error("Expected results for a padded lowercase code");
+    expect(result.event.name).toBe("gala");
+  });
+
   it("returns null for unknown event codes", async () => {
     const t = setupTest();
     await expect(t.query(api.publicResults.get, { eventCode: "NOPE42" })).resolves.toBeNull();

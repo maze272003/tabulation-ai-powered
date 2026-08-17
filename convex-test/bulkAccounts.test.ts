@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { api } from "../convex/_generated/api";
+import { MAX_BULK_ACCOUNTS } from "../convex/accounts";
 import { aliceIdentity, createOrgAndEvent, setupTest } from "./setup";
 
 const BASE = { orgSlug: "acme", eventSlug: "gala" } as const;
@@ -91,5 +92,29 @@ describe("accounts.bulkCreate", () => {
         entries: [{ displayName: "  " }],
       }),
     ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR", context: { rowIndex: 1 } } });
+  });
+
+  it("early-rejects oversized batches before any password hashing", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    await expect(
+      t.withIdentity(aliceIdentity).action(api.accounts.bulkCreate, {
+        ...BASE,
+        kind: "judge",
+        entries: Array.from({ length: MAX_BULK_ACCOUNTS + 1 }, (_, i) => ({ displayName: `J${i}` })),
+      }),
+    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
+  });
+
+  it("early-rejects an empty entries array", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    await expect(
+      t.withIdentity(aliceIdentity).action(api.accounts.bulkCreate, {
+        ...BASE,
+        kind: "judge",
+        entries: [],
+      }),
+    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
   });
 });

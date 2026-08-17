@@ -366,11 +366,23 @@ export const bulkCreate = action({
   handler: async (ctx, args): Promise<{
     accounts: { accountId: Id<"eventAccounts">; displayName: string; username: string; password: string }[];
   }> => {
+    // Actions are publicly callable, so reject invalid batches before the
+    // expensive PBKDF2 hashing loop. The internal mutation re-checks these
+    // atomically and remains the authority.
+    if (args.entries.length === 0) {
+      throw appError(ErrorCode.VALIDATION_ERROR, "No entries provided");
+    }
+    if (args.entries.length > MAX_BULK_ACCOUNTS) {
+      throw appError(ErrorCode.VALIDATION_ERROR, `Bulk creation is limited to ${MAX_BULK_ACCOUNTS} accounts`);
+    }
     const normalized = args.entries.map((entry) => ({
       displayName: entry.displayName.trim(),
       username: entry.username?.toLowerCase().trim(),
     }));
-    for (const entry of normalized) {
+    for (const [i, entry] of normalized.entries()) {
+      if (!entry.displayName) {
+        throw appError(ErrorCode.VALIDATION_ERROR, `Row ${i + 1}: display name is required`, { rowIndex: i + 1 });
+      }
       if (entry.username !== undefined && !USERNAME_PATTERN.test(entry.username)) {
         throw appError(ErrorCode.VALIDATION_ERROR, "Username must be 3-32 chars: a-z, 0-9, dot, dash, underscore");
       }

@@ -74,7 +74,7 @@ export default function OrgLayout({
   return (
     <div className="flex min-h-screen">
       {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col gap-4 bg-sidebar p-3 text-sidebar-foreground lg:flex">
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col gap-4 bg-sidebar p-3 text-sidebar-foreground lg:flex print:hidden">
         <OrgSwitcher currentSlug={orgSlug} />
         {nav}
         <div className="border-t border-sidebar-border pt-3">
