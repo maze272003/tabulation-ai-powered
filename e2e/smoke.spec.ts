@@ -18,10 +18,10 @@ test.describe("Landing Page & Basic Navigation Smoke Tests", () => {
     await expect(heroHeading).toBeVisible();
 
     // Verify call-to-action buttons
-    const startEventBtn = page.getByRole("link", { name: /start your event/i });
+    const startEventBtn = page.getByRole("button", { name: /start your event/i });
     await expect(startEventBtn).toBeVisible();
 
-    const judgeSignInBtn = page.getByRole("link", { name: /judge sign in/i });
+    const judgeSignInBtn = page.getByRole("button", { name: /judge sign in/i });
     await expect(judgeSignInBtn).toBeVisible();
   });
 
@@ -52,7 +52,7 @@ test.describe("Landing Page & Basic Navigation Smoke Tests", () => {
     await page.goto("/");
 
     // Click 'Sign in' button from header
-    const headerSignInBtn = page.locator("header").getByRole("link", { name: "Sign in", exact: true });
+    const headerSignInBtn = page.locator("header").getByRole("button", { name: "Sign in", exact: true });
     await expect(headerSignInBtn).toBeVisible();
     await headerSignInBtn.click();
 
