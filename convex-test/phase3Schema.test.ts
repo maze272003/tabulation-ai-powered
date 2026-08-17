@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { api } from "../convex/_generated/api";
-import { aliceIdentity, createOrgAndEvent, setupTest } from "./setup";
+import { aliceIdentity, createOrgAndEvent, grantPaidPlan, setupTest } from "./setup";
 
 async function configureMinimalEvent(t: ReturnType<typeof setupTest>) {
   await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "gala", name: "R" });
@@ -87,7 +87,7 @@ describe("phase3 schema defaults", () => {
     await t.withIdentity(aliceIdentity).mutation(api.criteria.add, {
       orgSlug: "acme", eventSlug: "gala", roundId: rounds[0]._id, name: "C", weight: 100, minScore: 0, maxScore: 10, decimalPrecision: 0,
     });
-    await t.withIdentity(aliceIdentity).mutation(api.subscriptions.changePlan, { orgSlug: "acme", planName: "Pro" });
+    await grantPaidPlan(t, "Pro");
     await t.withIdentity(aliceIdentity).mutation(api.templates.createFromEvent, { orgSlug: "acme", eventSlug: "gala", name: "T3" });
     const tpls = await t.withIdentity(aliceIdentity).query(api.templates.list, { orgSlug: "acme" });
     const tpl = tpls.find((x) => x.name === "T3")!;

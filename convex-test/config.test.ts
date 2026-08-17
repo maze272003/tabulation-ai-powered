@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { api } from "../convex/_generated/api";
-import { aliceIdentity, createOrgAndEvent, setupTest } from "./setup";
+import { aliceIdentity, createOrgAndEvent, grantPaidPlan, setupTest } from "./setup";
 
 describe("categories and rounds", () => {
   it("adds and lists categories in order", async () => {
@@ -55,7 +55,7 @@ describe("criteria", () => {
   it("refuses criteria for a round belonging to a different event (IDOR)", async () => {
     const t = setupTest();
     await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "one" });
-    await t.withIdentity(aliceIdentity).mutation(api.subscriptions.changePlan, { orgSlug: "acme", planName: "Pro" });
+    await grantPaidPlan(t, "Pro");
     await t.withIdentity(aliceIdentity).mutation(api.events.create, { orgSlug: "acme", name: "Two", slug: "two" });
     await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "one", name: "R1" });
     const roundsOne = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "one" });

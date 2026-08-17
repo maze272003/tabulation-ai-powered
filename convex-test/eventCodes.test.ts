@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { api } from "../convex/_generated/api";
-import { aliceIdentity, createOrgAndEvent, seedAndProvision, setupTest } from "./setup";
+import { aliceIdentity, createOrgAndEvent, grantPaidPlan, seedAndProvision, setupTest } from "./setup";
 
 async function codeOf(t: ReturnType<typeof setupTest>, eventSlug: string): Promise<string> {
   const ev = await t.withIdentity(aliceIdentity).query(api.events.get, { orgSlug: "acme", eventSlug });
@@ -16,9 +16,7 @@ describe("event codes", () => {
 
   it("two events get different codes", async () => {
     const t = setupTest();
-    await seedAndProvision(t, aliceIdentity);
-    await t.withIdentity(aliceIdentity).mutation(api.organizations.create, { name: "acme", slug: "acme" });
-    await t.withIdentity(aliceIdentity).mutation(api.subscriptions.changePlan, { orgSlug: "acme", planName: "Pro" });
+    await grantPaidPlan(t, "Pro");
     await t.withIdentity(aliceIdentity).mutation(api.events.create, { orgSlug: "acme", name: "One", slug: "one" });
     await t.withIdentity(aliceIdentity).mutation(api.events.create, { orgSlug: "acme", name: "Two", slug: "two" });
     expect(await codeOf(t, "one")).not.toBe(await codeOf(t, "two"));
