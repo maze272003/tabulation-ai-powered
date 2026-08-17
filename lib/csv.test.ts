@@ -52,4 +52,11 @@ describe("parseContestantCsv", () => {
     expect(errors).toEqual([]);
     expect(rows.length).toBe(1);
   });
+
+  it("reports true file line numbers when interior blank lines are skipped", () => {
+    const text = ["number,name,category", "", "0,Bad,Open"].join("\n");
+    const { rows, errors } = parseContestantCsv(text);
+    expect(rows).toEqual([]);
+    expect(errors).toEqual([{ rowIndex: 3, message: '"0" is not a positive whole number.' }]);
+  });
 });

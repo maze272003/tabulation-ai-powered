@@ -12,6 +12,18 @@ export interface CsvRowError {
 
 const VALID_HEADERS_3 = ["number", "name", "category"];
 
+interface FileLine {
+  content: string;
+  lineNumber: number;
+}
+
+function toNonBlankLines(text: string): FileLine[] {
+  return text
+    .split(/\r?\n/)
+    .map((line, index) => ({ content: line.trim(), lineNumber: index + 1 }))
+    .filter((line) => line.content.length > 0);
+}
+
 function splitCsvLine(line: string): string[] {
   // Minimal RFC-4180 splitter: double-quoted fields may contain commas and
   // escaped quotes (""), because contestant names can contain commas.
@@ -45,15 +57,12 @@ function splitCsvLine(line: string): string[] {
 }
 
 export function parseContestantCsv(text: string): { rows: ContestantCsvRow[]; errors: CsvRowError[] } {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+  const lines = toNonBlankLines(text);
   if (lines.length === 0) {
     return { rows: [], errors: [{ rowIndex: 0, message: "The file is empty." }] };
   }
 
-  const header = splitCsvLine(lines[0]).map((h) => h.toLowerCase());
+  const header = splitCsvLine(lines[0].content).map((h) => h.toLowerCase());
   const headerOk =
     header.length >= 3 &&
     VALID_HEADERS_3.every((expected, i) => header[i] === expected) &&
@@ -67,9 +76,8 @@ export function parseContestantCsv(text: string): { rows: ContestantCsvRow[]; er
 
   const rows: ContestantCsvRow[] = [];
   const errors: CsvRowError[] = [];
-  for (const [i, line] of lines.slice(1).entries()) {
-    const rowIndex = i + 2; // 1-based file line, header is line 1
-    const fields = splitCsvLine(line);
+  for (const { content, lineNumber: rowIndex } of lines.slice(1)) {
+    const fields = splitCsvLine(content);
     if (fields.length < 3) {
       errors.push({ rowIndex, message: "Expected at least 3 columns: number, name, category." });
       continue;
