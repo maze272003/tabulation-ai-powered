@@ -110,21 +110,21 @@
       "label": "AccountItem",
       "file_type": "code",
       "source_file": "app/app/[orgSlug]/events/[eventSlug]/accounts/page.tsx",
-      "source_location": "L38"
+      "source_location": "L39"
     },
     {
       "id": "accounts_page_credentialsdata",
       "label": "CredentialsData",
       "file_type": "code",
       "source_file": "app/app/[orgSlug]/events/[eventSlug]/accounts/page.tsx",
-      "source_location": "L50"
+      "source_location": "L51"
     },
     {
       "id": "accounts_page_eventaccountspage",
       "label": "EventAccountsPage()",
       "file_type": "code",
       "source_file": "app/app/[orgSlug]/events/[eventSlug]/accounts/page.tsx",
-      "source_location": "L60"
+      "source_location": "L61"
     },
     {
       "id": "categories_page",
@@ -152,14 +152,14 @@
       "label": "STATUS_TONE",
       "file_type": "code",
       "source_file": "app/app/[orgSlug]/events/[eventSlug]/contestants/page.tsx",
-      "source_location": "L24"
+      "source_location": "L25"
     },
     {
       "id": "contestants_page_contestantspage",
       "label": "ContestantsPage()",
       "file_type": "code",
       "source_file": "app/app/[orgSlug]/events/[eventSlug]/contestants/page.tsx",
-      "source_location": "L30"
+      "source_location": "L31"
     },
     {
       "id": "eventslug_layout",
@@ -250,7 +250,7 @@
       "label": "ResultsPage()",
       "file_type": "code",
       "source_file": "app/app/[orgSlug]/events/[eventSlug]/results/page.tsx",
-      "source_location": "L24"
+      "source_location": "L25"
     },
     {
       "id": "monitor_page",
@@ -1758,6 +1758,41 @@
       "source_location": "L3"
     },
     {
+      "id": "tabulation_bulkaccountsdialog",
+      "label": "BulkAccountsDialog.tsx",
+      "file_type": "code",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "tabulation_bulkaccountsdialog_bulkentry",
+      "label": "BulkEntry",
+      "file_type": "code",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L28"
+    },
+    {
+      "id": "tabulation_bulkaccountsdialog_createdaccount",
+      "label": "CreatedAccount",
+      "file_type": "code",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L33"
+    },
+    {
+      "id": "tabulation_bulkaccountsdialog_parseentries",
+      "label": "parseEntries()",
+      "file_type": "code",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L40"
+    },
+    {
+      "id": "tabulation_bulkaccountsdialog_bulkaccountsdialog",
+      "label": "BulkAccountsDialog()",
+      "file_type": "code",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L58"
+    },
+    {
       "id": "tabulation_confirmdialog",
       "label": "ConfirmDialog.tsx",
       "file_type": "code",
@@ -1770,6 +1805,20 @@
       "file_type": "code",
       "source_file": "components/tabulation/ConfirmDialog.tsx",
       "source_location": "L15"
+    },
+    {
+      "id": "tabulation_importcontestantsdialog",
+      "label": "ImportContestantsDialog.tsx",
+      "file_type": "code",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "tabulation_importcontestantsdialog_importcontestantsdialog",
+      "label": "ImportContestantsDialog()",
+      "file_type": "code",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L21"
     },
     {
       "id": "tabulation_num",
@@ -2652,6 +2701,27 @@
       "file_type": "code",
       "source_file": "convex/accounts.ts",
       "source_location": "L329"
+    },
+    {
+      "id": "convex_accounts_slugifyusername",
+      "label": "slugifyUsername()",
+      "file_type": "code",
+      "source_file": "convex/accounts.ts",
+      "source_location": "L348"
+    },
+    {
+      "id": "convex_accounts_bulkcreate",
+      "label": "bulkCreate",
+      "file_type": "code",
+      "source_file": "convex/accounts.ts",
+      "source_location": "L357"
+    },
+    {
+      "id": "convex_accounts_bulkcreateaccounts",
+      "label": "bulkCreateAccounts",
+      "file_type": "code",
+      "source_file": "convex/accounts.ts",
+      "source_location": "L397"
     },
     {
       "id": "convex_announcements",
@@ -4674,35 +4744,42 @@
       "label": "requireResultAccess()",
       "file_type": "code",
       "source_file": "convex/results.ts",
-      "source_location": "L10"
+      "source_location": "L11"
     },
     {
       "id": "convex_results_roundresults",
       "label": "roundResults",
       "file_type": "code",
       "source_file": "convex/results.ts",
-      "source_location": "L24"
+      "source_location": "L25"
     },
     {
       "id": "convex_results_listroundversions",
       "label": "listRoundVersions",
       "file_type": "code",
       "source_file": "convex/results.ts",
-      "source_location": "L47"
+      "source_location": "L48"
     },
     {
       "id": "convex_results_eventresults",
       "label": "eventResults",
       "file_type": "code",
       "source_file": "convex/results.ts",
-      "source_location": "L63"
+      "source_location": "L64"
     },
     {
       "id": "convex_results_finalizeevent",
       "label": "finalizeEvent",
       "file_type": "code",
       "source_file": "convex/results.ts",
-      "source_location": "L71"
+      "source_location": "L72"
+    },
+    {
+      "id": "convex_results_exportdata",
+      "label": "exportData",
+      "file_type": "code",
+      "source_file": "convex/results.ts",
+      "source_location": "L97"
     },
     {
       "id": "convex_roles",
@@ -5804,6 +5881,48 @@
       "source_location": "L59"
     },
     {
+      "id": "lib_download_test",
+      "label": "download.test.ts",
+      "file_type": "code",
+      "source_file": "lib/download.test.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "lib_download",
+      "label": "download.ts",
+      "file_type": "code",
+      "source_file": "lib/download.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "lib_download_csvcell",
+      "label": "CsvCell",
+      "file_type": "code",
+      "source_file": "lib/download.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "lib_download_escapecsvcell",
+      "label": "escapeCsvCell()",
+      "file_type": "code",
+      "source_file": "lib/download.ts",
+      "source_location": "L3"
+    },
+    {
+      "id": "lib_download_tocsv",
+      "label": "toCsv()",
+      "file_type": "code",
+      "source_file": "lib/download.ts",
+      "source_location": "L8"
+    },
+    {
+      "id": "lib_download_downloadtextfile",
+      "label": "downloadTextFile()",
+      "file_type": "code",
+      "source_file": "lib/download.ts",
+      "source_location": "L14"
+    },
+    {
       "id": "lib_utils",
       "label": "utils.ts",
       "file_type": "code",
@@ -6613,7 +6732,7 @@
     },
     {
       "source": "accounts_page",
-      "target": "lucide_react",
+      "target": "tabulation_bulkaccountsdialog",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "app/app/[orgSlug]/events/[eventSlug]/accounts/page.tsx",
@@ -6622,11 +6741,29 @@
     },
     {
       "source": "accounts_page",
+      "target": "tabulation_bulkaccountsdialog_bulkaccountsdialog",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/app/[orgSlug]/events/[eventSlug]/accounts/page.tsx",
+      "source_location": "L23",
+      "weight": 1
+    },
+    {
+      "source": "accounts_page",
+      "target": "lucide_react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/app/[orgSlug]/events/[eventSlug]/accounts/page.tsx",
+      "source_location": "L24",
+      "weight": 1
+    },
+    {
+      "source": "accounts_page",
       "target": "sonner",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "app/app/[orgSlug]/events/[eventSlug]/accounts/page.tsx",
-      "source_location": "L36",
+      "source_location": "L37",
       "weight": 1
     },
     {
@@ -6635,7 +6772,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/app/[orgSlug]/events/[eventSlug]/accounts/page.tsx",
-      "source_location": "L38",
+      "source_location": "L39",
       "weight": 1
     },
     {
@@ -6644,7 +6781,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/app/[orgSlug]/events/[eventSlug]/accounts/page.tsx",
-      "source_location": "L50",
+      "source_location": "L51",
       "weight": 1
     },
     {
@@ -6653,7 +6790,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/app/[orgSlug]/events/[eventSlug]/accounts/page.tsx",
-      "source_location": "L60",
+      "source_location": "L61",
       "weight": 1
     },
     {
@@ -7180,11 +7317,29 @@
     },
     {
       "source": "contestants_page",
+      "target": "tabulation_importcontestantsdialog",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/app/[orgSlug]/events/[eventSlug]/contestants/page.tsx",
+      "source_location": "L23",
+      "weight": 1
+    },
+    {
+      "source": "contestants_page",
+      "target": "tabulation_importcontestantsdialog_importcontestantsdialog",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/app/[orgSlug]/events/[eventSlug]/contestants/page.tsx",
+      "source_location": "L23",
+      "weight": 1
+    },
+    {
+      "source": "contestants_page",
       "target": "contestants_page_status_tone",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/app/[orgSlug]/events/[eventSlug]/contestants/page.tsx",
-      "source_location": "L24",
+      "source_location": "L25",
       "weight": 1
     },
     {
@@ -7193,7 +7348,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/app/[orgSlug]/events/[eventSlug]/contestants/page.tsx",
-      "source_location": "L30",
+      "source_location": "L31",
       "weight": 1
     },
     {
@@ -8062,11 +8217,38 @@
     },
     {
       "source": "results_page",
+      "target": "lib_download",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "app/app/[orgSlug]/events/[eventSlug]/results/page.tsx",
+      "source_location": "L23",
+      "weight": 1
+    },
+    {
+      "source": "results_page",
+      "target": "lib_download_downloadtextfile",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/app/[orgSlug]/events/[eventSlug]/results/page.tsx",
+      "source_location": "L23",
+      "weight": 1
+    },
+    {
+      "source": "results_page",
+      "target": "lib_download_tocsv",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "app/app/[orgSlug]/events/[eventSlug]/results/page.tsx",
+      "source_location": "L23",
+      "weight": 1
+    },
+    {
+      "source": "results_page",
       "target": "results_page_resultspage",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/app/[orgSlug]/events/[eventSlug]/results/page.tsx",
-      "source_location": "L24",
+      "source_location": "L25",
       "weight": 1
     },
     {
@@ -21696,6 +21878,285 @@
       "weight": 1
     },
     {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "lucide_react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L5",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "sonner",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L6",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_api_js",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L7",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "generated_api_api",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L7",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "lib_download",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "lib_download_downloadtextfile",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "lib_download_tocsv",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "ui_button",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "ui_button_button",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "ui_dialog",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "ui_dialog_dialog",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "ui_dialog_dialogcontent",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "ui_dialog_dialogdescription",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "ui_dialog_dialogfooter",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "ui_dialog_dialogheader",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "ui_dialog_dialogtitle",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "ui_table",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L18",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "ui_table_table",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L18",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "ui_table_tablebody",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L18",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "ui_table_tablecell",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L18",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "ui_table_tablehead",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L18",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "ui_table_tableheader",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L18",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "ui_table_tablerow",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L18",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "ui_label",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L26",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "ui_label_label",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L26",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "tabulation_bulkaccountsdialog_bulkentry",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L28",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "tabulation_bulkaccountsdialog_createdaccount",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L33",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "tabulation_bulkaccountsdialog_parseentries",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L40",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_bulkaccountsdialog",
+      "target": "tabulation_bulkaccountsdialog_bulkaccountsdialog",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/BulkAccountsDialog.tsx",
+      "source_location": "L58",
+      "weight": 1
+    },
+    {
       "source": "tabulation_confirmdialog",
       "target": "react",
       "relation": "imports_from",
@@ -21801,6 +22262,204 @@
       "confidence": "EXTRACTED",
       "source_file": "components/tabulation/ConfirmDialog.tsx",
       "source_location": "L15",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L4",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "lucide_react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L5",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "sonner",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L6",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "c_users_user_documents_data_convex_tabulation_ai_powered_convex_generated_api_js",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L7",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "generated_api_api",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L7",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "lib_csv",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "lib_csv_parsecontestantcsv",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "lib_convex_errors",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "lib_convex_errors_toastmutationerror",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "ui_button",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "ui_button_button",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "ui_dialog",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L11",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "ui_dialog_dialog",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L11",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "ui_dialog_dialogcontent",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L11",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "ui_dialog_dialogdescription",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L11",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "ui_dialog_dialogfooter",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L11",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "ui_dialog_dialogheader",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L11",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "ui_dialog_dialogtitle",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L11",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "ui_label",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L19",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "ui_label_label",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L19",
+      "weight": 1
+    },
+    {
+      "source": "tabulation_importcontestantsdialog",
+      "target": "tabulation_importcontestantsdialog_importcontestantsdialog",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/tabulation/ImportContestantsDialog.tsx",
+      "source_location": "L21",
       "weight": 1
     },
     {
@@ -23803,6 +24462,15 @@
     },
     {
       "source": "convex_accounts",
+      "target": "lib_entitlements_getplan",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/accounts.ts",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "convex_accounts",
       "target": "lib_entitlements_requirelimit",
       "relation": "imports",
       "confidence": "EXTRACTED",
@@ -23814,6 +24482,15 @@
       "source": "convex_accounts",
       "target": "lib_usage",
       "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/accounts.ts",
+      "source_location": "L10",
+      "weight": 1
+    },
+    {
+      "source": "convex_accounts",
+      "target": "lib_usage_getusage",
+      "relation": "imports",
       "confidence": "EXTRACTED",
       "source_file": "convex/accounts.ts",
       "source_location": "L10",
@@ -23979,6 +24656,33 @@
       "confidence": "EXTRACTED",
       "source_file": "convex/accounts.ts",
       "source_location": "L329",
+      "weight": 1
+    },
+    {
+      "source": "convex_accounts",
+      "target": "convex_accounts_slugifyusername",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/accounts.ts",
+      "source_location": "L348",
+      "weight": 1
+    },
+    {
+      "source": "convex_accounts",
+      "target": "convex_accounts_bulkcreate",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/accounts.ts",
+      "source_location": "L357",
+      "weight": 1
+    },
+    {
+      "source": "convex_accounts",
+      "target": "convex_accounts_bulkcreateaccounts",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/accounts.ts",
+      "source_location": "L397",
       "weight": 1
     },
     {
@@ -31039,7 +31743,7 @@
     },
     {
       "source": "convex_results",
-      "target": "lib_eventresults",
+      "target": "lib_entitlements",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "convex/results.ts",
@@ -31048,7 +31752,7 @@
     },
     {
       "source": "convex_results",
-      "target": "lib_eventresults_computeeventresults",
+      "target": "lib_entitlements_requirefeature",
       "relation": "imports",
       "confidence": "EXTRACTED",
       "source_file": "convex/results.ts",
@@ -31057,11 +31761,38 @@
     },
     {
       "source": "convex_results",
+      "target": "lib_eventresults",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/results.ts",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "convex_results",
+      "target": "lib_eventresults_computeeventresults",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/results.ts",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "convex_results",
+      "target": "lib_eventresults_latestversion",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/results.ts",
+      "source_location": "L9",
+      "weight": 1
+    },
+    {
+      "source": "convex_results",
       "target": "convex_results_requireresultaccess",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "convex/results.ts",
-      "source_location": "L10",
+      "source_location": "L11",
       "weight": 1
     },
     {
@@ -31070,7 +31801,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "convex/results.ts",
-      "source_location": "L24",
+      "source_location": "L25",
       "weight": 1
     },
     {
@@ -31079,7 +31810,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "convex/results.ts",
-      "source_location": "L47",
+      "source_location": "L48",
       "weight": 1
     },
     {
@@ -31088,7 +31819,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "convex/results.ts",
-      "source_location": "L63",
+      "source_location": "L64",
       "weight": 1
     },
     {
@@ -31097,7 +31828,16 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "convex/results.ts",
-      "source_location": "L71",
+      "source_location": "L72",
+      "weight": 1
+    },
+    {
+      "source": "convex_results",
+      "target": "convex_results_exportdata",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "convex/results.ts",
+      "source_location": "L97",
       "weight": 1
     },
     {
@@ -34347,6 +35087,69 @@
       "confidence": "EXTRACTED",
       "source_file": "lib/csv.ts",
       "source_location": "L65",
+      "weight": 1
+    },
+    {
+      "source": "lib_download_test",
+      "target": "vitest",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/download.test.ts",
+      "source_location": "L1",
+      "weight": 1
+    },
+    {
+      "source": "lib_download_test",
+      "target": "lib_download",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/download.test.ts",
+      "source_location": "L2",
+      "weight": 1
+    },
+    {
+      "source": "lib_download_test",
+      "target": "lib_download_tocsv",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/download.test.ts",
+      "source_location": "L2",
+      "weight": 1
+    },
+    {
+      "source": "lib_download",
+      "target": "lib_download_csvcell",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/download.ts",
+      "source_location": "L1",
+      "weight": 1
+    },
+    {
+      "source": "lib_download",
+      "target": "lib_download_escapecsvcell",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/download.ts",
+      "source_location": "L3",
+      "weight": 1
+    },
+    {
+      "source": "lib_download",
+      "target": "lib_download_tocsv",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/download.ts",
+      "source_location": "L8",
+      "weight": 1
+    },
+    {
+      "source": "lib_download",
+      "target": "lib_download_downloadtextfile",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/download.ts",
+      "source_location": "L14",
       "weight": 1
     },
     {
