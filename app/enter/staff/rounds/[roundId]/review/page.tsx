@@ -6,6 +6,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useEnterSession } from "@/components/enter/EnterAppShell";
+import { RoundIntegrityPanel } from "@/components/enter/RoundIntegrityPanel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -416,6 +417,8 @@ export default function StaffRoundReviewPage({
           </table>
         </CardContent>
       </Card>
+
+      <RoundIntegrityPanel roundId={roundId} />
 
       {/* Applied Tie Breaks */}
       {tieBreaks.length > 0 && (
