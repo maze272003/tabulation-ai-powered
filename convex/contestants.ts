@@ -1,10 +1,11 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { appError, ErrorCode } from "./lib/errors";
 import { requireDraftEvent, requireEventMember } from "./lib/eventAuthz";
 import { writeAudit } from "./lib/audit";
-import { requireLimit } from "./lib/entitlements";
-import { incrementUsage } from "./lib/usage";
+import { getPlan, requireLimit } from "./lib/entitlements";
+import { getUsage, incrementUsage } from "./lib/usage";
 
 export const add = mutation({
   args: {
@@ -105,5 +106,110 @@ export const remove = mutation({
       orgId: eactx.org._id, actorId: eactx.user._id, action: "contestant.removed",
       resourceType: "contestant", resourceId: args.contestantId, before: { name: c.name },
     });
+  },
+});
+
+export const MAX_BULK_IMPORT_ROWS = 500;
+
+export const bulkAdd = mutation({
+  args: {
+    orgSlug: v.string(),
+    eventSlug: v.string(),
+    rows: v.array(
+      v.object({
+        number: v.number(),
+        name: v.string(),
+        category: v.string(),
+        group: v.optional(v.string()),
+      }),
+    ),
+  },
+  handler: async (ctx, args): Promise<{ added: number }> => {
+    const eactx = await requireDraftEvent(ctx, {
+      orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "contestant.manage",
+    });
+    if (args.rows.length === 0) {
+      throw appError(ErrorCode.VALIDATION_ERROR, "No rows to import");
+    }
+    if (args.rows.length > MAX_BULK_IMPORT_ROWS) {
+      throw appError(ErrorCode.VALIDATION_ERROR, `Imports are limited to ${MAX_BULK_IMPORT_ROWS} rows per file`);
+    }
+
+    const categories = await ctx.db
+      .query("categories")
+      .withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id))
+      .collect();
+    if (categories.length === 0) {
+      throw appError(ErrorCode.VALIDATION_ERROR, "Event has no categories");
+    }
+    // First category (by order) wins on duplicate names, matching contestants.add fallback.
+    const categoryIdsByName = new Map<string, Id<"categories">>();
+    for (const category of [...categories].sort((a, b) => a.order - b.order)) {
+      const key = category.name.trim().toLowerCase();
+      if (!categoryIdsByName.has(key)) categoryIdsByName.set(key, category._id);
+    }
+
+    const existing = await ctx.db
+      .query("contestants")
+      .withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id))
+      .collect();
+    const usedNumbers = new Set(existing.map((contestant) => contestant.number));
+    const firstUseInFile = new Map<number, number>();
+
+    // Validate everything before the first insert so the transaction rolls back whole-file.
+    const resolvedCategoryIds: Id<"categories">[] = [];
+    for (const [i, row] of args.rows.entries()) {
+      const rowIndex = i + 1;
+      if (!row.name.trim()) {
+        throw appError(ErrorCode.VALIDATION_ERROR, `Row ${rowIndex}: name must not be empty`, { rowIndex });
+      }
+      if (!Number.isInteger(row.number) || row.number < 1) {
+        throw appError(ErrorCode.VALIDATION_ERROR, `Row ${rowIndex}: number must be a positive integer`, { rowIndex });
+      }
+      const categoryId = categoryIdsByName.get(row.category.trim().toLowerCase());
+      if (categoryId === undefined) {
+        throw appError(ErrorCode.VALIDATION_ERROR, `Row ${rowIndex}: unknown category "${row.category}"`, { rowIndex });
+      }
+      const firstUse = firstUseInFile.get(row.number);
+      if (firstUse !== undefined) {
+        throw appError(ErrorCode.CONFLICT, `Row ${rowIndex}: number ${row.number} duplicates row ${firstUse}`, { rowIndex });
+      }
+      if (usedNumbers.has(row.number)) {
+        throw appError(ErrorCode.CONFLICT, `Row ${rowIndex}: number ${row.number} is already used in this event`, { rowIndex });
+      }
+      firstUseInFile.set(row.number, rowIndex);
+      resolvedCategoryIds.push(categoryId);
+    }
+
+    const plan = await getPlan(ctx, eactx.subscription);
+    const currentCount = await getUsage(ctx, eactx.org._id, "contestants");
+    const maxContestants = plan.limits.maxContestants;
+    if (typeof maxContestants === "number" && currentCount + args.rows.length > maxContestants) {
+      throw appError(ErrorCode.LIMIT_EXCEEDED, `Import would exceed the plan limit of ${maxContestants} contestants`, {
+        current: currentCount,
+        max: maxContestants,
+      });
+    }
+
+    for (const [i, row] of args.rows.entries()) {
+      await ctx.db.insert("contestants", {
+        eventId: eactx.event._id,
+        categoryId: resolvedCategoryIds[i],
+        number: row.number,
+        name: row.name.trim(),
+        group: row.group?.trim() ? row.group.trim() : undefined,
+        status: "active",
+      });
+    }
+    await incrementUsage(ctx, eactx.org._id, "contestants", args.rows.length);
+    await writeAudit(ctx, {
+      orgId: eactx.org._id,
+      actorId: eactx.user._id,
+      action: "contestant.bulk_added",
+      resourceType: "contestant",
+      resourceId: eactx.event._id,
+      after: { count: args.rows.length },
+    });
+    return { added: args.rows.length };
   },
 });
