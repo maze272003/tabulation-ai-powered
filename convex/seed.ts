@@ -1,6 +1,68 @@
 import { mutation, type MutationCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { ROLE_PERMISSIONS, SYSTEM_PERMISSIONS, SYSTEM_PLANS, SYSTEM_ROLES, SYSTEM_TEMPLATES } from "./lib/constants";
 import { hashPassword } from "./lib/password";
+
+/**
+ * Deletes every child document belonging to an event so seeding can
+ * re-create them from scratch. Used to keep seedE2EData idempotent.
+ */
+async function deleteEventChildren(ctx: MutationCtx, eventId: Id<"events">) {
+  const sheets = await ctx.db
+    .query("scoreSheets")
+    .withIndex("by_event_id_and_round_id", (q) => q.eq("eventId", eventId))
+    .collect();
+  for (const sheet of sheets) await ctx.db.delete(sheet._id);
+
+  const accounts = await ctx.db
+    .query("eventAccounts")
+    .withIndex("by_event_id", (q) => q.eq("eventId", eventId))
+    .collect();
+  for (const account of accounts) {
+    const sessions = await ctx.db
+      .query("eventSessions")
+      .withIndex("by_account_id", (q) => q.eq("accountId", account._id))
+      .collect();
+    for (const session of sessions) await ctx.db.delete(session._id);
+    const assignments = await ctx.db
+      .query("judgeAssignments")
+      .withIndex("by_judge_id", (q) => q.eq("judgeId", account._id))
+      .collect();
+    for (const assignment of assignments) await ctx.db.delete(assignment._id);
+    await ctx.db.delete(account._id);
+  }
+
+  const contestants = await ctx.db
+    .query("contestants")
+    .withIndex("by_event_id", (q) => q.eq("eventId", eventId))
+    .collect();
+  for (const contestant of contestants) await ctx.db.delete(contestant._id);
+
+  const rounds = await ctx.db
+    .query("rounds")
+    .withIndex("by_event_id", (q) => q.eq("eventId", eventId))
+    .collect();
+  for (const round of rounds) {
+    const criteria = await ctx.db
+      .query("criteria")
+      .withIndex("by_round_id", (q) => q.eq("roundId", round._id))
+      .collect();
+    for (const criterion of criteria) await ctx.db.delete(criterion._id);
+    await ctx.db.delete(round._id);
+  }
+
+  const categories = await ctx.db
+    .query("categories")
+    .withIndex("by_event_id", (q) => q.eq("eventId", eventId))
+    .collect();
+  for (const category of categories) await ctx.db.delete(category._id);
+
+  const resultVersions = await ctx.db
+    .query("resultVersions")
+    .withIndex("by_event_id", (q) => q.eq("eventId", eventId))
+    .collect();
+  for (const version of resultVersions) await ctx.db.delete(version._id);
+}
 
 export async function seedReferenceDataInternal(ctx: MutationCtx) {
   for (const p of SYSTEM_PERMISSIONS) {
@@ -156,30 +218,8 @@ export const seedE2EData = mutation({
       });
 
       // Clear existing child items to make seeding fresh and idempotent
-      const sheets = await ctx.db.query("scoreSheets").withIndex("by_event_id_and_round_id", (q) => q.eq("eventId", event!._id)).collect();
-      for (const s of sheets) await ctx.db.delete(s._id);
-
-      const accounts = await ctx.db.query("eventAccounts").withIndex("by_event_id", (q) => q.eq("eventId", event!._id)).collect();
-      for (const a of accounts) {
-        const sessions = await ctx.db.query("eventSessions").withIndex("by_account_id", (q) => q.eq("accountId", a._id)).collect();
-        for (const sess of sessions) await ctx.db.delete(sess._id);
-        const assignments = await ctx.db.query("judgeAssignments").withIndex("by_judge_id", (q) => q.eq("judgeId", a._id)).collect();
-        for (const assign of assignments) await ctx.db.delete(assign._id);
-        await ctx.db.delete(a._id);
-      }
-
-      const contestants = await ctx.db.query("contestants").withIndex("by_event_id", (q) => q.eq("eventId", event!._id)).collect();
-      for (const c of contestants) await ctx.db.delete(c._id);
-
-      const rounds = await ctx.db.query("rounds").withIndex("by_event_id", (q) => q.eq("eventId", event!._id)).collect();
-      for (const r of rounds) {
-        const criteria = await ctx.db.query("criteria").withIndex("by_round_id", (q) => q.eq("roundId", r._id)).collect();
-        for (const cr of criteria) await ctx.db.delete(cr._id);
-        await ctx.db.delete(r._id);
-      }
-
-      const categories = await ctx.db.query("categories").withIndex("by_event_id", (q) => q.eq("eventId", event!._id)).collect();
-      for (const cat of categories) await ctx.db.delete(cat._id);
+      await deleteEventChildren(ctx, event._id);
+      event = (await ctx.db.get(event._id))!;
     } else {
       const eventId = await ctx.db.insert("events", {
         orgId: org._id,
@@ -347,11 +387,125 @@ export const seedE2EData = mutation({
       status: "not_started",
     });
 
+    // 11. Ensure public showcase event exists (public scoreboard E2E fixture).
+    // Unlike "e2e-event", this event is resultVisibility "public" with a
+    // published round and a hand-built result snapshot so /public/<code>
+    // renders real standings without depending on judge scoring flows.
+    let publicEvent = await ctx.db
+      .query("events")
+      .withIndex("by_org_id_and_slug", (q) => q.eq("orgId", org._id).eq("slug", "e2e-public"))
+      .first();
+
+    if (publicEvent) {
+      await ctx.db.patch(publicEvent._id, {
+        eventCode: "PUB2026",
+        name: "E2E Public Showcase",
+        description: "Public showcase event with pre-published results",
+        status: "ready",
+        decimalPrecision: 1,
+        resultVisibility: "public",
+        scoringRules: { dropHighLow: false },
+        eliminationEnabled: false,
+        branding: {},
+      });
+
+      await deleteEventChildren(ctx, publicEvent._id);
+      publicEvent = (await ctx.db.get(publicEvent._id))!;
+    } else {
+      const publicEventId = await ctx.db.insert("events", {
+        orgId: org._id,
+        slug: "e2e-public",
+        eventCode: "PUB2026",
+        name: "E2E Public Showcase",
+        description: "Public showcase event with pre-published results",
+        status: "ready",
+        decimalPrecision: 1,
+        resultVisibility: "public",
+        scoringRules: { dropHighLow: false },
+        eliminationEnabled: false,
+        branding: {},
+        createdById: testUser._id,
+      });
+      publicEvent = (await ctx.db.get(publicEventId))!;
+    }
+
+    const publicCategoryId = await ctx.db.insert("categories", {
+      eventId: publicEvent._id,
+      name: "Open",
+      order: 1,
+    });
+
+    const publicContestant1Id = await ctx.db.insert("contestants", {
+      eventId: publicEvent._id,
+      categoryId: publicCategoryId,
+      number: 1,
+      name: "Aria Montgomery",
+      status: "active",
+    });
+
+    const publicContestant2Id = await ctx.db.insert("contestants", {
+      eventId: publicEvent._id,
+      categoryId: publicCategoryId,
+      number: 2,
+      name: "Lucas Bennett",
+      status: "active",
+    });
+
+    const publicRoundId = await ctx.db.insert("rounds", {
+      eventId: publicEvent._id,
+      name: "Final Round",
+      order: 1,
+      qualifiesToNextRound: false,
+      weight: 100,
+      status: "published",
+      advancement: { mode: "none", allowOverride: false },
+    });
+
+    await ctx.db.insert("resultVersions", {
+      eventId: publicEvent._id,
+      roundId: publicRoundId,
+      version: 1,
+      createdAt: Date.now(),
+      snapshot: {
+        decimalPrecision: 1,
+        computedAt: Date.now(),
+        categories: [
+          {
+            categoryId: publicCategoryId,
+            standings: [
+              {
+                contestantId: publicContestant1Id,
+                status: "active",
+                rank: 1,
+                roundScore: 85.2,
+                tieResolvedBy: "none",
+                advanced: null,
+                criterionScores: [],
+              },
+              {
+                contestantId: publicContestant2Id,
+                status: "active",
+                rank: 2,
+                roundScore: 80.4,
+                tieResolvedBy: "none",
+                advanced: null,
+                criterionScores: [],
+              },
+            ],
+          },
+        ],
+        judgeParticipation: [],
+        decisions: { tieBreaks: [], advancementOverrides: [] },
+      },
+      createdById: testUser._id,
+    });
+
     return {
       success: true,
       orgSlug: org.slug,
       eventSlug: event.slug,
       eventCode: event.eventCode,
+      publicEventCode: publicEvent.eventCode,
       roundId,
       criteriaIds: [crit1, crit2],
       contestantIds: [con1, con2],
