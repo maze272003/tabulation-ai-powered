@@ -1,243 +1,486 @@
-﻿## Task 4: Events CRUD
+### Task 4: Checkout flow (`billing/checkout.ts`)
 
 **Files:**
-- Create: `convex/events.ts`
-- Create: `convex-test/events.test.ts`
-- Modify: `convex-test/setup.ts` (add `createOrgAndEvent`)
+- Create: `convex/billing/checkout.ts`
+- Modify: `convex-test/setup.ts` (add `createOrgWithPendingCheckout` helper)
+- Test: `convex-test/billingCheckout.test.ts` (create)
 
 **Interfaces:**
-- Consumes: `requirePermission`/`requireOrgMember` from `./lib/authz`; `requireEventMember`/`requireDraftEvent` from `./lib/eventAuthz`; `requireLimit` from `./lib/entitlements`; `incrementUsage` from `./lib/usage`; `writeAudit`; `appError`.
-- Produces: `api.events.create({ orgSlug, name, slug? }) â†’ string` (event slug; creates default "Open" category; `event.create` + `maxEvents` enforced); `api.events.get({ orgSlug, eventSlug }) â†’ Doc<"events"> | null` (null on any failure); `api.events.listByOrg({ orgSlug }) â†’ Doc<"events">[]`; `api.events.update({ orgSlug, eventSlug, name?, description?, startDate?, endDate?, venue?, timezone?, decimalPrecision?, resultVisibility? })` (draft-only). Test helper `createOrgAndEvent(t, identity, { orgSlug, eventSlug, eventName? })` in setup.ts.
+- Consumes: `lib/paymongo.createCheckoutSession`, `lib/billing.randomHex`, `ErrorCode.PAYMENT_PROVIDER`, `billingPayments` table, `plans` table, `subscription.manage` permission.
+- Produces:
+  - `api.billing.checkout.createCheckout` (action, `{ orgSlug: string, planName: string }` → `Promise<string>` checkout URL; redirects happen client-side)
+  - `api.billing.checkout.cancelCheckout` (mutation, `{ orgSlug: string }` → void)
+  - internal: `internal.billing.checkout.createPendingPayment`, `internal.billing.checkout.attachCheckoutSession`, `internal.billing.checkout.failPayment` (Task 5's httpAction does not use these directly)
+  - Test helper `createOrgWithPendingCheckout(t, opts?: { planName?: string; sessionSuffix?: string })` returns `{ orgSlug, paymentId, checkoutSessionId, amountCents, referenceNumber }` — used by Tasks 5 and 6.
 
-- [ ] **Step 1: Write failing tests â€” `convex-test/events.test.ts`**
+- [ ] **Step 1: Add the shared test helper**
+
+In `convex-test/setup.ts`, add these imports at the top (merge with existing):
 
 ```ts
-import { describe, expect, it } from "vitest";
-import { api } from "../convex/_generated/api";
-import { aliceIdentity, bobIdentity, seedAndProvision, setupTest } from "./setup";
+import { vi } from "vitest";
+import { internal } from "../convex/_generated/api";
+```
 
-async function setupOrg(t: ReturnType<typeof setupTest>, orgSlug = "acme") {
-  await seedAndProvision(t, aliceIdentity);
-  await seedAndProvision(t, bobIdentity);
-  await t.withIdentity(aliceIdentity).mutation(api.organizations.create, { name: orgSlug, slug: orgSlug });
+Append at the end of the file:
+
+```ts
+let checkoutCounter = 0;
+
+export async function createOrgWithPendingCheckout(
+  t: ReturnType<typeof setupTest>,
+  opts: { planName?: string; sessionSuffix?: string } = {},
+): Promise<{
+  orgSlug: string;
+  paymentId: string;
+  checkoutSessionId: string;
+  amountCents: number;
+}> {
+  const orgSlug = "acme";
+  // Safe to call multiple times per test (e.g. renewals): only bootstrap once.
+  const existing = await t
+    .withIdentity(aliceIdentity)
+    .query(api.organizations.get, { orgSlug });
+  if (existing === null) {
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug, eventSlug: "gala" });
+  }
+  checkoutCounter += 1;
+  const suffix = opts.sessionSuffix ?? `auto${checkoutCounter}`;
+  vi.stubGlobal(
+    "fetch",
+    async () =>
+      new Response(
+        JSON.stringify({
+          data: {
+            id: `cs_test_${suffix}`,
+            attributes: { checkout_url: `https://checkout.paymongo.com/test/${suffix}` },
+          },
+        }),
+        { status: 200 },
+      ),
+  );
+  vi.stubEnv("PAYMONGO_SECRET_KEY", `sk_test_${suffix}`);
+  try {
+    await t
+      .withIdentity(aliceIdentity)
+      .action(api.billing.checkout.createCheckout, {
+        orgSlug,
+        planName: opts.planName ?? "Starter",
+      });
+  } finally {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  }
+  const active = await t
+    .withIdentity(aliceIdentity)
+    .query(api.billing.payments.getActiveCheckout, { orgSlug });
+  if (!active) throw new Error("pending checkout not found after createCheckout");
+  return {
+    orgSlug,
+    paymentId: active.paymentId,
+    checkoutSessionId: `cs_test_${suffix}`,
+    amountCents: active.amountCents,
+  };
 }
 
-describe("events", () => {
-  it("creates an event in draft with default settings", async () => {
+/**
+ * Grants a paid plan through the REAL path (checkout + paid webhook) so tests
+ * exercise the same state production reaches. Replaces the old
+ * `subscriptions.changePlan`-based setup.
+ */
+export async function grantPaidPlan(
+  t: ReturnType<typeof setupTest>,
+  planName: "Starter" | "Pro",
+): Promise<{ orgSlug: string; checkoutSessionId: string; amountCents: number }> {
+  const ctx = await createOrgWithPendingCheckout(t, { planName });
+  const outcome = await t.mutation(internal.billing.webhook.processWebhookEvent, {
+    eventId: `evt_grant_${planName}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    eventType: "checkout_session.payment.paid",
+    checkoutSessionId: ctx.checkoutSessionId,
+    referenceNumber: null,
+    paidAmount: ctx.amountCents,
+  });
+  if (outcome !== "applied") throw new Error(`grantPaidPlan failed: ${outcome}`);
+  return ctx;
+}
+```
+
+Note: `grantPaidPlan` depends on Task 5's `processWebhookEvent`; it is introduced with Task 5 (step 1) but lives here so all later tasks share it. Add it to setup.ts during **Task 5**, together with the `internal` import; Task 4 only adds `createOrgWithPendingCheckout` + the `vi` import.
+
+- [ ] **Step 2: Write the failing tests**
+
+Create `convex-test/billingCheckout.test.ts`:
+
+```ts
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { api } from "../convex/_generated/api";
+import { aliceIdentity, bobIdentity, createOrgAndEvent, seedAndProvision, setupTest } from "./setup";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
+
+function stubCheckoutSuccess(suffix = "1") {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          data: {
+            id: `cs_test_${suffix}`,
+            attributes: { checkout_url: `https://checkout.paymongo.com/test/${suffix}` },
+          },
+        }),
+        { status: 200 },
+      ),
+    ),
+  );
+  vi.stubEnv("PAYMONGO_SECRET_KEY", "sk_test_key");
+}
+
+describe("billing checkout", () => {
+  it("creates a pending payment with a checkout URL", async () => {
     const t = setupTest();
-    await setupOrg(t);
-    const slug = await t.withIdentity(aliceIdentity).mutation(api.events.create, {
-      orgSlug: "acme", name: "Miss Acme 2026", slug: "miss-acme",
-    });
-    expect(slug).toBe("miss-acme");
-    const ev = await t.withIdentity(aliceIdentity).query(api.events.get, { orgSlug: "acme", eventSlug: "miss-acme" });
-    expect(ev?.status).toBe("draft");
-    expect(ev?.decimalPrecision).toBe(2);
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    stubCheckoutSuccess();
+    const url = await t
+      .withIdentity(aliceIdentity)
+      .action(api.billing.checkout.createCheckout, { orgSlug: "acme", planName: "Starter" });
+    expect(url).toBe("https://checkout.paymongo.com/test/1");
+    const active = await t
+      .withIdentity(aliceIdentity)
+      .query(api.billing.payments.getActiveCheckout, { orgSlug: "acme" });
+    expect(active).not.toBeNull();
+    expect(active?.planName).toBe("Starter");
+    expect(active?.amountCents).toBe(49900);
+    expect(active?.billingInterval).toBe("monthly");
   });
 
-  it("rejects duplicate slug within the org with CONFLICT", async () => {
+  it("rejects the Free plan and unknown plans", async () => {
     const t = setupTest();
-    await setupOrg(t);
-    await t.withIdentity(aliceIdentity).mutation(api.events.create, { orgSlug: "acme", name: "A", slug: "dup" });
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
     await expect(
-      t.withIdentity(aliceIdentity).mutation(api.events.create, { orgSlug: "acme", name: "B", slug: "dup" }),
+      t.withIdentity(aliceIdentity).action(api.billing.checkout.createCheckout, {
+        orgSlug: "acme",
+        planName: "Free",
+      }),
+    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
+    await expect(
+      t.withIdentity(aliceIdentity).action(api.billing.checkout.createCheckout, {
+        orgSlug: "acme",
+        planName: "Platinum",
+      }),
+    ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
+  });
+
+  it("enforces the one-live-checkout rule with CONFLICT", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    stubCheckoutSuccess();
+    await t
+      .withIdentity(aliceIdentity)
+      .action(api.billing.checkout.createCheckout, { orgSlug: "acme", planName: "Starter" });
+    stubCheckoutSuccess("2");
+    await expect(
+      t.withIdentity(aliceIdentity).action(api.billing.checkout.createCheckout, {
+        orgSlug: "acme",
+        planName: "Pro",
+      }),
     ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
   });
 
-  it("refuses event.create for a Viewer member", async () => {
+  it("requires subscription.manage permission", async () => {
     const t = setupTest();
-    await setupOrg(t);
-    await t.withIdentity(aliceIdentity).mutation(api.invitations.create, { orgSlug: "acme", email: "bob@example.com", roleName: "Viewer" });
-    const pending = await t.withIdentity(bobIdentity).query(api.invitations.listForUser, {});
-    await t.withIdentity(bobIdentity).mutation(api.invitations.accept, { token: pending[0].token });
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    await seedAndProvision(t, bobIdentity);
+    stubCheckoutSuccess();
     await expect(
-      t.withIdentity(bobIdentity).mutation(api.events.create, { orgSlug: "acme", name: "X", slug: "x" }),
+      t.withIdentity(bobIdentity).action(api.billing.checkout.createCheckout, {
+        orgSlug: "acme",
+        planName: "Starter",
+      }),
     ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
   });
 
-  it("get returns null for a non-member (cross-org)", async () => {
+  it("marks the payment failed when PayMongo rejects the request", async () => {
     const t = setupTest();
-    await setupOrg(t);
-    await t.withIdentity(aliceIdentity).mutation(api.events.create, { orgSlug: "acme", name: "E", slug: "e" });
-    const res = await t.withIdentity(bobIdentity).query(api.events.get, { orgSlug: "acme", eventSlug: "e" });
-    expect(res).toBeNull();
-  });
-
-  it("enforces maxEvents limit (Free plan = 1)", async () => {
-    const t = setupTest();
-    await setupOrg(t);
-    await t.withIdentity(aliceIdentity).mutation(api.events.create, { orgSlug: "acme", name: "One", slug: "one" });
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ errors: [{ detail: "Invalid amount" }] }),
+            { status: 422 },
+          ),
+      ),
+    );
+    vi.stubEnv("PAYMONGO_SECRET_KEY", "sk_test_key");
     await expect(
-      t.withIdentity(aliceIdentity).mutation(api.events.create, { orgSlug: "acme", name: "Two", slug: "two" }),
-    ).rejects.toMatchObject({ data: { code: "LIMIT_EXCEEDED" } });
+      t.withIdentity(aliceIdentity).action(api.billing.checkout.createCheckout, {
+        orgSlug: "acme",
+        planName: "Starter",
+      }),
+    ).rejects.toMatchObject({ data: { code: "PAYMENT_PROVIDER" } });
+    const active = await t
+      .withIdentity(aliceIdentity)
+      .query(api.billing.payments.getActiveCheckout, { orgSlug: "acme" });
+    expect(active).toBeNull();
+    const history = await t
+      .withIdentity(aliceIdentity)
+      .query(api.billing.payments.listForOrg, { orgSlug: "acme" });
+    expect(history.length).toBe(1);
+    expect(history[0].status).toBe("failed");
+    expect(history[0].failureReason).toContain("Invalid amount");
   });
 
-  it("updates name while draft", async () => {
+  it("cancels an active checkout and CONFLICTs when none is active", async () => {
     const t = setupTest();
-    await setupOrg(t);
-    await t.withIdentity(aliceIdentity).mutation(api.events.create, { orgSlug: "acme", name: "E", slug: "e" });
-    await t.withIdentity(aliceIdentity).mutation(api.events.update, { orgSlug: "acme", eventSlug: "e", name: "Renamed" });
-    const ev = await t.withIdentity(aliceIdentity).query(api.events.get, { orgSlug: "acme", eventSlug: "e" });
-    expect(ev?.name).toBe("Renamed");
-  });
-
-  it("eventAuthz: unknown slug NOT_FOUND; non-member get null", async () => {
-    const t = setupTest();
-    await setupOrg(t);
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    stubCheckoutSuccess();
+    await t
+      .withIdentity(aliceIdentity)
+      .action(api.billing.checkout.createCheckout, { orgSlug: "acme", planName: "Starter" });
+    await t
+      .withIdentity(aliceIdentity)
+      .mutation(api.billing.checkout.cancelCheckout, { orgSlug: "acme" });
+    const active = await t
+      .withIdentity(aliceIdentity)
+      .query(api.billing.payments.getActiveCheckout, { orgSlug: "acme" });
+    expect(active).toBeNull();
     await expect(
-      t.withIdentity(aliceIdentity).mutation(api.events.update, { orgSlug: "acme", eventSlug: "ghost", name: "X" }),
-    ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
+      t.withIdentity(aliceIdentity).mutation(api.billing.checkout.cancelCheckout, { orgSlug: "acme" }),
+    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
   });
 });
 ```
 
-- [ ] **Step 2: RED** â€” `npm test`. New tests fail (`api.events` undefined); prior 32 pass.
+- [ ] **Step 3: Run tests to verify they fail**
 
-- [ ] **Step 3: Implement `convex/events.ts`**
+Run: `npx vitest run convex-test/billingCheckout.test.ts`
+Expected: FAIL — `api.billing.checkout` undefined.
+
+- [ ] **Step 4: Implement**
+
+Create `convex/billing/checkout.ts`:
 
 ```ts
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import type { Doc } from "./_generated/dataModel";
-import { appError, ErrorCode } from "./lib/errors";
-import { requireOrgMember, requirePermission } from "./lib/authz";
-import { requireEventMember, requireDraftEvent } from "./lib/eventAuthz";
-import { writeAudit } from "./lib/audit";
-import { requireLimit } from "./lib/entitlements";
-import { incrementUsage } from "./lib/usage";
+import { action, internalMutation, mutation } from "../_generated/server";
+import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
+import { appError, ErrorCode } from "../lib/errors";
+import { requirePermission } from "../lib/authz";
+import { writeAudit } from "../lib/audit";
+import { randomHex } from "../lib/billing";
+import { createCheckoutSession, siteUrl } from "../lib/paymongo";
 
-function slugify(name: string): string {
-  return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-}
+const REFERENCE_SUFFIX_LENGTH = 6;
 
-export const create = mutation({
-  args: { orgSlug: v.string(), name: v.string(), slug: v.optional(v.string()) },
-  handler: async (ctx, args): Promise<string> => {
-    const actx = await requirePermission(ctx, { orgSlug: args.orgSlug, permission: "event.create" });
-    await requireLimit(ctx, actx.subscription, "events");
-    const slug = slugify(args.slug ?? args.name);
-    if (!slug) throw appError(ErrorCode.VALIDATION_ERROR, "Event name must contain letters or digits");
-    const existing = await ctx.db
-      .query("events")
-      .withIndex("by_org_id_and_slug", (q) => q.eq("orgId", actx.org._id).eq("slug", slug))
+export const createPendingPayment = internalMutation({
+  args: { orgSlug: v.string(), planName: v.string() },
+  handler: async (ctx, args) => {
+    const actx = await requirePermission(ctx, {
+      orgSlug: args.orgSlug,
+      permission: "subscription.manage",
+    });
+    const plan = await ctx.db
+      .query("plans")
+      .withIndex("by_name", (q) => q.eq("name", args.planName))
       .unique();
-    if (existing) throw appError(ErrorCode.CONFLICT, "Event slug already taken", { slug });
-    const eventId = await ctx.db.insert("events", {
-      orgId: actx.org._id,
-      slug,
-      name: args.name.trim(),
-      description: "",
-      status: "draft",
-      decimalPrecision: 2,
-      resultVisibility: "private",
-      branding: {},
-      createdById: actx.user._id,
-    });
-    await ctx.db.insert("categories", { eventId, name: "Open", order: 0 });
-    await incrementUsage(ctx, actx.org._id, "events", 1);
-    await writeAudit(ctx, {
-      orgId: actx.org._id, actorId: actx.user._id, action: "event.created",
-      resourceType: "event", resourceId: eventId, after: { slug, name: args.name },
-    });
-    return slug;
-  },
-});
-
-export const get = query({
-  args: { orgSlug: v.string(), eventSlug: v.string() },
-  handler: async (ctx, args): Promise<Doc<"events"> | null> => {
-    try {
-      const eactx = await requireEventMember(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug });
-      return eactx.event;
-    } catch {
-      return null;
+    if (!plan) throw appError(ErrorCode.NOT_FOUND, "Plan not found");
+    if (plan.isActive === false) {
+      throw appError(ErrorCode.VALIDATION_ERROR, `Plan ${plan.name} is not available`);
     }
-  },
-});
+    const amountCents = plan.priceCents ?? 0;
+    if (amountCents <= 0 || !plan.currency || !plan.billingInterval) {
+      throw appError(
+        ErrorCode.VALIDATION_ERROR,
+        `Plan ${plan.name} cannot be purchased. Only priced plans support checkout.`,
+      );
+    }
 
-export const listByOrg = query({
-  args: { orgSlug: v.string() },
-  handler: async (ctx, args) => {
-    const actx = await requireOrgMember(ctx, { orgSlug: args.orgSlug });
-    return await ctx.db
-      .query("events")
+    const pending = await ctx.db
+      .query("billingPayments")
       .withIndex("by_org_id", (q) => q.eq("orgId", actx.org._id))
-      .order("desc")
-      .collect();
+      .filter((q) => q.eq(q.field("status"), "pending"))
+      .first();
+    if (pending) {
+      throw appError(
+        ErrorCode.CONFLICT,
+        "A checkout is already in progress. Complete or cancel it before starting another.",
+      );
+    }
+
+    const paymentId = await ctx.db.insert("billingPayments", {
+      orgId: actx.org._id,
+      planId: plan._id,
+      createdById: actx.user._id,
+      checkoutSessionId: null,
+      checkoutUrl: null,
+      referenceNumber: "",
+      amountCents,
+      currency: plan.currency,
+      billingInterval: plan.billingInterval,
+      status: "pending",
+      periodStartAt: null,
+      periodEndAt: null,
+      paidAt: null,
+      failureReason: null,
+    });
+    const referenceNumber = `${paymentId}.${randomHex(REFERENCE_SUFFIX_LENGTH)}`;
+    await ctx.db.patch(paymentId, { referenceNumber });
+    await writeAudit(ctx, {
+      orgId: actx.org._id,
+      actorId: actx.user._id,
+      action: "billing.checkout.created",
+      resourceType: "billingPayment",
+      resourceId: paymentId,
+      after: { planName: plan.name, amountCents, referenceNumber },
+    });
+    return {
+      paymentId,
+      orgId: actx.org._id,
+      planName: plan.name,
+      amountCents,
+      currency: plan.currency,
+      billingInterval: plan.billingInterval,
+      referenceNumber,
+    };
   },
 });
 
-export const update = mutation({
+export const attachCheckoutSession = internalMutation({
   args: {
-    orgSlug: v.string(),
-    eventSlug: v.string(),
-    name: v.optional(v.string()),
-    description: v.optional(v.string()),
-    startDate: v.optional(v.number()),
-    endDate: v.optional(v.number()),
-    venue: v.optional(v.string()),
-    timezone: v.optional(v.string()),
-    decimalPrecision: v.optional(v.number()),
-    resultVisibility: v.optional(v.union(v.literal("private"), v.literal("organization"), v.literal("public"))),
+    paymentId: v.id("billingPayments"),
+    checkoutSessionId: v.string(),
+    checkoutUrl: v.string(),
   },
   handler: async (ctx, args) => {
-    const eactx = await requireDraftEvent(ctx, {
-      orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "event.update",
-    });
-    const patch: Record<string, string | number> = {};
-    if (args.name !== undefined) patch.name = args.name.trim();
-    if (args.description !== undefined) patch.description = args.description;
-    if (args.startDate !== undefined) patch.startDate = args.startDate;
-    if (args.endDate !== undefined) patch.endDate = args.endDate;
-    if (args.venue !== undefined) patch.venue = args.venue;
-    if (args.timezone !== undefined) patch.timezone = args.timezone;
-    if (args.decimalPrecision !== undefined) {
-      if (!Number.isInteger(args.decimalPrecision) || args.decimalPrecision < 0 || args.decimalPrecision > 4) {
-        throw appError(ErrorCode.VALIDATION_ERROR, "decimalPrecision must be an integer 0-4");
-      }
-      patch.decimalPrecision = args.decimalPrecision;
+    const payment = await ctx.db.get(args.paymentId);
+    if (!payment) throw appError(ErrorCode.NOT_FOUND, "Payment not found");
+    if (payment.status !== "pending") {
+      throw appError(ErrorCode.CONFLICT, "Payment is no longer pending");
     }
-    if (args.resultVisibility !== undefined) patch.resultVisibility = args.resultVisibility;
-    if (Object.keys(patch).length === 0) return;
-    await ctx.db.patch(eactx.event._id, patch);
+    const clash = await ctx.db
+      .query("billingPayments")
+      .withIndex("by_checkout_session_id", (q) => q.eq("checkoutSessionId", args.checkoutSessionId))
+      .first();
+    if (clash && clash._id !== payment._id) {
+      throw appError(ErrorCode.CONFLICT, "Checkout session is already linked to another payment");
+    }
+    await ctx.db.patch(payment._id, {
+      checkoutSessionId: args.checkoutSessionId,
+      checkoutUrl: args.checkoutUrl,
+    });
+  },
+});
+
+export const failPayment = internalMutation({
+  args: { paymentId: v.id("billingPayments"), reason: v.string() },
+  handler: async (ctx, args) => {
+    const payment = await ctx.db.get(args.paymentId);
+    if (!payment || payment.status !== "pending") return;
+    await ctx.db.patch(payment._id, { status: "failed", failureReason: args.reason });
     await writeAudit(ctx, {
-      orgId: eactx.org._id, actorId: eactx.user._id, action: "event.updated",
-      resourceType: "event", resourceId: eactx.event._id,
-      before: { name: eactx.event.name }, after: { name: patch.name ?? eactx.event.name },
+      orgId: payment.orgId,
+      actorId: null,
+      action: "billing.checkout.failed",
+      resourceType: "billingPayment",
+      resourceId: payment._id,
+      after: { reason: args.reason },
+    });
+  },
+});
+
+export const createCheckout = action({
+  args: { orgSlug: v.string(), planName: v.string() },
+  handler: async (ctx, args): Promise<string> => {
+    const pending = await ctx.runMutation(internal.billing.checkout.createPendingPayment, {
+      orgSlug: args.orgSlug,
+      planName: args.planName,
+    });
+    try {
+      const session = await createCheckoutSession({
+        lineItemName: `${pending.planName} plan (${pending.billingInterval})`,
+        amountCents: pending.amountCents,
+        currency: pending.currency,
+        referenceNumber: pending.referenceNumber,
+        successUrl: `${siteUrl()}/app/${args.orgSlug}/billing?billing=success`,
+        cancelUrl: `${siteUrl()}/app/${args.orgSlug}/billing?billing=cancelled`,
+        metadata: { orgId: pending.orgId, paymentId: pending.paymentId },
+      });
+      await ctx.runMutation(internal.billing.checkout.attachCheckoutSession, {
+        paymentId: pending.paymentId,
+        checkoutSessionId: session.checkoutSessionId,
+        checkoutUrl: session.checkoutUrl,
+      });
+      return session.checkoutUrl;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "Unknown PayMongo error";
+      await ctx.runMutation(internal.billing.checkout.failPayment, {
+        paymentId: pending.paymentId,
+        reason,
+      });
+      throw error;
+    }
+  },
+});
+
+export const cancelCheckout = mutation({
+  args: { orgSlug: v.string() },
+  handler: async (ctx, args): Promise<void> => {
+    const actx = await requirePermission(ctx, {
+      orgSlug: args.orgSlug,
+      permission: "subscription.manage",
+    });
+    const pending = await ctx.db
+      .query("billingPayments")
+      .withIndex("by_org_id", (q) => q.eq("orgId", actx.org._id))
+      .filter((q) => q.eq(q.field("status"), "pending"))
+      .first();
+    if (!pending) throw appError(ErrorCode.CONFLICT, "No active checkout to cancel");
+    await ctx.db.patch(pending._id, { status: "cancelled" });
+    await writeAudit(ctx, {
+      orgId: actx.org._id,
+      actorId: actx.user._id,
+      action: "billing.checkout.cancelled",
+      resourceType: "billingPayment",
+      resourceId: pending._id,
     });
   },
 });
 ```
 
-- [ ] **Step 4: Add `createOrgAndEvent` to `convex-test/setup.ts`** (new 4th+ export; keep existing exports untouched):
+Note: `Id` import is unused — remove it from the import list (only `v`, `action`, `internalMutation`, `mutation`, `internal`, helpers). Final import block:
+
 ```ts
-export async function createOrgAndEvent(
-  t: ReturnType<typeof setupTest>,
-  identity: Partial<UserIdentity>,
-  opts: { orgSlug: string; eventSlug: string; eventName?: string },
-): Promise<void> {
-  await seedAndProvision(t, identity);
-  await t.withIdentity(identity).mutation(api.organizations.create, {
-    name: opts.orgSlug,
-    slug: opts.orgSlug,
-  });
-  await t.withIdentity(identity).mutation(api.events.create, {
-    orgSlug: opts.orgSlug,
-    name: opts.eventName ?? opts.eventSlug,
-    slug: opts.eventSlug,
-  });
-}
+import { v } from "convex/values";
+import { action, internalMutation, mutation } from "../_generated/server";
+import { internal } from "../_generated/api";
+import { appError, ErrorCode } from "../lib/errors";
+import { requirePermission } from "../lib/authz";
+import { writeAudit } from "../lib/audit";
+import { randomHex } from "../lib/billing";
+import { createCheckoutSession, siteUrl } from "../lib/paymongo";
 ```
 
-- [ ] **Step 5: GREEN + commit**
+- [ ] **Step 5: Run tests to verify they pass**
+
+Run: `npx vitest run convex-test/billingCheckout.test.ts`
+Expected: PASS (6 tests).
+
+- [ ] **Step 6: Codegen + commit**
 
 ```powershell
-npm test
-Remove-Item -Force tsconfig.tsbuildinfo -ErrorAction SilentlyContinue; npm run typecheck
-git add convex/events.ts convex-test/events.test.ts convex-test/setup.ts
-git commit -m "feat: events create/get/listByOrg/update with limits and audit"
+npx convex codegen; if ($?) { npx tsc --noEmit }
 ```
-Expected: 39/39 tests pass; typecheck exit 0.
+
+```powershell
+git add convex/billing/checkout.ts convex-test/setup.ts convex-test/billingCheckout.test.ts convex/_generated
+git commit -m "feat(billing): implement PayMongo checkout flow with one-live-checkout guard"
+```
 
 ---
 

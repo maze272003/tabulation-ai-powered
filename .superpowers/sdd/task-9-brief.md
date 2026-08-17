@@ -1,108 +1,52 @@
-﻿## Task 9: Readiness checklist
+### Task 9: Full validation + Graphify refresh
 
 **Files:**
-- Modify: `convex/events.ts` (append `computeReadiness` + `readiness` query)
-- Modify: `convex-test/config.test.ts` (append readiness tests)
+- No new files. Runs all gates.
 
-**Interfaces:**
-- Produces: exported `computeReadiness(ctx: QueryCtx, eventId: Id<"events">): Promise<ReadinessCheck[]>` where `ReadinessCheck = { item: string; passed: boolean; detail: string }` (Task 10 imports it); `api.events.readiness({ orgSlug, eventSlug }) â†’ ReadinessCheck[]`. The 7 items (ids): `rounds.exist`, `rounds.criteria`, `rounds.weights`, `criteria.ranges`, `categories.exist`, `contestants.exist`, `judges.exist`.
-
-- [ ] **Step 1: Append failing tests to `convex-test/config.test.ts`**
-
-```ts
-describe("readiness", () => {
-  it("fails an empty event with specific items", async () => {
-    const t = setupTest();
-    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
-    const checks = await t.withIdentity(aliceIdentity).query(api.events.readiness, { orgSlug: "acme", eventSlug: "gala" });
-    const failed = checks.filter((c) => !c.passed).map((c) => c.item);
-    expect(failed).toContain("rounds.exist");
-    expect(failed).toContain("contestants.exist");
-    expect(failed).toContain("judges.exist");
-    expect(failed).not.toContain("categories.exist");
-  });
-
-  it("flags weights that do not sum to 100", async () => {
-    const t = setupTest();
-    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
-    await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "gala", name: "R" });
-    const rounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "gala" });
-    await t.withIdentity(aliceIdentity).mutation(api.criteria.add, {
-      orgSlug: "acme", eventSlug: "gala", roundId: rounds[0]._id, name: "A", weight: 40, minScore: 0, maxScore: 10, decimalPrecision: 0,
-    });
-    const checks = await t.withIdentity(aliceIdentity).query(api.events.readiness, { orgSlug: "acme", eventSlug: "gala" });
-    const weights = checks.find((c) => c.item === "rounds.weights");
-    expect(weights?.passed).toBe(false);
-  });
-});
-```
-
-- [ ] **Step 2: RED** â€” `npm test`.
-
-- [ ] **Step 3: Append to `convex/events.ts`**
-
-Extend the type imports at the top:
-```ts
-import type { Doc, Id } from "./_generated/dataModel";
-import type { QueryCtx } from "./_generated/server";
-```
-(`mutation, query` are already value imports â€” keep them.) Append:
-
-```ts
-export type ReadinessCheck = { item: string; passed: boolean; detail: string };
-
-export async function computeReadiness(
-  ctx: QueryCtx,
-  eventId: Id<"events">,
-): Promise<ReadinessCheck[]> {
-  const rounds = await ctx.db.query("rounds").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
-  const categories = await ctx.db.query("categories").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
-  const contestants = await ctx.db.query("contestants").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
-  const judges = await ctx.db.query("judges").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
-  const assignments = await ctx.db.query("judgeAssignments").withIndex("by_event_id", (q) => q.eq("eventId", eventId)).collect();
-
-  const criteriaPerRound = await Promise.all(
-    rounds.map((r) => ctx.db.query("criteria").withIndex("by_round_id", (q) => q.eq("roundId", r._id)).collect()),
-  );
-
-  const emptyRounds = rounds.filter((_, i) => criteriaPerRound[i].length === 0);
-  const badSums = rounds.filter((_, i) => {
-    const total = criteriaPerRound[i].reduce((sum, c) => sum + c.weight, 0);
-    return total !== 100;
-  });
-  const badRanges = criteriaPerRound.flat().filter((c) => !(c.minScore < c.maxScore));
-  const activeContestants = contestants.filter((c) => c.status === "active");
-  const judgesWithAssignments = judges.filter((j) => assignments.some((a) => a.judgeId === j._id));
-
-  return [
-    { item: "rounds.exist", passed: rounds.length >= 1, detail: `${rounds.length} round(s)` },
-    { item: "rounds.criteria", passed: emptyRounds.length === 0, detail: emptyRounds.length === 0 ? "all rounds have criteria" : `${emptyRounds.length} round(s) without criteria` },
-    { item: "rounds.weights", passed: badSums.length === 0, detail: badSums.length === 0 ? "all weights sum to 100" : `${badSums.length} round(s) with weights not summing to 100` },
-    { item: "criteria.ranges", passed: badRanges.length === 0, detail: badRanges.length === 0 ? "all ranges valid" : `${badRanges.length} criterion/criteria with invalid ranges` },
-    { item: "categories.exist", passed: categories.length >= 1, detail: `${categories.length} categor(y/ies)` },
-    { item: "contestants.exist", passed: activeContestants.length >= 1, detail: `${activeContestants.length} active contestant(s)` },
-    { item: "judges.exist", passed: judgesWithAssignments.length >= 1, detail: `${judgesWithAssignments.length} judge(s) with assignments` },
-  ];
-}
-
-export const readiness = query({
-  args: { orgSlug: v.string(), eventSlug: v.string() },
-  handler: async (ctx, args): Promise<ReadinessCheck[]> => {
-    const eactx = await requireEventMember(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug });
-    return computeReadiness(ctx, eactx.event._id);
-  },
-});
-```
-
-- [ ] **Step 4: GREEN + commit**
+- [ ] **Step 1: Run the complete test suite**
 
 ```powershell
-npm test
-Remove-Item -Force tsconfig.tsbuildinfo -ErrorAction SilentlyContinue; npm run typecheck
-git add convex/events.ts convex-test/config.test.ts
-git commit -m "feat: readiness checklist query"
+npm run test
 ```
-Expected: 52/52 tests pass; typecheck exit 0.
+
+Expected: all tests pass, including all pre-existing suites (no regressions from the `changePlan` semantic change or schema additions).
+
+- [ ] **Step 2: Lint, typecheck, build**
+
+```powershell
+npm run lint; if ($?) { npm run typecheck }; if ($?) { npm run build }
+```
+
+Expected: all three pass.
+
+- [ ] **Step 3: Refresh Graphify context**
+
+```powershell
+npm run graphify:build
+```
+
+Expected: completes without errors.
+
+- [ ] **Step 4: Commit generated context**
+
+```powershell
+git add .graphify
+git commit -m "chore: refresh graphify context for billing module"
+```
+
+(If `.graphify` is fully gitignored, `git add` reports nothing to commit — skip the commit.)
+
+- [ ] **Step 5: Manual smoke checklist (documented for the operator — do not block)**
+
+The implementer cannot complete a real PayMongo payment. Leave the repo with this checklist printed in the task report:
+1. `npx convex env set PAYMONGO_SECRET_KEY=sk_test_...`, `PAYMONGO_WEBHOOK_SECRET=...`, `PAYMONGO_LIVEMODE=false`, `SITE_URL=http://localhost:3000`
+2. Register webhook `http://localhost:3000/paymongo/webhook` (or a tunnel URL) in the PayMongo dashboard with the checkout_session events.
+3. Buy Starter with the test GCash/card flows from PayMongo's testing docs; verify the subscription flips to active and history shows paid.
 
 ---
 
+## Post-Plan Notes for Reviewers
+
+- `convex/_generated` files change via `npx convex codegen`; commit them with the task that caused the change (they are tracked in this repo).
+- The `changePlan` semantic change (immediate switch → cancel-at-period-end) intentionally removes the old behavior; the only in-repo consumer was the Phase 1 stub itself and the superadmin override path (`superadmin/billing.setPlan`), which is untouched.
+- Money is always integer centavos; `formatPeso` is the only place division by 100 happens.

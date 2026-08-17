@@ -1,218 +1,416 @@
-﻿## Task 8: Judges and assignments
+### Task 8: Billing page UI + route protection e2e
 
 **Files:**
-- Create: `convex/judges.ts`
-- Create: `convex-test/judges.test.ts`
+- Modify: `app/app/[orgSlug]/billing/page.tsx` (full rebuild)
+- Modify: `e2e/05-organizer-workspace.spec.ts` (append billing route test)
 
 **Interfaces:**
-- Consumes: `requireDraftEvent` (permission `"judge.manage"`), `requireEventMember`; `requireLimit(ctx, sub, "judges")`; `incrementUsage`; `writeAudit`; `appError`.
-- Produces: `api.judges.add({ orgSlug, eventSlug, userId })` (userId must be an ACTIVE org member â€” VALIDATION_ERROR otherwise; unique per event â€” CONFLICT); `api.judges.remove({ orgSlug, eventSlug, judgeId })` (deletes the judge's assignments first); `api.judges.listWithAssignments({ orgSlug, eventSlug })` (judge doc + `user: {name,email,image}` + `assignments[]`); `api.judges.addAssignment({ orgSlug, eventSlug, judgeId, roundId?, categoryId?, criterionId? })` (all optional scope docs verified against the event); `api.judges.removeAssignment({ orgSlug, eventSlug, assignmentId })`.
+- Consumes: `api.plans.list`, `api.subscriptions.getForOrg`, `api.billing.payments.listForOrg`, `api.billing.payments.getActiveCheckout`, `api.billing.checkout.createCheckout`, `api.billing.checkout.cancelCheckout`, `api.subscriptions.changePlan`, `api.subscriptions.resume`; UI components `Button`, `Card*`, `Badge`, `Table*`, `PageHeader`; `sonner` toast.
+- Produces: the complete billing surface (`/app/[orgSlug]/billing`).
 
-- [ ] **Step 1: Write failing tests â€” `convex-test/judges.test.ts`**
+- [ ] **Step 1: Rebuild the billing page**
 
-```ts
-import { describe, expect, it } from "vitest";
-import { api } from "../convex/_generated/api";
-import { aliceIdentity, bobIdentity, createOrgAndEvent, setupTest } from "./setup";
+Replace the entire contents of `app/app/[orgSlug]/billing/page.tsx` with:
 
-async function addBobAsJudgeMember(t: ReturnType<typeof setupTest>) {
-  await t.withIdentity(aliceIdentity).mutation(api.invitations.create, { orgSlug: "acme", email: "bob@example.com", roleName: "Judge" });
-  const pending = await t.withIdentity(bobIdentity).query(api.invitations.listForUser, {});
-  await t.withIdentity(bobIdentity).mutation(api.invitations.accept, { token: pending[0].token });
-  const members = await t.withIdentity(aliceIdentity).query(api.members.list, { orgSlug: "acme" });
-  return members.find((m: { email: string }) => m.email === "bob@example.com")!.userId;
+```tsx
+"use client";
+
+import { Suspense, use, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
+import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
+import { api } from "@/convex/_generated/api";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { PageHeader } from "@/components/PageHeader";
+import { CheckCircle2, ExternalLink, XCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const pesoFormat = new Intl.NumberFormat("en-PH", {
+  style: "currency",
+  currency: "PHP",
+  minimumFractionDigits: 0,
+});
+
+function formatPeso(cents: number): string {
+  return pesoFormat.format(cents / 100);
 }
 
-describe("judges", () => {
-  it("adds a judge from org members, unique per event", async () => {
-    const t = setupTest();
-    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
-    const bobId = await addBobAsJudgeMember(t);
-    await t.withIdentity(aliceIdentity).mutation(api.judges.add, { orgSlug: "acme", eventSlug: "gala", userId: bobId });
-    await expect(
-      t.withIdentity(aliceIdentity).mutation(api.judges.add, { orgSlug: "acme", eventSlug: "gala", userId: bobId }),
-    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
-    const list = await t.withIdentity(aliceIdentity).query(api.judges.listWithAssignments, { orgSlug: "acme", eventSlug: "gala" });
-    expect(list.length).toBe(1);
-    expect(list[0].user.email).toBe("bob@example.com");
+function formatDate(ms: number | null): string {
+  if (ms === null) return "—";
+  return new Date(ms).toLocaleDateString("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
   });
+}
 
-  it("refuses a non-member userId", async () => {
-    const t = setupTest();
-    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
-    await t.withIdentity(aliceIdentity).mutation(api.events.update, { orgSlug: "acme", eventSlug: "gala", description: "x" });
-    const fakeId = listAnyUserId(t);
-    await expect(
-      t.withIdentity(aliceIdentity).mutation(api.judges.add, { orgSlug: "acme", eventSlug: "gala", userId: fakeId }),
-    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
-  });
+function errorMessage(error: unknown): string {
+  if (error instanceof ConvexError) {
+    const data = error.data as { message?: string };
+    if (typeof data.message === "string") return data.message;
+  }
+  return "Something went wrong. Please try again.";
+}
 
-  it("adds and removes scoped assignments; IDOR on foreign judge", async () => {
-    const t = setupTest();
-    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "one" });
-    const bobId = await addBobAsJudgeMember(t);
-    await t.withIdentity(aliceIdentity).mutation(api.judges.add, { orgSlug: "acme", eventSlug: "one", userId: bobId });
-    await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme", eventSlug: "one", name: "R" });
-    const rounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "one" });
-    const judges = await t.withIdentity(aliceIdentity).query(api.judges.listWithAssignments, { orgSlug: "acme", eventSlug: "one" });
-    await t.withIdentity(aliceIdentity).mutation(api.judges.addAssignment, {
-      orgSlug: "acme", eventSlug: "one", judgeId: judges[0]._id, roundId: rounds[0]._id,
-    });
-    const withAssignments = await t.withIdentity(aliceIdentity).query(api.judges.listWithAssignments, { orgSlug: "acme", eventSlug: "one" });
-    expect(withAssignments[0].assignments.length).toBe(1);
-    await t.withIdentity(aliceIdentity).mutation(api.judges.removeAssignment, {
-      orgSlug: "acme", eventSlug: "one", assignmentId: withAssignments[0].assignments[0]._id,
-    });
-    const cleared = await t.withIdentity(aliceIdentity).query(api.judges.listWithAssignments, { orgSlug: "acme", eventSlug: "one" });
-    expect(cleared[0].assignments.length).toBe(0);
-  });
-});
-```
-NOTE on the second test: `listAnyUserId(t)` is not a real helper. Since `judges.add` verifies org membership, a fake ID string will fail schema validation at the `v.id("userProfiles")` arg parse, not our VALIDATION_ERROR. Replace that test with one that uses Bob BEFORE he joins (provisioned but not a member):
-```ts
-  it("refuses a non-member userId", async () => {
-    const t = setupTest();
-    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
-    const bobProfile = await t.withIdentity(bobIdentity).mutation(api.auth.ensureUserProfile, {});
-    await expect(
-      t.withIdentity(aliceIdentity).mutation(api.judges.add, { orgSlug: "acme", eventSlug: "gala", userId: bobProfile }),
-    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
-  });
-```
-(Requires importing `bobIdentity` â€” already imported. `ensureUserProfile` returns the profile id.) Use the corrected version; drop the `api.events.update` filler line.
+const PAYMENT_STATUS_TONE: Record<string, string> = {
+  paid: "bg-success-muted text-success",
+  pending: "bg-warning-muted text-warning",
+  flagged: "bg-destructive/15 text-destructive",
+  failed: "bg-muted text-muted-foreground",
+  expired: "bg-muted text-muted-foreground",
+  cancelled: "bg-muted text-muted-foreground",
+};
 
-- [ ] **Step 2: RED** â€” `npm test`.
+const PLAN_FEATURE_LABELS: { key: string; label: string }[] = [
+  { key: "canExportReports", label: "Report exports" },
+  { key: "canUseCustomBranding", label: "Custom branding" },
+  { key: "canUseAuditLogs", label: "Audit logs" },
+  { key: "canCreateTemplates", label: "Event templates" },
+  { key: "canUseAdvancedAnalytics", label: "Advanced analytics" },
+];
 
-- [ ] **Step 3: Implement `convex/judges.ts`**
+function BillingContent({ orgSlug }: { orgSlug: string }) {
+  const searchParams = useSearchParams();
+  const billingResult = searchParams.get("billing");
 
-```ts
-import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { appError, ErrorCode } from "./lib/errors";
-import { requireDraftEvent, requireEventMember } from "./lib/eventAuthz";
-import { writeAudit } from "./lib/audit";
-import { requireLimit } from "./lib/entitlements";
-import { incrementUsage } from "./lib/usage";
+  const subscription = useQuery(api.subscriptions.getForOrg, { orgSlug });
+  const plans = useQuery(api.plans.list, {});
+  const payments = useQuery(api.billing.payments.listForOrg, { orgSlug });
+  const activeCheckout = useQuery(api.billing.payments.getActiveCheckout, { orgSlug });
 
-export const add = mutation({
-  args: { orgSlug: v.string(), eventSlug: v.string(), userId: v.id("userProfiles") },
-  handler: async (ctx, args) => {
-    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "judge.manage" });
-    await requireLimit(ctx, eactx.subscription, "judges");
-    const membership = await ctx.db
-      .query("organizationMembers")
-      .withIndex("by_org_id_and_user_id", (q) => q.eq("orgId", eactx.org._id).eq("userId", args.userId))
-      .unique();
-    if (!membership || membership.status !== "active") {
-      throw appError(ErrorCode.VALIDATION_ERROR, "User is not an active member of this organization");
+  const startCheckout = useMutation(api.billing.checkout.createCheckout);
+  const cancelCheckout = useMutation(api.billing.checkout.cancelCheckout);
+  const changePlan = useMutation(api.subscriptions.changePlan);
+  const resume = useMutation(api.subscriptions.resume);
+
+  const [busyPlan, setBusyPlan] = useState<string | null>(null);
+
+  const currentPlanId = subscription?.subscription.planId ?? null;
+  const status = subscription?.subscription.status ?? null;
+  const cancelAtPeriodEnd = subscription?.subscription.cancelAtPeriodEnd ?? false;
+  const periodEndAt = subscription?.subscription.currentPeriodEndAt ?? null;
+
+  const handleCheckout = async (planName: string) => {
+    setBusyPlan(planName);
+    try {
+      const url = await startCheckout({ orgSlug, planName });
+      window.location.href = url;
+    } catch (error) {
+      toast.error(errorMessage(error));
+      setBusyPlan(null);
     }
-    const dup = await ctx.db
-      .query("judges")
-      .withIndex("by_event_id_and_user_id", (q) => q.eq("eventId", eactx.event._id).eq("userId", args.userId))
-      .unique();
-    if (dup) throw appError(ErrorCode.CONFLICT, "User is already a judge for this event");
-    const id = await ctx.db.insert("judges", {
-      orgId: eactx.org._id, eventId: eactx.event._id, userId: args.userId, status: "assigned",
-    });
-    await incrementUsage(ctx, eactx.org._id, "judges", 1);
-    await writeAudit(ctx, {
-      orgId: eactx.org._id, actorId: eactx.user._id, action: "judge.added",
-      resourceType: "judge", resourceId: id, after: { userId: args.userId },
-    });
-  },
-});
+  };
 
-export const remove = mutation({
-  args: { orgSlug: v.string(), eventSlug: v.string(), judgeId: v.id("judges") },
-  handler: async (ctx, args) => {
-    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "judge.manage" });
-    const judge = await ctx.db.get(args.judgeId);
-    if (!judge || judge.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Judge not found");
-    const assignments = await ctx.db.query("judgeAssignments").withIndex("by_judge_id", (q) => q.eq("judgeId", args.judgeId)).collect();
-    for (const a of assignments) await ctx.db.delete(a._id);
-    await ctx.db.delete(args.judgeId);
-    await incrementUsage(ctx, eactx.org._id, "judges", -1);
-    await writeAudit(ctx, {
-      orgId: eactx.org._id, actorId: eactx.user._id, action: "judge.removed",
-      resourceType: "judge", resourceId: args.judgeId,
-    });
-  },
-});
+  const handleSwitchToFree = async () => {
+    setBusyPlan("Free");
+    try {
+      await changePlan({ orgSlug, planName: "Free" });
+      toast.success("Your plan will cancel at the end of the paid period.");
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      setBusyPlan(null);
+    }
+  };
 
-export const listWithAssignments = query({
-  args: { orgSlug: v.string(), eventSlug: v.string() },
-  handler: async (ctx, args) => {
-    const eactx = await requireEventMember(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug });
-    const judges = await ctx.db.query("judges").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
-    return Promise.all(
-      judges.map(async (j) => {
-        const user = await ctx.db.get(j.userId);
-        const assignments = await ctx.db.query("judgeAssignments").withIndex("by_judge_id", (q) => q.eq("judgeId", j._id)).collect();
-        return { ...j, user: { name: user?.name ?? "", email: user?.email ?? "", image: user?.image ?? "" }, assignments };
-      }),
+  const handleResume = async () => {
+    try {
+      await resume({ orgSlug });
+      toast.success("Subscription resumed.");
+    } catch (error) {
+      toast.error(errorMessage(error));
+    }
+  };
+
+  const handleCancelCheckout = async () => {
+    try {
+      await cancelCheckout({ orgSlug });
+      toast.info("Checkout cancelled.");
+    } catch (error) {
+      toast.error(errorMessage(error));
+    }
+  };
+
+  if (subscription === undefined || plans === undefined) {
+    return (
+      <div className="grid gap-4 md:grid-cols-3" aria-busy>
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="h-72 animate-pulse rounded-xl bg-muted" />
+        ))}
+      </div>
     );
-  },
-});
+  }
 
-export const addAssignment = mutation({
-  args: {
-    orgSlug: v.string(), eventSlug: v.string(), judgeId: v.id("judges"),
-    roundId: v.optional(v.id("rounds")), categoryId: v.optional(v.id("categories")), criterionId: v.optional(v.id("criteria")),
-  },
-  handler: async (ctx, args) => {
-    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "judge.manage" });
-    const judge = await ctx.db.get(args.judgeId);
-    if (!judge || judge.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Judge not found");
-    if (args.roundId) {
-      const r = await ctx.db.get(args.roundId);
-      if (!r || r.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Round not found");
-    }
-    if (args.categoryId) {
-      const c = await ctx.db.get(args.categoryId);
-      if (!c || c.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Category not found");
-    }
-    if (args.criterionId) {
-      const cr = await ctx.db.get(args.criterionId);
-      if (!cr) throw appError(ErrorCode.NOT_FOUND, "Criterion not found");
-      const r = await ctx.db.get(cr.roundId);
-      if (!r || r.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Criterion not found");
-    }
-    const id = await ctx.db.insert("judgeAssignments", {
-      judgeId: args.judgeId, eventId: eactx.event._id,
-      roundId: args.roundId, categoryId: args.categoryId, criterionId: args.criterionId,
-    });
-    await writeAudit(ctx, {
-      orgId: eactx.org._id, actorId: eactx.user._id, action: "judge.assignment.added",
-      resourceType: "judgeAssignment", resourceId: id,
-      after: { judgeId: args.judgeId, roundId: args.roundId ?? null, categoryId: args.categoryId ?? null },
-    });
-  },
-});
+  const visiblePlans = plans.filter((plan) => plan.isActive !== false);
+  const pendingCheckoutUrl = activeCheckout?.checkoutUrl ?? null;
 
-export const removeAssignment = mutation({
-  args: { orgSlug: v.string(), eventSlug: v.string(), assignmentId: v.id("judgeAssignments") },
-  handler: async (ctx, args) => {
-    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "judge.manage" });
-    const a = await ctx.db.get(args.assignmentId);
-    if (!a || a.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Assignment not found");
-    await ctx.db.delete(args.assignmentId);
-    await writeAudit(ctx, {
-      orgId: eactx.org._id, actorId: eactx.user._id, action: "judge.assignment.removed",
-      resourceType: "judgeAssignment", resourceId: args.assignmentId,
-    });
-  },
-});
+  return (
+    <div className="space-y-6">
+      {billingResult === "success" ? (
+        <div className="rounded-lg border border-success/30 bg-success-muted px-4 py-3 text-sm text-success">
+          Payment received — your plan updates as soon as PayMongo confirms it (usually within a
+          minute).
+        </div>
+      ) : null}
+      {billingResult === "cancelled" ? (
+        <div className="rounded-lg border bg-muted px-4 py-3 text-sm text-muted-foreground">
+          Checkout cancelled — nothing was charged.
+        </div>
+      ) : null}
+
+      {status === "past_due" ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning-muted px-4 py-3 text-sm text-warning">
+          <span>
+            Your subscription expired on {formatDate(periodEndAt)}. Renew within the 7-day grace
+            period to keep your paid features.
+          </span>
+        </div>
+      ) : null}
+      {cancelAtPeriodEnd && status === "active" ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-info/40 bg-info-muted px-4 py-3 text-sm text-info">
+          <span>Your subscription cancels on {formatDate(periodEndAt)}.</span>
+          <Button size="sm" variant="outline" onClick={handleResume}>
+            Resume subscription
+          </Button>
+        </div>
+      ) : null}
+
+      {activeCheckout ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-heading text-lg">Checkout in progress</CardTitle>
+            <CardDescription>
+              A {activeCheckout.planName} payment of {formatPeso(activeCheckout.amountCents)} is
+              waiting to be completed.
+            </CardDescription>
+          </CardHeader>
+          <CardFooter className="gap-2">
+            {pendingCheckoutUrl ? (
+              <Button onClick={() => (window.location.href = pendingCheckoutUrl)}>
+                Complete payment <ExternalLink aria-hidden className="size-4" />
+              </Button>
+            ) : null}            <Button variant="outline" onClick={handleCancelCheckout}>
+              Cancel checkout
+            </Button>
+          </CardFooter>
+        </Card>
+      ) : null}
+
+      <div className="grid gap-4 md:grid-cols-3">
+        {visiblePlans.map((plan) => {
+          const isCurrent = plan._id === currentPlanId;
+          const isFree = (plan.priceCents ?? 0) === 0;
+          const busy = busyPlan === plan.name;
+          return (
+            <Card
+              key={plan._id}
+              className={cn("flex flex-col", isCurrent && "border-primary ring-1 ring-primary")}
+            >
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="font-heading text-xl">{plan.name}</CardTitle>
+                  {isCurrent ? <Badge>Current</Badge> : null}
+                </div>
+                <CardDescription>
+                  {isFree ? "Free forever" : `${formatPeso(plan.priceCents ?? 0)} / month`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex-1 space-y-3 text-sm">
+                <p className="text-muted-foreground">
+                  Up to {plan.limits.maxEvents} event{plan.limits.maxEvents === 1 ? "" : "s"} ·{" "}
+                  {plan.limits.maxJudges} judges · {plan.limits.maxContestants} contestants
+                </p>
+                <ul className="space-y-1.5">
+                  {PLAN_FEATURE_LABELS.map(({ key, label }) => {
+                    const enabled = plan.features[key as keyof typeof plan.features] === true;
+                    return (
+                      <li
+                        key={key}
+                        className={cn(
+                          "flex items-center gap-2",
+                          enabled ? "text-foreground" : "text-muted-foreground/60",
+                        )}
+                      >
+                        {enabled ? (
+                          <CheckCircle2 aria-hidden className="size-4 text-success" />
+                        ) : (
+                          <XCircle aria-hidden className="size-4" />
+                        )}
+                        {label}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </CardContent>
+              <CardFooter className="flex flex-col gap-2">
+                {isCurrent && !isFree ? (
+                  <>
+                    <Button
+                      className="w-full"
+                      disabled={busy || activeCheckout !== null}
+                      onClick={() => void handleCheckout(plan.name)}
+                    >
+                      {busy ? "Redirecting…" : "Renew"}
+                    </Button>
+                    {cancelAtPeriodEnd ? null : (
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        disabled={busy || activeCheckout !== null}
+                        onClick={handleSwitchToFree}
+                      >
+                        Switch to Free at period end
+                      </Button>
+                    )}
+                  </>
+                ) : !isCurrent && isFree ? (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    disabled={busy || activeCheckout !== null}
+                    onClick={handleSwitchToFree}
+                  >
+                    Switch to Free at period end
+                  </Button>
+                ) : !isCurrent ? (
+                  <Button
+                    className="w-full"
+                    disabled={busy || activeCheckout !== null}
+                    onClick={() => void handleCheckout(plan.name)}
+                  >
+                    {busy ? "Redirecting…" : `Get ${plan.name}`}
+                  </Button>
+                ) : null}
+              </CardFooter>
+            </Card>
+          );
+        })}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-heading text-lg">Payment history</CardTitle>
+          <CardDescription>Recent payments for this organization.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {payments === undefined ? (
+            <div className="h-24 animate-pulse rounded-lg bg-muted" aria-busy />
+          ) : payments.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">No payments yet.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Plan</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Interval</TableHead>
+                  <TableHead>Period</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {payments.map((payment) => (
+                  <TableRow key={payment._id}>
+                    <TableCell>{formatDate(payment._creationTime)}</TableCell>
+                    <TableCell>{payment.planName ?? "—"}</TableCell>
+                    <TableCell>{formatPeso(payment.amountCents)}</TableCell>
+                    <TableCell className="capitalize">{payment.billingInterval}</TableCell>
+                    <TableCell>
+                      {payment.periodStartAt === null
+                        ? "—"
+                        : `${formatDate(payment.periodStartAt)} → ${formatDate(payment.periodEndAt)}`}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        className={cn(
+                          "border-transparent capitalize",
+                          PAYMENT_STATUS_TONE[payment.status] ?? "bg-muted text-muted-foreground",
+                        )}
+                      >
+                        {payment.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default function BillingPage({ params }: { params: Promise<{ orgSlug: string }> }) {
+  const { orgSlug } = use(params);
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Billing"
+        description="Your subscription plan, payments, and checkout for this organization."
+      />
+      <Suspense fallback={<div className="h-72 animate-pulse rounded-xl bg-muted" />}>
+        <BillingContent orgSlug={orgSlug} />
+      </Suspense>
+    </div>
+  );
+}
 ```
 
-- [ ] **Step 4: GREEN + commit**
+The `CreditCard` icon is intentionally not imported (the old page used it; the new page does not). Keep only `CheckCircle2`, `ExternalLink`, `XCircle` from lucide.
+
+- [ ] **Step 2: Append the e2e route-protection test**
+
+In `e2e/05-organizer-workspace.spec.ts`, append inside the describe block:
+
+```ts
+  test("should enforce unauthenticated route protection on billing page", async ({ page }) => {
+    await page.goto("/app/e2e-org/billing");
+    await expect(page).toHaveURL(/.*\/sign-in\?next=%2Fapp%2Fe2e-org%2Fbilling/);
+  });
+```
+
+- [ ] **Step 3: Validate**
 
 ```powershell
-npm test
-Remove-Item -Force tsconfig.tsbuildinfo -ErrorAction SilentlyContinue; npm run typecheck
-git add convex/judges.ts convex-test/judges.test.ts
-git commit -m "feat: judges and scoped assignments with IDOR guards"
+npm run lint; if ($?) { npm run typecheck }
 ```
-Expected: 50/50 tests pass; typecheck exit 0.
+
+Expected: both pass. If lint flags unused imports, remove them and re-run.
+
+Then run the production build:
+
+```powershell
+npm run build
+```
+
+Expected: build succeeds (Next 16 may warn about the dynamic page — warnings are fine, errors are not).
+
+- [ ] **Step 4: Commit**
+
+```powershell
+git add "app/app/[orgSlug]/billing/page.tsx" e2e/05-organizer-workspace.spec.ts
+git commit -m "feat(billing): rebuild billing page with plans, checkout, and payment history"
+```
 
 ---
 

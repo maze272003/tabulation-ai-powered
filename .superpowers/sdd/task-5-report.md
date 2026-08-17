@@ -1,63 +1,45 @@
-# Task 5 Report: Categories and rounds
+# Task 5 Report: Webhook handler + HTTP route
 
 **Status:** DONE
-**Commit:** `520cfce` — `feat: categories and rounds with draft gating and cascade delete`
-**Branch:** `phase2-competition-config`
+**Commit:** `601ad06` — `feat(billing): verify and process PayMongo webhooks idempotently`
+**Branch:** `main`
 
-## Files created
+## Implemented
 
-- `convex/categories.ts` — `add`, `update`, `remove`, `list` (verbatim from brief)
-- `convex/rounds.ts` — `add`, `update`, `remove`, `list` with joined `criteria` (verbatim from brief)
-- `convex-test/config.test.ts` — 3 tests (verbatim from brief)
-- `convex/_generated/api.d.ts` — regenerated via `npx convex codegen` (adds `categories` and `rounds` modules; repo convention from Task 4)
+- `convex/billing/webhook.ts` — `paymongoWebhook` httpAction + `processWebhookEvent` internalMutation, per the brief's final code:
+  - Signature verification over the **raw body before any JSON parsing** (`verifyPaymongoSignature`); 401 on failure; 500 only when `PAYMONGO_WEBHOOK_SECRET` is missing or `scheduler.runAfter(0, ...)` itself throws; 200 for everything else (unparseable payload, livemode mismatch, unknown event types).
+  - `extractEvent` narrows the PayMongo envelope with `isRecord` guards — no `any`, no `@ts-ignore`.
+  - `processWebhookEvent`: dedupes via `processedWebhookEvents` `by_event_id` first ("duplicate"), inserts the event record, then dispatches. Paid events find the pending payment by `checkoutSessionId` (fallback `referenceNumber`), flag on amount mismatch or missing subscription, else mark paid + extend subscription via `computeRenewalWindow` (stacking, `status: "active"`, `cancelAtPeriodEnd: false`, `planId = payment.planId`) + audit `billing.payment.paid`. failed / expired / canceled(cancelled) events mark the payment terminal + audit. Unknown types are recorded and ignored (still 200).
+- `convex/http.ts` — registered `POST /paymongo/webhook` per the brief.
+- `convex-test/setup.ts` — added `grantPaidPlan` helper + `internal` import, exactly as shown in the Task 4 brief's setup.ts block (note at task-4-brief.md:108 says to add it during Task 5).
+- `convex/_generated/api.d.ts` — regenerated via `npx convex codegen`.
 
 ## TDD evidence
 
-### RED (after writing `convex-test/config.test.ts`, before implementation)
+- **RED:** `npx vitest run convex-test/billingWebhook.test.ts` → 6/6 FAIL with `Could not find module for: "billing/webhook"` (test written first, verbatim from brief).
+- **GREEN:** after implementing `webhook.ts` + `convex codegen` → 6/6 PASS.
+- **Pre-commit:** `npx vitest run convex-test/billingWebhook.test.ts convex-test/billingCheckout.test.ts` → 2 files, **12/12 PASS**.
+- `npx tsc --noEmit` → clean. `npm run build` → passes (AGENTS.md gate).
 
-```
- Test Files  1 failed | 8 passed (9)
-      Tests  3 failed | 39 passed (42)
-```
+## Files changed (commit 601ad06)
 
-Failure cause (expected): `Could not find module for: "categories"` / `"rounds"` — `api.categories` / `api.rounds` undefined; all 3 new tests failed while the prior 39 passed.
+- `convex/billing/webhook.ts` (new)
+- `convex/http.ts` (+7 lines: import + route)
+- `convex-test/billingWebhook.test.ts` (new, 6 tests)
+- `convex-test/setup.ts` (+23 lines: `internal` import + `grantPaidPlan`)
+- `convex/_generated/api.d.ts` (codegen)
 
-### GREEN (after implementing `convex/categories.ts` + `convex/rounds.ts`)
+## Self-review
 
-```
- Test Files  9 passed (9)
-      Tests  42 passed (42)
-```
+- Idempotency: dedupe row (transactional — rolls back with the mutation on failure) + `findPendingPayment`'s `status === "pending"` guard → replayed-but-distinct events against settled payments return "ignored" without re-extension. Covered by tests 2 and 4.
+- Constraints verified: exact audit actions (`billing.payment.paid|flagged|failed|expired`), raw-body-before-parse signature check, no non-2xx on unknown event types, no `any`/`@ts-ignore`, no files touched beyond the brief's list, AGENTS.md never staged.
+- Commit hygiene: repo had unrelated staged files (`lib/csv.ts`, `lib/csv.test.ts`) from a concurrent worker; used a pathspec-limited commit so 601ad06 contains exactly the 5 files above. The concurrent worker's own commit landed as parent 93eff76.
 
-## Gate results
+## Deviation from brief (1, minimal)
 
-- `npm test`: 42/42 passed
-- `npx convex codegen`: regenerated `api.d.ts` successfully
-- `Remove-Item -Force tsconfig.tsbuildinfo; npm run typecheck`: exit 0
+The brief's verbatim `findPendingPayment` fails `tsc`: TS2345 at `q.eq("referenceNumber", event.referenceNumber)` — property narrowing from `event.referenceNumber !== null` is reset inside the `withIndex` closure, and the schema field is non-nullable (`v.string()`), so the callback parameter requires `string`. Fixed by capturing the narrowed value in a `const referenceNumber = event.referenceNumber;` before the query (behavior identical). This was required to satisfy the brief's own hard gate (`npx convex codegen` runs `tsc`).
 
-## Tests written
+## Concerns
 
-1. `adds and lists categories in order` — creates org+event (seeds default "Open" category via `events.create`), adds "Juniors", asserts `["Open", "Juniors"]` order.
-2. `adds rounds and lists them with criteria joined` — adds "Preliminary"/"Final", asserts order and that each round has a joined `criteria` array.
-3. `unknown event slug yields NOT_FOUND` — `categories.add` on nonexistent event slug rejects with `{ data: { code: "NOT_FOUND" } }`.
-
-## Self-review checklist
-
-- [x] `convex/categories.ts` and `convex/rounds.ts` match the brief verbatim (no modifications needed)
-- [x] All ID-arg mutations (`categories.update/remove`, `rounds.update/remove`) verify `doc.eventId === eactx.event._id` and throw `NOT_FOUND` otherwise
-- [x] `categories.remove` throws `CONFLICT` when contestants reference the category (`by_event_id_and_category_id` index, `.first()`)
-- [x] `rounds.remove` deletes the round's criteria before deleting the round; audit records `criteriaDeleted` count
-- [x] `rounds.list` returns rounds with joined `criteria` array
-- [x] Mutations gated by `requireDraftEvent(..., permission: "event.update")`; lists gated by `requireEventMember`
-- [x] All mutations write audit entries via `writeAudit`
-- [x] Object-form function syntax; validators on every function; no `any`/`as never` (`Record<string, unknown>` used in `rounds.update` per brief); no comments
-- [x] Single commit containing exactly the 4 intended files
-
-## Deviations
-
-None. The brief's verbatim code compiled and passed on the first attempt — no latent bugs encountered (unlike Tasks 2 and 4).
-
-## Notes
-
-- Test 1's `["Open", "Juniors"]` expectation relies on `events.create` seeding a default "Open" category (implemented in Task 4, `convex/events.ts:38`) — verified consistent.
-- List ordering relies on the `by_event_id` index's ascending order with `_creationTime` tiebreak, matching insertion order.
+- The httpAction layer itself (signature 401/500 paths, livemode guard) is not exercised by unit tests — the brief's tests target the internalMutation only; signature logic is covered by Task 2's tests and the action is a thin verify→schedule wrapper. An end-to-end route test could be added later if the tooling supports httpAction invocation.
+- `applyTerminalEvent` returns `"applied"` (not a distinct outcome) when it terminal-marks a payment — matches the brief's design; the test asserts the resulting `status` instead.

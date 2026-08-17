@@ -1,180 +1,210 @@
-﻿## Task 7: Contestants
+### Task 7: Replace `subscriptions.changePlan` stub + `resume`
 
 **Files:**
-- Create: `convex/contestants.ts`
-- Create: `convex-test/contestants.test.ts`
+- Modify: `convex/subscriptions.ts:18-43` (replace `changePlan`, add `resume`)
+- Test: `convex-test/billingSubscriptions.test.ts` (create)
 
 **Interfaces:**
-- Consumes: `requireDraftEvent` (permission `"contestant.manage"`), `requireEventMember`; `requireLimit(ctx, sub, "contestants")`; `incrementUsage`; `writeAudit`; `appError`.
-- Produces: `api.contestants.{add,list,update,remove}`. `add`: number is a positive integer unique within the event (CONFLICT on dup); category defaults to the event's first category; `maxContestants` enforced. `update`: name/photoUrl/group/status/categoryId/customFields (category verified against the event). `remove`: hard delete + usage decrement.
+- Consumes: `requirePermission` with `subscription.manage`, plans table.
+- Produces: `api.subscriptions.changePlan({ orgSlug, planName })` — only Free (cancel-at-period-end) is accepted; paid plan names throw `VALIDATION_ERROR` directing callers to `billing.createCheckout`. `api.subscriptions.resume({ orgSlug })` clears `cancelAtPeriodEnd`. Both audit. (UI in Task 8 calls exactly these.)
 
-- [ ] **Step 1: Write failing tests â€” `convex-test/contestants.test.ts`**
+- [ ] **Step 1: Write the failing tests**
+
+Create `convex-test/billingSubscriptions.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
 import { api } from "../convex/_generated/api";
-import { aliceIdentity, createOrgAndEvent, setupTest } from "./setup";
+import {
+  aliceIdentity,
+  bobIdentity,
+  grantPaidPlan,
+  seedAndProvision,
+  setupTest,
+} from "./setup";
 
-describe("contestants", () => {
-  it("adds contestants with unique numbers and lists them", async () => {
-    const t = setupTest();
-    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
-    await t.withIdentity(aliceIdentity).mutation(api.contestants.add, { orgSlug: "acme", eventSlug: "gala", name: "Maria", number: 1 });
-    await t.withIdentity(aliceIdentity).mutation(api.contestants.add, { orgSlug: "acme", eventSlug: "gala", name: "Jo", number: 2 });
+async function paidOrg() {
+  const t = setupTest();
+  const ctx = await grantPaidPlan(t, "Starter");
+  return { t, orgSlug: ctx.orgSlug };
+}
+
+describe("subscriptions changePlan/resume", () => {
+  it("schedules cancellation to Free via changePlan", async () => {
+    const { t, orgSlug } = await paidOrg();
+    await t
+      .withIdentity(aliceIdentity)
+      .mutation(api.subscriptions.changePlan, { orgSlug, planName: "Free" });
+    const sub = await t
+      .withIdentity(aliceIdentity)
+      .query(api.subscriptions.getForOrg, { orgSlug });
+    expect(sub?.subscription.cancelAtPeriodEnd).toBe(true);
+    expect(sub?.subscription.planId).not.toBeNull();
+  });
+
+  it("rejects paid plans (must use checkout) and no-op switches", async () => {
+    const { t, orgSlug } = await paidOrg();
     await expect(
-      t.withIdentity(aliceIdentity).mutation(api.contestants.add, { orgSlug: "acme", eventSlug: "gala", name: "Dup", number: 1 }),
+      t.withIdentity(aliceIdentity).mutation(api.subscriptions.changePlan, {
+        orgSlug,
+        planName: "Pro",
+      }),
+    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
+    await expect(
+      t.withIdentity(aliceIdentity).mutation(api.subscriptions.changePlan, {
+        orgSlug,
+        planName: "Starter",
+      }),
     ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
-    const list = await t.withIdentity(aliceIdentity).query(api.contestants.list, { orgSlug: "acme", eventSlug: "gala" });
-    expect(list.length).toBe(2);
   });
 
-  it("enforces maxContestants (Free = 20)", async () => {
-    const t = setupTest();
-    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
-    for (let i = 1; i <= 20; i++) {
-      await t.withIdentity(aliceIdentity).mutation(api.contestants.add, { orgSlug: "acme", eventSlug: "gala", name: `C${i}`, number: i });
-    }
+  it("resume clears cancelAtPeriodEnd and CONFLICTs when nothing to resume", async () => {
+    const { t, orgSlug } = await paidOrg();
     await expect(
-      t.withIdentity(aliceIdentity).mutation(api.contestants.add, { orgSlug: "acme", eventSlug: "gala", name: "Over", number: 21 }),
-    ).rejects.toMatchObject({ data: { code: "LIMIT_EXCEEDED" } });
+      t.withIdentity(aliceIdentity).mutation(api.subscriptions.resume, { orgSlug }),
+    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
+    await t
+      .withIdentity(aliceIdentity)
+      .mutation(api.subscriptions.changePlan, { orgSlug, planName: "Free" });
+    await t.withIdentity(aliceIdentity).mutation(api.subscriptions.resume, { orgSlug });
+    const sub = await t
+      .withIdentity(aliceIdentity)
+      .query(api.subscriptions.getForOrg, { orgSlug });
+    expect(sub?.subscription.cancelAtPeriodEnd).toBe(false);
   });
 
-  it("updates status and removes with usage decrement round-trip", async () => {
-    const t = setupTest();
-    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
-    await t.withIdentity(aliceIdentity).mutation(api.contestants.add, { orgSlug: "acme", eventSlug: "gala", name: "Maria", number: 1 });
-    const list = await t.withIdentity(aliceIdentity).query(api.contestants.list, { orgSlug: "acme", eventSlug: "gala" });
-    const id = list[0]._id;
-    await t.withIdentity(aliceIdentity).mutation(api.contestants.update, { orgSlug: "acme", eventSlug: "gala", contestantId: id, status: "scratched" });
-    await t.withIdentity(aliceIdentity).mutation(api.contestants.remove, { orgSlug: "acme", eventSlug: "gala", contestantId: id });
-    const after = await t.withIdentity(aliceIdentity).query(api.contestants.list, { orgSlug: "acme", eventSlug: "gala" });
-    expect(after.length).toBe(0);
-    await t.withIdentity(aliceIdentity).mutation(api.contestants.add, { orgSlug: "acme", eventSlug: "gala", name: "Back", number: 1 });
+  it("requires subscription.manage permission", async () => {
+    const { t, orgSlug } = await paidOrg();
+    await seedAndProvision(t, bobIdentity);
+    await expect(
+      t.withIdentity(bobIdentity).mutation(api.subscriptions.changePlan, { orgSlug, planName: "Free" }),
+    ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
+    await expect(
+      t.withIdentity(bobIdentity).mutation(api.subscriptions.resume, { orgSlug }),
+    ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
   });
 });
 ```
 
-- [ ] **Step 2: RED** â€” `npm test`.
+- [ ] **Step 2: Run tests to verify they fail**
 
-- [ ] **Step 3: Implement `convex/contestants.ts`**
+Run: `npx vitest run convex-test/billingSubscriptions.test.ts`
+Expected: FAIL — first test: `changePlan` currently patches planId immediately and does not set `cancelAtPeriodEnd` (assertion `cancelAtPeriodEnd === true` fails). Also `resume` undefined.
+
+- [ ] **Step 3: Implement**
+
+In `convex/subscriptions.ts`, replace the whole `changePlan` mutation (lines 18–43, the "Phase 1 stub") with:
 
 ```ts
-import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { appError, ErrorCode } from "./lib/errors";
-import { requireDraftEvent, requireEventMember } from "./lib/eventAuthz";
-import { writeAudit } from "./lib/audit";
-import { requireLimit } from "./lib/entitlements";
-import { incrementUsage } from "./lib/usage";
-
-export const add = mutation({
-  args: {
-    orgSlug: v.string(), eventSlug: v.string(), name: v.string(), number: v.number(),
-    categoryId: v.optional(v.id("categories")), photoUrl: v.optional(v.string()),
-    group: v.optional(v.string()), customFields: v.optional(v.record(v.string(), v.string())),
-  },
+/**
+ * Downgrade path only: choosing Free schedules cancellation at period end.
+ * Paid plans must go through PayMongo checkout (`billing.createCheckout`).
+ * Immediate plan switches remain a superadmin override.
+ */
+export const changePlan = mutation({
+  args: { orgSlug: v.string(), planName: v.string() },
   handler: async (ctx, args) => {
-    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "contestant.manage" });
-    await requireLimit(ctx, eactx.subscription, "contestants");
-    if (!Number.isInteger(args.number) || args.number < 1) {
-      throw appError(ErrorCode.VALIDATION_ERROR, "number must be a positive integer");
-    }
-    const dup = await ctx.db
-      .query("contestants")
-      .withIndex("by_event_id_and_number", (q) => q.eq("eventId", eactx.event._id).eq("number", args.number))
+    const actx = await requirePermission(ctx, {
+      orgSlug: args.orgSlug,
+      permission: "subscription.manage",
+    });
+    const plan = await ctx.db
+      .query("plans")
+      .withIndex("by_name", (q) => q.eq("name", args.planName))
       .unique();
-    if (dup) throw appError(ErrorCode.CONFLICT, "Contestant number already used", { number: args.number });
-    let categoryId = args.categoryId;
-    if (categoryId) {
-      const cat = await ctx.db.get(categoryId);
-      if (!cat || cat.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Category not found");
-    } else {
-      const first = await ctx.db.query("categories").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).first();
-      if (!first) throw appError(ErrorCode.VALIDATION_ERROR, "Event has no categories");
-      categoryId = first._id;
+    if (!plan) throw appError(ErrorCode.NOT_FOUND, "Plan not found");
+    if ((plan.priceCents ?? 0) > 0) {
+      throw appError(
+        ErrorCode.VALIDATION_ERROR,
+        `Plan ${plan.name} requires payment — start a checkout instead`,
+      );
     }
-    const id = await ctx.db.insert("contestants", {
-      eventId: eactx.event._id,
-      categoryId,
-      number: args.number,
-      name: args.name.trim(),
-      photoUrl: args.photoUrl,
-      group: args.group,
-      status: "active",
-      customFields: args.customFields,
-    });
-    await incrementUsage(ctx, eactx.org._id, "contestants", 1);
-    await writeAudit(ctx, {
-      orgId: eactx.org._id, actorId: eactx.user._id, action: "contestant.added",
-      resourceType: "contestant", resourceId: id, after: { name: args.name, number: args.number },
-    });
-  },
-});
-
-export const list = query({
-  args: { orgSlug: v.string(), eventSlug: v.string() },
-  handler: async (ctx, args) => {
-    const eactx = await requireEventMember(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug });
-    return await ctx.db.query("contestants").withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id)).collect();
-  },
-});
-
-export const update = mutation({
-  args: {
-    orgSlug: v.string(), eventSlug: v.string(), contestantId: v.id("contestants"),
-    name: v.optional(v.string()), photoUrl: v.optional(v.string()), group: v.optional(v.string()),
-    status: v.optional(v.union(v.literal("active"), v.literal("scratched"), v.literal("disqualified"))),
-    categoryId: v.optional(v.id("categories")), customFields: v.optional(v.record(v.string(), v.string())),
-  },
-  handler: async (ctx, args) => {
-    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "contestant.manage" });
-    const c = await ctx.db.get(args.contestantId);
-    if (!c || c.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Contestant not found");
-    const patch: Record<string, unknown> = {};
-    if (args.name !== undefined) patch.name = args.name.trim();
-    if (args.photoUrl !== undefined) patch.photoUrl = args.photoUrl;
-    if (args.group !== undefined) patch.group = args.group;
-    if (args.status !== undefined) patch.status = args.status;
-    if (args.categoryId !== undefined) {
-      const cat = await ctx.db.get(args.categoryId);
-      if (!cat || cat.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Category not found");
-      patch.categoryId = args.categoryId;
+    if (actx.subscription.planId === plan._id) {
+      throw appError(ErrorCode.CONFLICT, `Already on ${plan.name}`);
     }
-    if (args.customFields !== undefined) patch.customFields = args.customFields;
-    if (Object.keys(patch).length === 0) return;
-    await ctx.db.patch(args.contestantId, patch);
+    if (actx.subscription.cancelAtPeriodEnd) {
+      throw appError(ErrorCode.CONFLICT, "Cancellation is already scheduled");
+    }
+    await ctx.db.patch(actx.subscription._id, { cancelAtPeriodEnd: true });
     await writeAudit(ctx, {
-      orgId: eactx.org._id, actorId: eactx.user._id, action: "contestant.updated",
-      resourceType: "contestant", resourceId: args.contestantId, before: { status: c.status }, after: patch,
+      orgId: actx.org._id,
+      actorId: actx.user._id,
+      action: "subscription.cancel_scheduled",
+      resourceType: "subscription",
+      resourceId: actx.subscription._id,
+      before: { cancelAtPeriodEnd: actx.subscription.cancelAtPeriodEnd },
+      after: { cancelAtPeriodEnd: true },
     });
   },
 });
 
-export const remove = mutation({
-  args: { orgSlug: v.string(), eventSlug: v.string(), contestantId: v.id("contestants") },
+export const resume = mutation({
+  args: { orgSlug: v.string() },
   handler: async (ctx, args) => {
-    const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "contestant.manage" });
-    const c = await ctx.db.get(args.contestantId);
-    if (!c || c.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Contestant not found");
-    await ctx.db.delete(args.contestantId);
-    await incrementUsage(ctx, eactx.org._id, "contestants", -1);
+    const actx = await requirePermission(ctx, {
+      orgSlug: args.orgSlug,
+      permission: "subscription.manage",
+    });
+    if (!actx.subscription.cancelAtPeriodEnd) {
+      throw appError(ErrorCode.CONFLICT, "No scheduled cancellation to resume");
+    }
+    await ctx.db.patch(actx.subscription._id, { cancelAtPeriodEnd: false });
     await writeAudit(ctx, {
-      orgId: eactx.org._id, actorId: eactx.user._id, action: "contestant.removed",
-      resourceType: "contestant", resourceId: args.contestantId, before: { name: c.name },
+      orgId: actx.org._id,
+      actorId: actx.user._id,
+      action: "subscription.resumed",
+      resourceType: "subscription",
+      resourceId: actx.subscription._id,
+      before: { cancelAtPeriodEnd: true },
+      after: { cancelAtPeriodEnd: false },
     });
   },
 });
 ```
 
-- [ ] **Step 4: GREEN + commit**
+Also add to the file's imports (merge with existing):
+
+```ts
+import { appError, ErrorCode } from "./lib/errors";
+```
+
+(`v`, `mutation`, `query`, `requirePermission`, `writeAudit` are already imported.)
+
+- [ ] **Step 3b: Migrate legacy tests off the old `changePlan` semantics**
+
+The semantic change breaks existing setup calls that used `changePlan` to jump onto a paid plan. Replace each occurrence of:
+
+```ts
+await t.withIdentity(aliceIdentity).mutation(api.subscriptions.changePlan, { orgSlug: "acme", planName: "Pro" });
+```
+
+with:
+
+```ts
+await grantPaidPlan(t, "Pro");
+```
+
+in these files (add `grantPaidPlan` to their setup import):
+
+- `convex-test/templates.test.ts` (lines ~16 and ~37)
+- `convex-test/phase3Schema.test.ts` (line ~90)
+- `convex-test/eventCodes.test.ts` (line ~21)
+- `convex-test/config.test.ts` (line ~58)
+
+This puts legacy feature-gate tests on the REAL payment path (checkout + webhook), which is strictly better coverage than the old stub hop.
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `npx vitest run convex-test/billingSubscriptions.test.ts convex-test/entitlements.test.ts convex-test/templates.test.ts convex-test/phase3Schema.test.ts convex-test/eventCodes.test.ts convex-test/config.test.ts`
+Expected: all PASS (the migrated legacy suites guard against regressions in existing subscription consumers).
+
+- [ ] **Step 5: Commit**
 
 ```powershell
-npm test
-Remove-Item -Force tsconfig.tsbuildinfo -ErrorAction SilentlyContinue; npm run typecheck
-git add convex/contestants.ts convex-test/contestants.test.ts
-git commit -m "feat: contestants with number uniqueness and plan limits"
+npx tsc --noEmit
+git add convex/subscriptions.ts convex-test/billingSubscriptions.test.ts convex-test/templates.test.ts convex-test/phase3Schema.test.ts convex-test/eventCodes.test.ts convex-test/config.test.ts
+git commit -m "feat(billing): replace plan stub with cancel-at-period-end downgrade; migrate tests to real payment path"
 ```
-Expected: 47/47 tests pass; typecheck exit 0.
 
 ---
 

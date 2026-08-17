@@ -1,78 +1,137 @@
-﻿## Task 3: Event authz helpers
+### Task 3: Payment queries (`billing/payments.ts`)
 
 **Files:**
-- Create: `convex/lib/eventAuthz.ts`
+- Create: `convex/billing/payments.ts`
+- Test: `convex-test/billingPayments.test.ts` (create)
 
 **Interfaces:**
-- Consumes: `requireOrgMember(ctx, { orgSlug })` and `AuthCtx` from `convex/lib/authz.ts`; `appError`/`ErrorCode` from `convex/lib/errors.ts`.
-- Produces: `EventAuthCtx` (= `AuthCtx & { event: Doc<"events"> }`); `requireEventMember(ctx, { orgSlug, eventSlug }): Promise<EventAuthCtx>` (NOT_FOUND if no event); `requireEventPermission(ctx, { orgSlug, eventSlug, permission }): Promise<EventAuthCtx>` (FORBIDDEN if missing); `requireDraftEvent(ctx, { orgSlug, eventSlug, permission }): Promise<EventAuthCtx>` (CONFLICT if `status !== "draft"`). Their gates are tested in Task 4+ via real endpoints â€” no new test file in this task.
+- Consumes: `billingPayments` table (Task 1), `requirePermission` with permissions `subscription.view` / `subscription.manage`.
+- Produces: `api.billing.payments.listForOrg({ orgSlug })` → array of `billingPayments` docs (+ `planName: string | null`), newest first, max 50; `api.billing.payments.getActiveCheckout({ orgSlug })` → `{ paymentId, checkoutUrl, planName, amountCents, currency, billingInterval, createdAt } | null`.
 
-- [ ] **Step 1: Implement `convex/lib/eventAuthz.ts`**
+- [ ] **Step 1: Write the failing tests**
+
+Create `convex-test/billingPayments.test.ts`:
 
 ```ts
-import type { QueryCtx } from "../_generated/server";
-import type { Doc } from "../_generated/dataModel";
-import { appError, ErrorCode } from "./errors";
-import { requireOrgMember, type AuthCtx } from "./authz";
+import { describe, expect, it } from "vitest";
+import { api } from "../convex/_generated/api";
+import { aliceIdentity, bobIdentity, createOrgAndEvent, seedAndProvision, setupTest } from "./setup";
 
-export type EventAuthCtx = AuthCtx & { event: Doc<"events"> };
-
-export async function resolveEventBySlug(
-  ctx: QueryCtx,
-  args: { orgSlug: string; eventSlug: string },
-): Promise<{ actx: AuthCtx; event: Doc<"events"> }> {
-  const actx = await requireOrgMember(ctx, { orgSlug: args.orgSlug });
-  const event = await ctx.db
-    .query("events")
-    .withIndex("by_org_id_and_slug", (q) => q.eq("orgId", actx.org._id).eq("slug", args.eventSlug))
-    .unique();
-  if (!event) throw appError(ErrorCode.NOT_FOUND, "Event not found");
-  return { actx, event };
-}
-
-export async function requireEventMember(
-  ctx: QueryCtx,
-  args: { orgSlug: string; eventSlug: string },
-): Promise<EventAuthCtx> {
-  const { actx, event } = await resolveEventBySlug(ctx, args);
-  return { ...actx, event };
-}
-
-export async function requireEventPermission(
-  ctx: QueryCtx,
-  args: { orgSlug: string; eventSlug: string; permission: string },
-): Promise<EventAuthCtx> {
-  const eactx = await requireEventMember(ctx, {
-    orgSlug: args.orgSlug,
-    eventSlug: args.eventSlug,
+describe("billing payments queries", () => {
+  it("returns an empty history and no active checkout for a new org", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    const history = await t
+      .withIdentity(aliceIdentity)
+      .query(api.billing.payments.listForOrg, { orgSlug: "acme" });
+    expect(history).toEqual([]);
+    const active = await t
+      .withIdentity(aliceIdentity)
+      .query(api.billing.payments.getActiveCheckout, { orgSlug: "acme" });
+    expect(active).toBeNull();
   });
-  if (!eactx.permissions.has(args.permission)) {
-    throw appError(ErrorCode.FORBIDDEN, `Missing permission: ${args.permission}`);
-  }
-  return eactx;
-}
 
-export async function requireDraftEvent(
-  ctx: QueryCtx,
-  args: { orgSlug: string; eventSlug: string; permission: string },
-): Promise<EventAuthCtx> {
-  const eactx = await requireEventPermission(ctx, args);
-  if (eactx.event.status !== "draft") {
-    throw appError(ErrorCode.CONFLICT, "Event configuration is locked");
-  }
-  return eactx;
-}
+  it("rejects non-members with FORBIDDEN", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    await seedAndProvision(t, bobIdentity);
+    await expect(
+      t.withIdentity(bobIdentity).query(api.billing.payments.listForOrg, { orgSlug: "acme" }),
+    ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
+    await expect(
+      t.withIdentity(bobIdentity).query(api.billing.payments.getActiveCheckout, { orgSlug: "acme" }),
+    ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
+  });
+});
 ```
 
-- [ ] **Step 2: Verify + commit**
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `npx vitest run convex-test/billingPayments.test.ts`
+Expected: FAIL — `api.billing.payments` does not exist (undefined function).
+
+- [ ] **Step 3: Implement**
+
+Create `convex/billing/payments.ts`:
+
+```ts
+import { v } from "convex/values";
+import { query } from "../_generated/server";
+import { requirePermission } from "../lib/authz";
+
+const HISTORY_LIMIT = 50;
+
+export const listForOrg = query({
+  args: { orgSlug: v.string() },
+  handler: async (ctx, args) => {
+    const actx = await requirePermission(ctx, {
+      orgSlug: args.orgSlug,
+      permission: "subscription.view",
+    });
+    const payments = await ctx.db
+      .query("billingPayments")
+      .withIndex("by_org_id", (q) => q.eq("orgId", actx.org._id))
+      .order("desc")
+      .take(HISTORY_LIMIT);
+    const planNames = new Map(
+      await Promise.all(
+        [...new Set(payments.map((p) => p.planId))].map(
+          async (planId) => {
+            const plan = await ctx.db.get(planId);
+            return [planId, plan?.name ?? null] as const;
+          },
+        ),
+      ),
+    );
+    return payments.map((payment) => ({
+      ...payment,
+      planName: planNames.get(payment.planId) ?? null,
+    }));
+  },
+});
+
+export const getActiveCheckout = query({
+  args: { orgSlug: v.string() },
+  handler: async (ctx, args) => {
+    const actx = await requirePermission(ctx, {
+      orgSlug: args.orgSlug,
+      permission: "subscription.manage",
+    });
+    const pending = await ctx.db
+      .query("billingPayments")
+      .withIndex("by_org_id", (q) => q.eq("orgId", actx.org._id))
+      .filter((q) => q.eq(q.field("status"), "pending"))
+      .first();
+    if (!pending) return null;
+    const plan = await ctx.db.get(pending.planId);
+    return {
+      paymentId: pending._id,
+      checkoutUrl: pending.checkoutUrl,
+      planName: plan?.name ?? null,
+      amountCents: pending.amountCents,
+      currency: pending.currency,
+      billingInterval: pending.billingInterval,
+      createdAt: pending._creationTime,
+    };
+  },
+});
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `npx vitest run convex-test/billingPayments.test.ts; npx vitest run convex-test/billing.test.ts`
+Expected: both PASS.
+
+- [ ] **Step 5: Codegen + commit**
 
 ```powershell
-Remove-Item -Force tsconfig.tsbuildinfo -ErrorAction SilentlyContinue; npm run typecheck
-npm test
-git add convex/lib/eventAuthz.ts
-git commit -m "feat: event-domain authorization helpers"
+npx convex codegen; if ($?) { npx tsc --noEmit }
 ```
-Expected: typecheck exit 0; 32/32 tests pass (no new tests â€” helpers are exercised from Task 4 onward).
+
+```powershell
+git add convex/billing/payments.ts convex-test/billingPayments.test.ts convex/_generated
+git commit -m "feat(billing): add payment history and active checkout queries"
+```
 
 ---
 

@@ -1,175 +1,135 @@
-﻿## Task 1: Schema extension
+### Task 1: Schema additions + plan pricing
 
 **Files:**
-- Modify: `convex/schema.ts`
+- Modify: `convex/schema.ts` (add `billingPayments`, `processedWebhookEvents` tables; add 2 indexes)
+- Modify: `convex/lib/constants.ts:32-63` (SYSTEM_PLANS pricing)
+- Test: `convex-test/billing.test.ts` (create)
 
 **Interfaces:**
-- Produces: tables `events`, `categories`, `rounds`, `criteria`, `contestants`, `judges`, `judgeAssignments`, `scoreSheets`, `eventTemplates`; `invitations.eventId` becomes `v.union(v.null(), v.id("events"))`.
+- Produces: tables `billingPayments`, `processedWebhookEvents`; `subscriptions` index `by_status_and_period_end`; `billingPayments` indexes `by_org_id`, `by_checkout_session_id`, `by_reference_number`, `by_status`. Plans seeded with `priceCents` (Free 0, Starter 49900, Pro 149900), `currency: "PHP"`, `billingInterval: "monthly"`, `isActive: true`. Later tasks rely on these exact field names.
 
-- [ ] **Step 1: Migrate `invitations.eventId`**
+- [ ] **Step 1: Write the failing test**
 
-In `convex/schema.ts`, change the `invitations` table's `eventId` line to:
+Create `convex-test/billing.test.ts`:
+
 ```ts
-    eventId: v.union(v.null(), v.id("events")),
+import { describe, expect, it } from "vitest";
+import { api } from "../convex/_generated/api";
+import { aliceIdentity, seedAndProvision, setupTest } from "./setup";
+
+describe("billing plans", () => {
+  it("seeds plans with PHP pricing", async () => {
+    const t = setupTest();
+    await seedAndProvision(t, aliceIdentity);
+    const plans = await t.query(api.plans.list, {});
+    const byName = new Map(plans.map((p) => [p.name, p]));
+    expect(byName.get("Free")?.priceCents).toBe(0);
+    expect(byName.get("Starter")?.priceCents).toBe(49900);
+    expect(byName.get("Pro")?.priceCents).toBe(149900);
+    for (const plan of plans) {
+      expect(plan.currency).toBe("PHP");
+      expect(plan.billingInterval).toBe("monthly");
+      expect(plan.isActive).toBe(true);
+    }
+  });
+});
 ```
-(Remove the old Phase-2 marker comment â€” the migration now lands.)
 
-- [ ] **Step 2: Append the 9 new tables** (inside `defineSchema({...})`, after `auditLogs`)
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `npx vitest run convex-test/billing.test.ts`
+Expected: FAIL — `priceCents` undefined (plans have no pricing yet).
+
+- [ ] **Step 3: Implement schema + pricing**
+
+In `convex/schema.ts`, add these two tables after the `subscriptions` table definition:
 
 ```ts
-  events: defineTable({
+  billingPayments: defineTable({
     orgId: v.id("organizations"),
-    slug: v.string(),
-    name: v.string(),
-    description: v.string(),
-    logoUrl: v.optional(v.string()),
-    bannerUrl: v.optional(v.string()),
-    startDate: v.optional(v.number()),
-    endDate: v.optional(v.number()),
-    venue: v.optional(v.string()),
-    timezone: v.optional(v.string()),
-    status: v.union(v.literal("draft"), v.literal("ready"), v.literal("archived")),
-    decimalPrecision: v.number(),
-    resultVisibility: v.union(v.literal("private"), v.literal("organization"), v.literal("public")),
-    branding: v.object({
-      primaryColor: v.optional(v.string()),
-      secondaryColor: v.optional(v.string()),
-    }),
-    templateId: v.optional(v.id("eventTemplates")),
+    planId: v.id("plans"),
     createdById: v.id("userProfiles"),
-  })
-    .index("by_org_id_and_slug", ["orgId", "slug"])
-    .index("by_org_id_and_status", ["orgId", "status"])
-    .index("by_org_id", ["orgId"]),
-
-  categories: defineTable({
-    eventId: v.id("events"),
-    name: v.string(),
-    description: v.optional(v.string()),
-    order: v.number(),
-  })
-    .index("by_event_id", ["eventId"]),
-
-  rounds: defineTable({
-    eventId: v.id("events"),
-    name: v.string(),
-    description: v.optional(v.string()),
-    order: v.number(),
-    qualifiesToNextRound: v.boolean(),
-    scoringRules: v.optional(v.object({ winner: v.union(v.literal("highest"), v.literal("lowest")) })),
-  })
-    .index("by_event_id", ["eventId"]),
-
-  criteria: defineTable({
-    roundId: v.id("rounds"),
-    name: v.string(),
-    description: v.optional(v.string()),
-    order: v.number(),
-    weight: v.number(),
-    minScore: v.number(),
-    maxScore: v.number(),
-    decimalPrecision: v.number(),
-  })
-    .index("by_round_id", ["roundId"]),
-
-  contestants: defineTable({
-    eventId: v.id("events"),
-    categoryId: v.id("categories"),
-    number: v.number(),
-    name: v.string(),
-    photoUrl: v.optional(v.string()),
-    group: v.optional(v.string()),
-    status: v.union(v.literal("active"), v.literal("scratched"), v.literal("disqualified")),
-    customFields: v.optional(v.record(v.string(), v.string())),
-  })
-    .index("by_event_id", ["eventId"])
-    .index("by_event_id_and_category_id", ["eventId", "categoryId"])
-    .index("by_event_id_and_number", ["eventId", "number"]),
-
-  judges: defineTable({
-    orgId: v.id("organizations"),
-    eventId: v.id("events"),
-    userId: v.id("userProfiles"),
-    status: v.union(v.literal("assigned"), v.literal("declined"), v.literal("confirmed")),
-  })
-    .index("by_event_id", ["eventId"])
-    .index("by_event_id_and_user_id", ["eventId", "userId"])
-    .index("by_user_id", ["userId"]),
-
-  judgeAssignments: defineTable({
-    judgeId: v.id("judges"),
-    eventId: v.id("events"),
-    roundId: v.optional(v.id("rounds")),
-    categoryId: v.optional(v.id("categories")),
-    criterionId: v.optional(v.id("criteria")),
-  })
-    .index("by_judge_id", ["judgeId"])
-    .index("by_event_id", ["eventId"]),
-
-  scoreSheets: defineTable({
-    eventId: v.id("events"),
-    roundId: v.id("rounds"),
-    judgeId: v.id("judges"),
-    contestantId: v.id("contestants"),
+    checkoutSessionId: v.union(v.null(), v.string()),
+    checkoutUrl: v.union(v.null(), v.string()),
+    referenceNumber: v.string(),
+    amountCents: v.number(),
+    currency: v.string(),
+    billingInterval: v.union(v.literal("monthly"), v.literal("yearly")),
     status: v.union(
-      v.literal("not_started"),
-      v.literal("in_progress"),
-      v.literal("submitted"),
-      v.literal("locked"),
+      v.literal("pending"),
+      v.literal("paid"),
+      v.literal("failed"),
+      v.literal("expired"),
+      v.literal("cancelled"),
+      v.literal("flagged"),
     ),
-  })
-    .index("by_event_id_and_round_id", ["eventId", "roundId"])
-    .index("by_judge_id_and_round_id", ["judgeId", "roundId"])
-    .index("by_event_id_and_round_id_and_contestant_id", ["eventId", "roundId", "contestantId"]),
-
-  eventTemplates: defineTable({
-    orgId: v.optional(v.id("organizations")),
-    name: v.string(),
-    description: v.string(),
-    configSnapshot: v.object({
-      decimalPrecision: v.number(),
-      resultVisibility: v.union(v.literal("private"), v.literal("organization"), v.literal("public")),
-      scoringRules: v.optional(v.object({ winner: v.union(v.literal("highest"), v.literal("lowest")) })),
-      categories: v.optional(v.array(v.object({ name: v.string(), order: v.number() }))),
-      rounds: v.array(
-        v.object({
-          name: v.string(),
-          order: v.number(),
-          qualifiesToNextRound: v.boolean(),
-          scoringRules: v.optional(v.object({ winner: v.union(v.literal("highest"), v.literal("lowest")) })),
-          criteria: v.array(
-            v.object({
-              name: v.string(),
-              order: v.number(),
-              weight: v.number(),
-              minScore: v.number(),
-              maxScore: v.number(),
-              decimalPrecision: v.number(),
-            }),
-          ),
-        }),
-      ),
-    }),
-    isSystem: v.boolean(),
+    periodStartAt: v.union(v.null(), v.number()),
+    periodEndAt: v.union(v.null(), v.number()),
+    paidAt: v.union(v.null(), v.number()),
+    failureReason: v.union(v.null(), v.string()),
   })
     .index("by_org_id", ["orgId"])
-    .index("by_name", ["name"]),
+    .index("by_status", ["status"])
+    .index("by_checkout_session_id", ["checkoutSessionId"])
+    .index("by_reference_number", ["referenceNumber"]),
+
+  processedWebhookEvents: defineTable({
+    eventId: v.string(),
+    eventType: v.string(),
+    receivedAt: v.number(),
+  })
+    .index("by_event_id", ["eventId"]),
 ```
 
-- [ ] **Step 3: Verify**
+Change the `subscriptions` table's index block from:
 
-```powershell
-npx convex dev --once
-Remove-Item -Force tsconfig.tsbuildinfo -ErrorAction SilentlyContinue; npm run typecheck
-npm test
+```ts
+    .index("by_org_id", ["orgId"]),
 ```
-Expected: schema pushes cleanly (all existing `invitations.eventId` values are null, so the narrowing is safe â€” if the push reports a conflict, verify via the Convex dashboard that no non-null string values exist; if any do, STOP and report BLOCKED); typecheck exit 0; 31/31 tests pass.
 
-- [ ] **Step 4: Commit**
+to:
+
+```ts
+    .index("by_org_id", ["orgId"])
+    .index("by_status_and_period_end", ["status", "currentPeriodEndAt"]),
+```
+
+In `convex/lib/constants.ts`, add pricing to each entry of `SYSTEM_PLANS` (inside each object literal, after `isSystem: true,` — keep arrays/objects identical otherwise):
+
+```ts
+    // Free:
+    priceCents: 0,
+    currency: "PHP",
+    billingInterval: "monthly",
+    isActive: true,
+    // Starter:
+    priceCents: 49900,
+    currency: "PHP",
+    billingInterval: "monthly",
+    isActive: true,
+    // Pro:
+    priceCents: 149900,
+    currency: "PHP",
+    billingInterval: "monthly",
+    isActive: true,
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `npx vitest run convex-test/billing.test.ts`
+Expected: PASS (1 test).
+
+- [ ] **Step 5: Codegen + typecheck + commit**
 
 ```powershell
-git add convex/schema.ts
-git commit -m "feat: Phase 2 schema - events, config, participants, sheets, templates"
+npx convex codegen; if ($?) { npx tsc --noEmit }
+```
+
+Expected: both succeed.
+
+```powershell
+git add convex/schema.ts convex/lib/constants.ts convex-test/billing.test.ts convex/_generated
+git commit -m "feat(billing): add billingPayments/processedWebhookEvents schema and PHP plan pricing"
 ```
 
 ---

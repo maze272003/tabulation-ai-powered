@@ -1,56 +1,87 @@
-# Task 2 Report: Permissions, role wiring, system templates
+# Task 2 Report: PayMongo lib (signature, client) + billing period math + unit tests
 
-## Status: DONE_WITH_CONCERNS (3 small, documented deviations from verbatim brief code — all forced by schema/type-system failures; data values 100% verbatim)
+**Status:** DONE
+**Commit:** d8545fd — `feat(billing): add PayMongo client, webhook signature verification, and period math`
 
-## What was implemented
+## What Was Implemented
 
-### 1. `convex/lib/constants.ts`
-- Appended 8 event-domain permissions to `SYSTEM_PERMISSIONS` exactly as specified: `event.create`, `event.view`, `event.update`, `event.delete`, `event.publish`, `event.archive`, `contestant.manage`, `judge.manage` (with categories/descriptions verbatim).
-- Replaced `ROLE_PERMISSIONS` entirely with the brief's version. Verified Event Admin gets NO `event.delete` (spec §2). Org Owner/Org Admin retain full event-domain grants including `event.delete`.
-- Appended `SYSTEM_TEMPLATES` with Pageant / Singing / Quiz templates — all names, descriptions, decimalPrecision, resultVisibility, rounds, criteria (names, orders, weights, min/max, precision) verbatim from the brief.
+All code used verbatim from the task brief:
 
-### 2. `convex/seed.ts`
-- Updated import to include `SYSTEM_TEMPLATES`.
-- Appended idempotent template-seeding loop at the end of `seedReferenceData`'s handler (after the plans loop): query `eventTemplates` filtered on name + `isSystem: true`, insert if absent.
+1. **`convex/lib/errors.ts`** (modified) — added `PAYMENT_PROVIDER: "PAYMENT_PROVIDER"` to the `ErrorCode` object, after `TIES_UNRESOLVED`.
+2. **`convex/lib/billing.ts`** (created) — period constants (`DAY_MS`, `MONTHLY_PERIOD_MS` = 30d, `YEARLY_PERIOD_MS` = 365d, `PAST_DUE_GRACE_MS` = 7d, `STALE_PENDING_MS` = 24h), `periodDurationMs(interval)`, `computeRenewalWindow(subscription, now)` (stacks renewals on `active`/`trialing`/`past_due` with `Math.max(now, currentPeriodEndAt ?? 0)`; `canceled` or lapsed periods start at `now`), and `randomHex(charCount)` via `crypto.getRandomValues`.
+3. **`convex/lib/paymongo.ts`** (created) — `paymongoSecretKey()` (throws `PAYMENT_PROVIDER` app error when unset), `expectedLivemode()`, `siteUrl()` (trailing-slash stripped, localhost default), `verifyPaymongoSignature(rawBody, signatureHeader, secret, now?)` accepting both `{t}.{body}` timestamped and raw-body schemes with a 5-minute tolerance and constant-time hex comparison, and `createCheckoutSession(input)` (POST to `/v2/checkout_sessions` with Basic auth from the secret key, defensive `unknown`-typed response extraction, `appError` on non-OK or incomplete payloads).
+4. **`.env.example`** (modified) — appended the PayMongo block verbatim: comments/placeholders only, no secret values. Documents `PAYMONGO_SECRET_KEY`, `PAYMONGO_WEBHOOK_SECRET`, `PAYMONGO_LIVEMODE`, the webhook endpoint path, and the events to subscribe to.
+5. **`convex-test/billingUnits.test.ts`** (created) — 8 tests verbatim from the brief covering both signature schemes, tampered body, stale timestamp, wrong secret, missing header, and the period-math cases.
 
-### 3. `convex-test/seed.test.ts`
-- Appended `"seeds system templates idempotently"` test inside the existing `describe`, verbatim: two `seedReferenceData` runs, then counts `isSystem` templates via `t.run` and asserts exactly 3. This genuinely exercises idempotency — it fails (count = 1) against a non-idempotent filter and passes only when the second run inserts nothing.
+## TDD Evidence
 
-## Deviations from the brief (with reasons)
+**RED** — `npx vitest run convex-test/billingUnits.test.ts` (before implementation):
 
-The brief's code blocks were specified as verbatim, but three snippets could not compile/run against the Task 1 schema and Convex/TS semantics. Each was fixed minimally; all data values, names, and structure are unchanged:
+```
+ FAIL  convex-test/billingUnits.test.ts [ convex-test/billingUnits.test.ts ]
+Error: Cannot find module '../convex/lib/billing' imported from .../convex-test/billingUnits.test.ts
+ Test Files  1 failed (1)
+      Tests  no tests
+```
 
-1. **`orgId: null` omitted from the template insert.**
-   `eventTemplates.orgId` is `v.optional(v.id("organizations"))` (schema.ts:254). Convex `v.optional` accepts field-absence/`undefined`, NOT explicit `null` — the verbatim insert threw `Validator error: Expected string, got null`, cascading into 23 test failures. Omitting the field is semantically identical (system templates have no org).
+**GREEN** — same command after implementation:
 
-2. **`&&` → `q.and(...)` in the seed filter.**
-   JavaScript cannot overload `&&`; in `q.eq(...) && q.eq(...)` the first operand is truthy, so the whole expression evaluates to just the second condition (`isSystem: true`), silently dropping the name check. Result: the first inserted template matched as "existing" for the other two, so only 1 of 3 templates was created (test observed `expected 1 to be 3`). Fixed with `q.and(q.eq(q.field("name"), tpl.name), q.eq(q.field("isSystem"), true))`, preserving the brief's exact semantics.
+```
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+```
 
-3. **`as const` dropped on `SYSTEM_TEMPLATES`, replaced with an explicit type annotation.**
-   - With `as const`: `tsc` error TS2322 — readonly arrays are not assignable to the mutable array types `v.array()` infers for `configSnapshot` (readonly object *properties* are assignable; readonly *arrays* are not — this is why `SYSTEM_PLANS` with `as const` works: it contains no arrays).
-   - Without any annotation: `resultVisibility` widened to `string`, failing the `"private" | "organization" | "public"` union.
-   - Resolution: `export const SYSTEM_TEMPLATES: { name: string; description: string; configSnapshot: Doc<"eventTemplates">["configSnapshot"] }[]` with `import type { Doc } from "../_generated/dataModel"` — the established pattern in `convex/lib` (used by authz.ts, auth.ts, entitlements.ts). Array data remains verbatim; no casts, no duplicated shape.
+**Full suite** — `npx vitest run`:
 
-## Verification evidence
+```
+ Test Files  28 passed (28)
+      Tests  177 passed (177)
+```
 
-- `npm test`: **32/32 passed (7 files)** — matches expected baseline 31 + 1 new.
-  - Intermediate runs documented the failures that motivated deviations 1 and 2 (23 failed with validator error on `null`; then 1 failed with `expected 1 to be 3`).
-- `Remove-Item -Force tsconfig.tsbuildinfo; npm run typecheck`: **exit 0** (after deviation 3; the verbatim form produced the TS2322 quoted above).
-- No comments added anywhere; nothing beyond the three specified files changed.
+No warnings, no console noise, no skipped/failed tests.
 
-## Files changed (commit `02b5762`)
+**Typecheck** — `npx convex codegen; npx tsc --noEmit`: both clean, zero errors.
 
-- `convex/lib/constants.ts` (+75/−8)
-- `convex/seed.ts` (+15/−1)
-- `convex-test/seed.test.ts` (+10/−1)
+## Files Changed (committed)
 
-Commit message (exact, per brief): `feat: event-domain permissions, role wiring, system templates`
-Branch: `phase2-competition-config`
+- `convex/lib/errors.ts` (modified)
+- `convex/lib/paymongo.ts` (created)
+- `convex/lib/billing.ts` (created)
+- `.env.example` (modified)
+- `convex-test/billingUnits.test.ts` (created)
+- `convex/_generated/api.d.ts` (modified by `npx convex codegen` — registers `lib/billing` and `lib/paymongo` modules; included per the brief's `git add` list)
 
-## Self-review findings
+Not committed (left for the controller): `.superpowers/sdd/*` changes. `AGENTS.md` untouched and never staged.
 
-- Permission lists: byte-compared against brief — verbatim. Event Admin list contains exactly 9 permissions, no `event.delete`. ✓
-- Template data: all 3 templates' names, descriptions, config values byte-compared — verbatim. ✓
-- No code comments. ✓
-- No extra functionality, no schema changes, no out-of-scope edits. Unrelated dirty files in the worktree (`.gitignore`, `.superpowers/sdd/*`) were left unstaged. ✓
-- Concern for downstream tasks: system template docs have NO `orgId` field (absent, not `null`) — any future query filtering `orgId === null` should use absence/`undefined` semantics or `q.eq(q.field("orgId"), undefined)`.
+## Self-Review Findings
+
+- **Completeness:** every brief step executed in order (failing tests → verified fail → implement → verified pass → codegen/typecheck → exact-file commit). All interfaces Tasks 4–6 need are exported as specified.
+- **Constants verified:** MONTHLY = 30×24h, YEARLY = 365×24h, grace = 7d, stale = 24h, tolerance = 5min — asserted by tests and by reading the diff.
+- **Security:** signature verification runs on the raw body string before any JSON parsing; comparison is length-checked constant-time XOR; secret key only ever used server-side; `.env.example` contains comments/placeholders only.
+- **Quality gates:** no `any`, no `@ts-ignore`, no non-null assertions; response parsing narrows `unknown` through `isRecord` guards; `tsc --noEmit` passes.
+- **Scope:** no files outside the brief's list were modified. Codegen produced a real diff this time (new lib modules) — verified it contains only the two new module registrations before staging.
+
+## Concerns
+
+None.
+
+## Review Fix Report (post-review)
+
+**Status:** DONE
+**Commit:** 154de8c — `fix(billing): use web-standard btoa and typed network errors in PayMongo client`
+
+### What changed
+
+1. **`convex/lib/paymongo.ts` — Finding 1 (Important):** `createCheckoutSession` built the Basic auth header with `Buffer.from(...).toString("base64")`. `Buffer` is a Node global absent in Convex's default V8-isolates runtime, which would have thrown `ReferenceError` in production. Replaced with web-standard `btoa` (safe here — PayMongo secret keys are ASCII).
+2. **`convex/lib/paymongo.ts` — Finding 2 (Minor):** wrapped the `await fetch(...)` call in try/catch so network-level failures (DNS, timeout) throw a typed `appError(ErrorCode.PAYMENT_PROVIDER, "PayMongo request failed: ...")` instead of propagating a raw `TypeError`. Response handling unchanged.
+3. **`convex-test/billingUnits.test.ts`:** added one test ("maps a network-level fetch failure to a PAYMENT_PROVIDER error") that stubs `fetch` via `vi.stubGlobal` to reject, stubs `PAYMONGO_SECRET_KEY` via `vi.stubEnv`, and asserts `createCheckoutSession` rejects with `data: { code: "PAYMENT_PROVIDER" }` — exercising the end-to-end non-Buffer path. Existing `afterEach` unstubbing preserved.
+
+### Commands run
+
+- `npx vitest run convex-test/billingUnits.test.ts` → `Test Files 1 passed (1), Tests 9 passed (9)` (8 existing + 1 new)
+- `npx tsc --noEmit` → clean, zero errors
+- `git add convex/lib/paymongo.ts convex-test/billingUnits.test.ts` + commit → `154de8c` (2 files, 53 insertions, 25 deletions)
+
+### Concerns
+
+None. No `any`, no `@ts-ignore`, `AGENTS.md` never staged.

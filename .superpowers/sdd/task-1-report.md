@@ -1,38 +1,60 @@
-# Task 1 Report: Schema extension (Phase 2 — Competition Config Engine)
+# Task 1 Report: Schema additions + plan pricing
 
 **Status:** DONE
+**Commit:** `a274572` feat(billing): add billingPayments/processedWebhookEvents schema and PHP plan pricing
 
-## What was implemented
+## What I implemented
 
-1. **`invitations.eventId` migration** — changed from `v.union(v.null(), v.string())` (with the Phase-2 marker comment) to `v.union(v.null(), v.id("events"))`. Marker comment removed.
-2. **9 new tables appended** inside `defineSchema({...})` after `auditLogs`, verbatim from the brief:
-   - `events` — indexes: `by_org_id_and_slug`, `by_org_id_and_status`, `by_org_id`
-   - `categories` — index: `by_event_id`
-   - `rounds` — index: `by_event_id`
-   - `criteria` — index: `by_round_id`
-   - `contestants` — indexes: `by_event_id`, `by_event_id_and_category_id`, `by_event_id_and_number`
-   - `judges` — indexes: `by_event_id`, `by_event_id_and_user_id`, `by_user_id`
-   - `judgeAssignments` — indexes: `by_judge_id`, `by_event_id`
-   - `scoreSheets` — indexes: `by_event_id_and_round_id`, `by_judge_id_and_round_id`, `by_event_id_and_round_id_and_contestant_id`
-   - `eventTemplates` — indexes: `by_org_id`, `by_name`
+Followed the brief verbatim (TDD):
 
-## Verify results (run in brief order)
+1. **Test (Step 1):** Created `convex-test/billing.test.ts` with the exact content from the brief — seeds via `seedAndProvision(t, aliceIdentity)`, queries `api.plans.list`, asserts `priceCents` (Free 0, Starter 49900, Pro 149900), and `currency: "PHP"`, `billingInterval: "monthly"`, `isActive: true` for all plans.
+2. **Schema (Step 3):** In `convex/schema.ts`:
+   - Added `billingPayments` table (after `subscriptions`) with fields exactly per brief: `orgId`, `planId`, `createdById`, `checkoutSessionId`, `checkoutUrl`, `referenceNumber`, `amountCents`, `currency`, `billingInterval` (monthly|yearly), `status` (pending|paid|failed|expired|cancelled|flagged), `periodStartAt`, `periodEndAt`, `paidAt`, `failureReason`; indexes `by_org_id`, `by_status`, `by_checkout_session_id`, `by_reference_number`.
+   - Added `processedWebhookEvents` table with `eventId`, `eventType`, `receivedAt`; index `by_event_id`.
+   - Added `subscriptions` index `by_status_and_period_end` on `["status", "currentPeriodEndAt"]` (name includes all index fields, per Convex guidelines).
+3. **Pricing (Step 3):** In `convex/lib/constants.ts`, added `priceCents`/`currency`/`billingInterval`/`isActive` to each `SYSTEM_PLANS` entry after `isSystem: true,` (Free 0, Starter 49900, Pro 149900; all `"PHP"`, `"monthly"`, `true`). `seed.ts` spreads entries with `{ ...plan }`, so pricing flows into the `plans` table with no seed changes needed.
 
-1. `npx convex dev --once` — schema pushed cleanly to deployment `maze-839e1:tabulation-ai-powered:dev/maze`. All 20 new table indexes added; **no conflict** reported on the `invitations.eventId` narrowing (all existing values are null). "Convex functions ready! (8.18s)"
-2. `Remove-Item -Force tsconfig.tsbuildinfo; npm run typecheck` — exit 0, no errors.
-3. `npm test` — **31/31 tests passed** across 7 test files (3.34s). No new tests added, as specified.
+## TDD evidence
 
-## Files changed
+**RED** — `npx vitest run convex-test/billing.test.ts` (before implementation):
 
-- `convex/schema.ts` (+139 / -1)
+```
+ FAIL  convex-test/billing.test.ts > billing plans > seeds plans with PHP pricing
+AssertionError: expected undefined to be +0
+    expect(byName.get("Free")?.priceCents).toBe(0);
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+```
 
-## Commit
+**GREEN** — same command after implementation:
 
-- `e34a8a3` — `feat: Phase 2 schema - events, config, participants, sheets, templates` (only `convex/schema.ts` staged; unrelated dirty SDD-tooling files left uncommitted)
+```
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+```
+
+**Codegen + typecheck (Step 5):** `npx convex codegen; if ($?) { npx tsc --noEmit }` — both succeeded (codegen completed "Generating TypeScript bindings... Running TypeScript..." and tsc produced no errors).
+
+**Full unit suite (safety check, beyond brief):** `npx vitest run` — `27 files / 169 tests passed`, confirming the shared schema/seed changes broke nothing.
+
+## Files changed (commit a274572)
+
+- `convex/schema.ts` — two new tables + one new `subscriptions` index (+38 lines)
+- `convex/lib/constants.ts` — pricing fields on all three `SYSTEM_PLANS` entries (+12 lines)
+- `convex-test/billing.test.ts` — new test (verbatim from brief)
+
+No `convex/_generated` changes were committed because codegen produced zero diffs there: this project's generated `dataModel.d.ts` derives types via `DataModelFromSchemaDefinition<typeof schema>`, so table additions require no regeneration of the checked-in files (verified via `git status` and grep — expected and correct).
 
 ## Self-review findings
 
-- All 9 tables present with exact field names, validators, and index names as specified in the brief (diff compared line-by-line).
-- Object-form conventions followed; no `v.any()` anywhere in the file; no code comments added.
-- Nothing extra added beyond the two specified changes.
-- No concerns.
+- **Completeness:** All brief steps done with exact values; test file byte-equivalent to the brief's listing.
+- **Quality/conventions:** Matches existing `defineTable` style and index naming; no `any`, no `@ts-ignore`, no comments added; no scope creep (only files listed in the brief were touched).
+- **Constraints honored:** Money as integer PHP centavos with field name `priceCents`; exact plan values; no unlisted files staged.
+- **Observation:** The `plans` table in `convex/schema.ts` already had optional `priceCents`/`currency`/`billingInterval`/`isActive` fields before this task, so no `plans` schema change was required (the brief did not ask for one).
+
+## Concerns
+
+None blocking. Notes:
+
+- `.superpowers/sdd/task-1-brief.md` was already modified in the working tree before this task started; deliberately left unstaged.
+- `npx convex codegen` contacts the configured (dev) deployment as part of its normal flow; no deployment-affecting push beyond function metadata upload.

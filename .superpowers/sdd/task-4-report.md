@@ -1,85 +1,46 @@
-# Task 4 Report: Events CRUD (Phase 2 — Competition Config Engine)
+# Task 4 Report: Checkout flow (`billing/checkout.ts`)
 
-**Status:** DONE_WITH_CONCERNS (one minimal, flagged deviation from the brief's verbatim code — see Deviation 1)
-**Commit:** `27a82e3` — `feat: events create/get/listByOrg/update with limits and audit`
-**Branch:** `phase2-competition-config`
+## Status: COMPLETE
 
-## Files
+## What Was Implemented
 
-- **Created** `convex/events.ts` — `create` / `get` / `listByOrg` / `update` mutations & queries
-- **Created** `convex-test/events.test.ts` — 7 tests, verbatim from the brief
-- **Modified** `convex-test/setup.ts` — appended `createOrgAndEvent` (existing exports untouched, verbatim from brief)
-- **Modified** `convex/_generated/api.d.ts` — regenerated via `npx convex codegen` (see Deviation 2)
+Per the brief, verbatim:
+
+1. **`convex-test/setup.ts`** — added the shared helper `createOrgWithPendingCheckout(t, opts)` (bootstraps org "acme" once, stubs fetch/env, runs the real `createCheckout` action, then reads back the pending payment) plus the `vi` import. Per the brief's note, `grantPaidPlan` and the `internal` import were intentionally NOT added (Task 5).
+2. **`convex-test/billingCheckout.test.ts`** — 6 tests covering: happy-path pending payment with checkout URL; Free plan → VALIDATION_ERROR and unknown plan → NOT_FOUND; one-live-checkout rule → CONFLICT; non-member → FORBIDDEN; PayMongo rejection → payment marked failed with `failureReason` and PAYMENT_PROVIDER error; cancelCheckout happy path + CONFLICT when none active.
+3. **`convex/billing/checkout.ts`**:
+   - `createPendingPayment` (internalMutation): `requirePermission("subscription.manage")`, server-side amount from `plans.priceCents`, Free/unpriced/inactive → VALIDATION_ERROR, unknown plan → NOT_FOUND, one-live-checkout CONFLICT, inserts pending `billingPayments` row with `referenceNumber` = `{paymentId}.{randomHex(6)}`, audit `billing.checkout.created`.
+   - `attachCheckoutSession` (internalMutation): guards payment still pending; rejects checkout-session clash on another payment.
+   - `failPayment` (internalMutation): idempotent — only patches payments still pending; audit `billing.checkout.failed` with `actorId: null`.
+   - `createCheckout` (public action): pending mutation → `createCheckoutSession` → attach; on PayMongo failure marks failed and rethrows.
+   - `cancelCheckout` (public mutation): permission-gated, CONFLICT when no pending checkout, audit `billing.checkout.cancelled`.
+   - Used the brief's corrected final import block (no unused `Id` import).
 
 ## TDD Evidence
 
-### Step 2 — RED (`npm test` after writing only the test file)
+- **RED**: `npx vitest run convex-test/billingCheckout.test.ts` → 6/6 failed with `Could not find module for: "billing/checkout"` (exactly the brief's expected failure mode).
+- **GREEN**: same command after implementation → **6/6 passed**, pristine output (no console noise, no unhandled rejections).
+- **Regression sweep**: `npx vitest run convex-test/billingCheckout.test.ts convex-test/billing.test.ts convex-test/billingPayments.test.ts convex-test/billingUnits.test.ts` → **4 files, 18/18 passed**.
+- **Type safety**: `npx convex codegen` (regenerated `api.d.ts`) followed by `npx tsc --noEmit` → clean, no errors.
 
-```
- ❯ convex-test/events.test.ts (7 tests | 7 failed) 1275ms
-     × creates an event in draft with default settings 447ms
-     × rejects duplicate slug within the org with CONFLICT 217ms
-     × refuses event.create for a Viewer member 211ms
-     × get returns null for a non-member (cross-org) 102ms
-     × enforces maxEvents limit (Free plan = 1) 88ms
-     × updates name while draft 109ms
-     × eventAuthz: unknown slug NOT_FOUND; non-member get null 93ms
- Test Files  1 failed | 7 passed (8)
-      Tests  7 failed | 32 passed (39)
-```
+## Files Changed (commit 926d292)
 
-All 7 failures were `Error: Could not find module for: "events"` (i.e. `api.events` undefined), and the prior 32 tests passed — exactly the RED state the brief predicted.
+- `convex/billing/checkout.ts` (new)
+- `convex-test/billingCheckout.test.ts` (new)
+- `convex-test/setup.ts` (modified — helper + `vi` import only)
+- `convex/_generated/api.d.ts` (regenerated)
 
-### Intermediate — first GREEN attempt after implementing brief-verbatim code
+Commit: `926d292 feat(billing): implement PayMongo checkout flow with one-live-checkout guard`
 
-```
- ❯ convex-test/events.test.ts (7 tests | 1 failed) 1262ms
-     × rejects duplicate slug within the org with CONFLICT 220ms
- Test Files  1 failed | 7 passed (8)
-      Tests  1 failed | 38 passed (39)
-```
+## Self-Review
 
-Failure detail: `expected ConvexError: Limit reached: events ... "code": "LIMIT_EXCEEDED"` — this exposed the latent ordering bug in the brief's verbatim `create` (Deviation 1 below).
+- **Completeness vs brief**: all 6 steps executed in order; code used verbatim from the brief including the corrected import block. `grantPaidPlan`/`internal` import correctly deferred to Task 5.
+- **Constraints verified**: amounts computed only server-side from `plan.priceCents` (client args are `orgSlug` + `planName` only); CONFLICT on existing pending payment; VALIDATION_ERROR for Free (priceCents 0)/unpriced/inactive; NOT_FOUND for unknown plan; audit actions exactly `billing.checkout.created` / `billing.checkout.failed` / `billing.checkout.cancelled`; no `any`, no `@ts-ignore`.
+- **Scope**: only the brief's listed files staged/committed; pre-existing modified `.superpowers/sdd/*` files left untouched and unstaged; AGENTS.md never staged.
+- **No overbuilding**: nothing added beyond the brief.
 
-### Step 5 — GREEN (after the minimal fix)
+## Concerns
 
-```
- Test Files  8 passed (8)
-      Tests  39 passed (39)
-   Start at  23:27:34
-```
-
-Final gate re-run (post-codegen, both in one shell):
-
-```
- Test Files  8 passed (8)
-      Tests  39 passed (39)
-TEST_EXIT=0
-... (Remove-Item tsconfig.tsbuildinfo; npm run typecheck → no output)
-TSC_EXIT=0
-```
-
-- `npm test`: **39/39 passed**, exit 0
-- `Remove-Item -Force tsconfig.tsbuildinfo; npm run typecheck`: **exit 0**, no errors
-
-## Deviations from the brief (flagged, minimal)
-
-### Deviation 1 (required — brief's verbatim code could not pass its own tests)
-
-`convex/events.ts` `create`: the brief ordered the checks as `requirePermission → requireLimit → slugify → duplicate-slug check`. With the Free plan's `maxEvents = 1` (the same fact the brief's own limit test asserts), any *second* event creation in an org — including a duplicate-slug attempt — trips `LIMIT_EXCEEDED` before the duplicate check ever runs. The brief's verbatim test "rejects duplicate slug within the org with CONFLICT" is therefore unpassable with the brief's verbatim implementation (observed: 38/39, that test failing with `LIMIT_EXCEEDED`).
-
-**Minimal fix:** moved the duplicate-slug (`CONFLICT`) check before `requireLimit`. Net ordering: `requirePermission → slugify/validate → duplicate check → requireLimit → insert`. No other logic changed. Both affected tests pass:
-- duplicate-slug test: `CONFLICT` (duplicate found before limit check)
-- limit test: distinct slug `"two"` clears the duplicate check, then `requireLimit` throws `LIMIT_EXCEEDED` (usage=1, max=1)
-
-### Deviation 2 (required — regenerated codegen committed alongside)
-
-The brief's commit step lists only `convex/events.ts convex-test/events.test.ts convex-test/setup.ts`, but `npm run typecheck` failed with `TS2339: Property 'events' does not exist` (14 errors) until `npx convex codegen` regenerated `convex/_generated/api.d.ts`. The repo's own convention (commit `8462fd6`) commits regenerated `_generated/api.d.ts` with the functions that changed it; omitting it leaves a dirty tree and breaks typecheck on fresh checkout. I included it in the single commit. Everything else staged matched the brief exactly.
-
-## Self-review checklist
-
-- Endpoints match the brief verbatim (args validators, handlers, return types) — sole exception is Deviation 1's reordering, which preserves every error code and behavior except which code wins when both a duplicate slug and a limit would apply (CONFLICT now takes precedence, which the brief's own test demands).
-- Tests are the brief's verbatim and genuinely assert behavior (draft status, precision default, error codes, null-on-non-member, rename round-trip).
-- Constraints honored: object-form `{ args, handler }` syntax; validators on every function; identity always derived server-side (no `userId` auth arg); no `Date.now()` in queries; no `any` / `as never`; no code comments; exactly one commit.
-- `createOrgAndEvent` appended after existing exports; existing exports (`setupTest`, `seedAndProvision`, `aliceIdentity`, `bobIdentity`) byte-identical to before.
-- Pre-existing dirty files (`.gitignore`, `.superpowers/sdd/*`, `.graphify*`) were left untouched and uncommitted.
+- `checkoutCounter` is module-level state in setup.ts; suffix collisions across test files are impossible to matter because each `convexTest` instance is an isolated DB (and vitest isolates module state per worker anyway). Noted for awareness only.
+- The pending-checkout lookup uses `by_org_id` + `.filter(status)` rather than a dedicated index. Correct and matches the brief; revisit only if payment history per org grows large (a `by_status` index exists if Task 7's stale-pending sweep ever needs it).
+- `createCheckout` is an action calling an internal mutation for authz — this is the intentional brief/repo pattern (action context can't run the full authz chain in one transaction); the one-live-checkout rule therefore isn't transactionally atomic against concurrent actions, but Convex serializes the internal mutations so the window is negligible for this workflow.
