@@ -13,12 +13,14 @@ export function periodDurationMs(interval: "monthly" | "yearly"): number {
 type RenewalSubscription = Pick<Doc<"subscriptions">, "status" | "currentPeriodEndAt">;
 
 /**
- * Fixed-duration prepaid periods. A renewal while a period is still running
- * stacks on its end (the customer keeps paid time); otherwise the new period
- * starts now. `past_due` periods have already lapsed, so stacking is a no-op.
+ * Fixed-duration prepaid periods whose length follows the paid plan's billing
+ * interval. A renewal while a period is still running stacks on its end (the
+ * customer keeps paid time); otherwise the new period starts now. `past_due`
+ * periods have already lapsed, so stacking is a no-op.
  */
 export function computeRenewalWindow(
   subscription: RenewalSubscription,
+  interval: "monthly" | "yearly",
   now: number,
 ): { periodStartAt: number; periodEndAt: number } {
   const stackable =
@@ -28,8 +30,7 @@ export function computeRenewalWindow(
   const periodStartAt = stackable
     ? Math.max(now, subscription.currentPeriodEndAt ?? 0)
     : now;
-  // Billing interval is always monthly today; yearly arrives with yearly plans.
-  return { periodStartAt, periodEndAt: periodStartAt + MONTHLY_PERIOD_MS };
+  return { periodStartAt, periodEndAt: periodStartAt + periodDurationMs(interval) };
 }
 
 export function randomHex(charCount: number): string {

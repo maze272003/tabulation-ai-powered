@@ -131,7 +131,7 @@ async function applyPaidEvent(ctx: MutationCtx, event: ProcessedEvent): Promise<
     return flagPayment(ctx, payment, "No subscription found for organization");
   }
   const now = Date.now();
-  const window = computeRenewalWindow(subscription, now);
+  const window = computeRenewalWindow(subscription, payment.billingInterval, now);
   await ctx.db.patch(payment._id, {
     status: "paid",
     paidAt: now,
@@ -227,6 +227,7 @@ export const paymongoWebhook = httpAction(async (ctx, request) => {
     return new Response(null, { status: 200 });
   }
   if (extracted.livemode !== expectedLivemode()) {
+    console.warn("paymongo webhook: livemode mismatch — event dropped");
     return new Response(null, { status: 200 });
   }
   try {

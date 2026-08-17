@@ -42,6 +42,15 @@ describe("paymongo signature verification", () => {
     await expect(verifyPaymongoSignature(body, header, SECRET, now)).resolves.toBe(true);
   });
 
+  it("accepts a timestamped signature delivered under the sig1 key", async () => {
+    const now = Date.now();
+    const timestampSeconds = Math.floor(now / 1000);
+    const sig = await hmacHex(SECRET, `${timestampSeconds}.${body}`);
+    await expect(
+      verifyPaymongoSignature(body, `t=${timestampSeconds},sig1=${sig}`, SECRET, now),
+    ).resolves.toBe(true);
+  });
+
   it("accepts a valid raw-body-only signature (no timestamp)", async () => {
     const sig = await hmacHex(SECRET, body);
     await expect(verifyPaymongoSignature(body, `sig=${sig}`, SECRET)).resolves.toBe(true);
@@ -94,16 +103,24 @@ describe("billing period math", () => {
   it("stacks a renewal on an active period", () => {
     const now = 1_000_000_000_000;
     const end = now + 10 * 24 * 60 * 60 * 1000;
-    const window = computeRenewalWindow({ status: "active", currentPeriodEndAt: end }, now);
+    const window = computeRenewalWindow({ status: "active", currentPeriodEndAt: end }, "monthly", now);
     expect(window.periodStartAt).toBe(end);
     expect(window.periodEndAt).toBe(end + MONTHLY_PERIOD_MS);
+  });
+
+  it("stacks a yearly renewal for a full year on an active period", () => {
+    const now = 1_000_000_000_000;
+    const end = now + 10 * 24 * 60 * 60 * 1000;
+    const window = computeRenewalWindow({ status: "active", currentPeriodEndAt: end }, "yearly", now);
+    expect(window.periodStartAt).toBe(end);
+    expect(window.periodEndAt).toBe(end + YEARLY_PERIOD_MS);
   });
 
   it("starts at now when the period already lapsed or status does not stack", () => {
     const now = 1_000_000_000_000;
     const lapsed = now - 1000;
-    expect(computeRenewalWindow({ status: "past_due", currentPeriodEndAt: lapsed }, now).periodStartAt).toBe(now);
-    expect(computeRenewalWindow({ status: "canceled", currentPeriodEndAt: now + 5000 }, now).periodStartAt).toBe(now);
-    expect(computeRenewalWindow({ status: "active", currentPeriodEndAt: null }, now).periodStartAt).toBe(now);
+    expect(computeRenewalWindow({ status: "past_due", currentPeriodEndAt: lapsed }, "monthly", now).periodStartAt).toBe(now);
+    expect(computeRenewalWindow({ status: "canceled", currentPeriodEndAt: now + 5000 }, "monthly", now).periodStartAt).toBe(now);
+    expect(computeRenewalWindow({ status: "active", currentPeriodEndAt: null }, "monthly", now).periodStartAt).toBe(now);
   });
 });

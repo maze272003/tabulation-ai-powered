@@ -35,7 +35,7 @@ function parseSignatureHeader(
     const value = part.slice(separatorIndex + 1).trim();
     if (key === "t" && value !== "" && !Number.isNaN(Number(value))) {
       timestamp = Number(value);
-    } else if (key === "sig" && value !== "") {
+    } else if ((key === "sig" || key === "sig1") && value !== "") {
       signature = value;
     }
   }
