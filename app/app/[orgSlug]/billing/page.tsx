@@ -97,7 +97,7 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
     setBusyPlan(planName);
     try {
       const url = await startCheckout({ orgSlug, planName });
-      window.location.href = url;
+      window.location.assign(url);
     } catch (error) {
       toast.error(errorMessage(error));
       setBusyPlan(null);
@@ -189,7 +189,7 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
           </CardHeader>
           <CardFooter className="gap-2">
             {pendingCheckoutUrl ? (
-              <Button onClick={() => (window.location.href = pendingCheckoutUrl)}>
+              <Button onClick={() => window.location.assign(pendingCheckoutUrl)}>
                 Complete payment <ExternalLink aria-hidden className="size-4" />
               </Button>
             ) : null}
