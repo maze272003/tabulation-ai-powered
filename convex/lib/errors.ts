@@ -12,6 +12,7 @@ export const ErrorCode = {
   CONFLICT: "CONFLICT",
   TIES_UNRESOLVED: "TIES_UNRESOLVED",
   PAYMENT_PROVIDER: "PAYMENT_PROVIDER",
+  UPSTREAM: "UPSTREAM",
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
