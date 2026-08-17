@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { api } from "../convex/_generated/api";
-import { aliceIdentity, createOrgAndEvent, grantPaidPlan, seedAndProvision, setupTest } from "./setup";
+import { aliceIdentity, createOrgAndEvent, grantPaidPlan, setupTest } from "./setup";
 
 async function codeOf(t: ReturnType<typeof setupTest>, eventSlug: string): Promise<string> {
   const ev = await t.withIdentity(aliceIdentity).query(api.events.get, { orgSlug: "acme", eventSlug });

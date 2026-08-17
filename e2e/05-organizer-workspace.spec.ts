@@ -33,4 +33,9 @@ test.describe("5. Organizer Dashboard & Event Workspace Security Suite", () => {
     await page.goto("/app/e2e-org/events/e2e-event/accounts");
     await expect(page).toHaveURL(/.*\/sign-in\?next=%2Fapp%2Fe2e-org%2Fevents%2Fe2e-event%2Faccounts/);
   });
+
+  test("should enforce unauthenticated route protection on billing page", async ({ page }) => {
+    await page.goto("/app/e2e-org/billing");
+    await expect(page).toHaveURL(/.*\/sign-in\?next=%2Fapp%2Fe2e-org%2Fbilling/);
+  });
 });

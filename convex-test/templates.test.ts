@@ -40,6 +40,7 @@ describe("templates", () => {
     const slug = await t.withIdentity(aliceIdentity).mutation(api.events.createFromTemplate, {
       orgSlug: "acme", name: "Clone", templateId: tplId,
     });
+    expect(slug).toBe("clone");
     const cloneRounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme", eventSlug: "clone" });
     expect(cloneRounds[0].name).toBe("Solo");
     expect(cloneRounds[0].criteria[0].name).toBe("Tech");
