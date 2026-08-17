@@ -36,7 +36,10 @@ export default function PublicResultsPage({ params }: { params: Promise<{ eventC
 
   if (result === undefined) return <LoadingScreen label="Loading results…" />;
 
-  if (result instanceof Error) {
+  // Null is the not-found contract for missing, non-public, and archived
+  // events; an Error indicates a genuine query failure. Both render the same
+  // non-leaking state.
+  if (result === null || result instanceof Error) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-2 p-8 text-center">
         <h1 className="text-2xl font-bold">Results not available</h1>

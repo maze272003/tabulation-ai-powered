@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
-import { appError, ErrorCode } from "./lib/errors";
 import { latestVersion } from "./lib/eventResults";
 
 export const get = query({
@@ -10,10 +9,11 @@ export const get = query({
       .query("events")
       .withIndex("by_event_code", (q) => q.eq("eventCode", args.eventCode))
       .unique();
-    // Identical error for missing, non-public, and archived events so the
-    // public endpoint never leaks the existence of private events.
+    // Returning null for missing, non-public, and archived events alike keeps
+    // the outcome identical, so the endpoint never leaks the existence of
+    // private events.
     if (!event || event.resultVisibility !== "public" || event.status === "archived") {
-      throw appError(ErrorCode.NOT_FOUND, "Event not found");
+      return null;
     }
 
     const categories = (await ctx.db

@@ -6,15 +6,9 @@ test.describe("Bulk import & public scoreboard", () => {
     await seedE2EDatabase();
   });
 
-  // KNOWN DEFECT (pre-existing, discovered by this spec): for unknown event
-  // codes, publicResults.get throws NOT_FOUND, and convex@1.43 surfaces that
-  // query error as an uncaught error rather than a useQuery return value.
-  // Next 16 then replaces the page with its global error UI ("This page
-  // couldn't load"), so the page's `result instanceof Error` branch never
-  // renders. Re-enable once the query's not-found path is deliverable to the
-  // page (e.g. returning null instead of throwing, with
-  // convex-test/publicResults.test.ts updated to the new contract).
-  test.fixme("public scoreboard shows not-available for unknown codes", async ({ page }) => {
+  // The query's null contract makes missing, non-public, and archived events
+  // render the identical results-unavailable state.
+  test("public scoreboard shows not-available for unknown codes", async ({ page }) => {
     await page.goto("/public/NOPE42");
     await expect(page.getByRole("heading", { name: "Results not available" })).toBeVisible();
   });

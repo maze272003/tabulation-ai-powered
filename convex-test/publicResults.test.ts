@@ -28,15 +28,13 @@ async function publishRound(t: ReturnType<typeof setupTest>, roundId: Id<"rounds
 }
 
 describe("publicResults.get", () => {
-  it("returns 404-equivalent for private events even when published", async () => {
+  it("returns null for private events even when published", async () => {
     const t = setupTest();
     const ids = await prepareScoredEvent(t); // default visibility: private
     await submitJudgeScores(t, ids.judgeSessions.bob, ids, [[8, 6], [5, 5]]);
     await submitJudgeScores(t, ids.judgeSessions.carol, ids, [[9, 7], [5, 5]]);
     await publishRound(t, ids.roundId);
-    await expect(t.query(api.publicResults.get, { eventCode: ids.eventCode })).rejects.toMatchObject({
-      data: { code: "NOT_FOUND" },
-    });
+    await expect(t.query(api.publicResults.get, { eventCode: ids.eventCode })).resolves.toBeNull();
   });
 
   it("returns only published rounds with projected fields for public events", async () => {
@@ -47,6 +45,7 @@ describe("publicResults.get", () => {
     await publishRound(t, ids.roundId);
 
     const result = await t.query(api.publicResults.get, { eventCode: ids.eventCode });
+    if (result === null) throw new Error("Expected results for a public event");
     expect(result.event.name).toBe("gala");
     expect(result.categories.length).toBe(1);
     expect(result.rounds.length).toBe(1);
@@ -67,13 +66,12 @@ describe("publicResults.get", () => {
     // Close but do not publish.
     await t.withIdentity(aliceIdentity).mutation(api.roundAdmin.closeRound, { ...BASE, roundId: ids.roundId });
     const result = await t.query(api.publicResults.get, { eventCode: ids.eventCode });
+    if (result === null) throw new Error("Expected results for a public event");
     expect(result.rounds).toEqual([]);
   });
 
-  it("returns NOT_FOUND for unknown event codes", async () => {
+  it("returns null for unknown event codes", async () => {
     const t = setupTest();
-    await expect(t.query(api.publicResults.get, { eventCode: "NOPE42" })).rejects.toMatchObject({
-      data: { code: "NOT_FOUND" },
-    });
+    await expect(t.query(api.publicResults.get, { eventCode: "NOPE42" })).resolves.toBeNull();
   });
 });
