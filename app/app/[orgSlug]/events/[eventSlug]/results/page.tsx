@@ -33,7 +33,11 @@ export default function ResultsPage({
   const ev = useQuery(api.events.get, { orgSlug, eventSlug });
   const categories = useQuery(api.categories.list, { orgSlug, eventSlug });
   const sub = useQuery(api.subscriptions.getForOrg, { orgSlug });
-  const exportData = useQuery(api.results.exportData, { orgSlug, eventSlug });
+  const planAllowsExport = sub?.plan?.features?.canExportReports === true;
+  const exportData = useQuery(
+    api.results.exportData,
+    planAllowsExport ? { orgSlug, eventSlug } : "skip",
+  );
   const finalize = useMutation(api.results.finalizeEvent);
   const correct = useMutation(api.roundAdmin.correctResults);
   const [correctFor, setCorrectFor] = useState<string | null>(null);
@@ -41,7 +45,7 @@ export default function ResultsPage({
   const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const canExport = sub?.plan?.features?.canExportReports === true && !(exportData instanceof Error);
+  const canExport = planAllowsExport && !(exportData instanceof Error);
 
   const nameMap = useMemo(() => {
     const map = new Map<string, string>();
