@@ -56,7 +56,7 @@ export function EventShell({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-3">
+      <div className="space-y-3 print:hidden">
         <Link
           href={`/app/${orgSlug}/events`}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -94,7 +94,7 @@ export function EventShell({
         ) : null}
       </div>
 
-      <nav aria-label="Event sections" className="flex flex-wrap gap-1 border-b">
+      <nav aria-label="Event sections" className="flex flex-wrap gap-1 border-b print:hidden">
         {nav.map((item) => {
           const active =
             pathname === item.href ||
