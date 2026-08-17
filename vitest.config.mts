@@ -4,6 +4,6 @@ export default defineConfig({
   test: {
     environment: "edge-runtime",
     testTimeout: 30000,
-    include: ["convex-test/**/*.test.ts", "components/**/*.test.ts"],
+    include: ["convex-test/**/*.test.ts", "components/**/*.test.ts", "lib/**/*.test.ts"],
   },
 });
