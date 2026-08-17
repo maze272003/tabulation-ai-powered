@@ -17,9 +17,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, UserRound } from "lucide-react";
+import { FileUp, Loader2, Plus, Trash2, UserRound } from "lucide-react";
 import { EmptyState, TableSkeleton } from "@/components/tabulation/StateBlock";
 import { toastMutationError } from "@/lib/convex-errors";
+import { ImportContestantsDialog } from "@/components/tabulation/ImportContestantsDialog";
 
 const STATUS_TONE: Record<string, string> = {
   active: "bg-success-muted text-success",
@@ -36,6 +37,7 @@ export default function ContestantsPage({ params }: { params: Promise<{ orgSlug:
   const [name, setName] = useState("");
   const [number, setNumber] = useState("");
   const [adding, setAdding] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const onError = (err: unknown) =>
     toastMutationError(err, {
@@ -45,9 +47,20 @@ export default function ContestantsPage({ params }: { params: Promise<{ orgSlug:
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle>Add a contestant</CardTitle>
-          <CardDescription>Contestant numbers must be unique within the event.</CardDescription>
+        <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1.5">
+            <CardTitle>Add a contestant</CardTitle>
+            <CardDescription>Contestant numbers must be unique within the event.</CardDescription>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setImportOpen(true)}
+          >
+            <FileUp aria-hidden className="size-4" />
+            Import CSV
+          </Button>
         </CardHeader>
         <CardContent>
           <form
@@ -171,6 +184,13 @@ export default function ContestantsPage({ params }: { params: Promise<{ orgSlug:
           )}
         </CardContent>
       </Card>
+
+      <ImportContestantsDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        orgSlug={orgSlug}
+        eventSlug={eventSlug}
+      />
     </div>
   );
 }
