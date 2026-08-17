@@ -20,6 +20,7 @@ import {
 import {
   CredentialsDialog,
 } from "@/components/tabulation/CredentialsDialog";
+import { BulkAccountsDialog } from "@/components/tabulation/BulkAccountsDialog";
 import {
   Users,
   UserPlus,
@@ -76,6 +77,7 @@ export default function EventAccountsPage({
 
   // Modals state
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [credentialsModalOpen, setCredentialsModalOpen] = useState(false);
   const [credentialsData, setCredentialsData] = useState<CredentialsData | null>(null);
 
@@ -254,13 +256,23 @@ export default function EventAccountsPage({
           </p>
         </div>
 
-        <Button
-          onClick={() => setCreateModalOpen(true)}
-          className="gap-1.5 h-9 font-semibold shadow-xs"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Create Account</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setBulkDialogOpen(true)}
+            className="gap-1.5 h-9 font-medium"
+          >
+            <Users className="w-4 h-4" />
+            <span>Bulk Create</span>
+          </Button>
+          <Button
+            onClick={() => setCreateModalOpen(true)}
+            className="gap-1.5 h-9 font-semibold shadow-xs"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Create Account</span>
+          </Button>
+        </div>
       </div>
 
       {/* Quota & Usage Overview */}
@@ -630,6 +642,16 @@ export default function EventAccountsPage({
         data={credentialsData}
         open={credentialsModalOpen}
         onOpenChange={setCredentialsModalOpen}
+      />
+
+      <BulkAccountsDialog
+        open={bulkDialogOpen}
+        onOpenChange={setBulkDialogOpen}
+        orgSlug={orgSlug}
+        eventSlug={eventSlug}
+        kind="judge"
+        eventName={currentEvent.name}
+        eventCode={currentEvent.eventCode}
       />
     </div>
   );
