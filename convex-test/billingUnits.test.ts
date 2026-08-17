@@ -1,0 +1,91 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  computeRenewalWindow,
+  MONTHLY_PERIOD_MS,
+  YEARLY_PERIOD_MS,
+} from "../convex/lib/billing";
+import { verifyPaymongoSignature } from "../convex/lib/paymongo";
+
+async function hmacHex(secret: string, payload: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const digest = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+const SECRET = "whsec_test";
+
+async function signedHeader(body: string, timestampSeconds: number): Promise<string> {
+  const sig = await hmacHex(SECRET, `${timestampSeconds}.${body}`);
+  return `t=${timestampSeconds},sig=${sig}`;
+}
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
+
+describe("paymongo signature verification", () => {
+  const body = JSON.stringify({ data: { id: "evt_1", attributes: { type: "checkout_session.payment.paid" } } });
+
+  it("accepts a valid timestamped signature", async () => {
+    const now = Date.now();
+    const header = await signedHeader(body, Math.floor(now / 1000));
+    await expect(verifyPaymongoSignature(body, header, SECRET, now)).resolves.toBe(true);
+  });
+
+  it("accepts a valid raw-body-only signature (no timestamp)", async () => {
+    const sig = await hmacHex(SECRET, body);
+    await expect(verifyPaymongoSignature(body, `sig=${sig}`, SECRET)).resolves.toBe(true);
+  });
+
+  it("rejects a tampered body", async () => {
+    const now = Date.now();
+    const header = await signedHeader(body, Math.floor(now / 1000));
+    await expect(verifyPaymongoSignature(body + "x", header, SECRET, now)).resolves.toBe(false);
+  });
+
+  it("rejects a stale timestamp", async () => {
+    const now = Date.now();
+    const header = await signedHeader(body, Math.floor(now / 1000) - 60 * 10);
+    await expect(verifyPaymongoSignature(body, header, SECRET, now)).resolves.toBe(false);
+  });
+
+  it("rejects a wrong secret and a missing header", async () => {
+    const now = Date.now();
+    const header = await signedHeader(body, Math.floor(now / 1000));
+    await expect(verifyPaymongoSignature(body, header, "other-secret", now)).resolves.toBe(false);
+    await expect(verifyPaymongoSignature(body, null, SECRET, now)).resolves.toBe(false);
+  });
+});
+
+describe("billing period math", () => {
+  it("uses fixed durations", () => {
+    expect(MONTHLY_PERIOD_MS).toBe(30 * 24 * 60 * 60 * 1000);
+    expect(YEARLY_PERIOD_MS).toBe(365 * 24 * 60 * 60 * 1000);
+  });
+
+  it("stacks a renewal on an active period", () => {
+    const now = 1_000_000_000_000;
+    const end = now + 10 * 24 * 60 * 60 * 1000;
+    const window = computeRenewalWindow({ status: "active", currentPeriodEndAt: end }, now);
+    expect(window.periodStartAt).toBe(end);
+    expect(window.periodEndAt).toBe(end + MONTHLY_PERIOD_MS);
+  });
+
+  it("starts at now when the period already lapsed or status does not stack", () => {
+    const now = 1_000_000_000_000;
+    const lapsed = now - 1000;
+    expect(computeRenewalWindow({ status: "past_due", currentPeriodEndAt: lapsed }, now).periodStartAt).toBe(now);
+    expect(computeRenewalWindow({ status: "canceled", currentPeriodEndAt: now + 5000 }, now).periodStartAt).toBe(now);
+    expect(computeRenewalWindow({ status: "active", currentPeriodEndAt: null }, now).periodStartAt).toBe(now);
+  });
+});

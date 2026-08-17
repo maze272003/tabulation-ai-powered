@@ -11,6 +11,7 @@ export const ErrorCode = {
   FEATURE_UNAVAILABLE: "FEATURE_UNAVAILABLE",
   CONFLICT: "CONFLICT",
   TIES_UNRESOLVED: "TIES_UNRESOLVED",
+  PAYMENT_PROVIDER: "PAYMENT_PROVIDER",
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
