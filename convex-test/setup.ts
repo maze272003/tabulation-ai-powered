@@ -2,7 +2,7 @@
 import { convexTest } from "convex-test";
 import type { UserIdentity } from "convex/server";
 import { vi } from "vitest";
-import { api } from "../convex/_generated/api";
+import { api, internal } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
 import schema from "../convex/schema";
 
@@ -206,4 +206,25 @@ export async function createOrgWithPendingCheckout(
     checkoutSessionId: `cs_test_${suffix}`,
     amountCents: active.amountCents,
   };
+}
+
+/**
+ * Grants a paid plan through the REAL path (checkout + paid webhook) so tests
+ * exercise the same state production reaches. Replaces the old
+ * `subscriptions.changePlan`-based setup.
+ */
+export async function grantPaidPlan(
+  t: ReturnType<typeof setupTest>,
+  planName: "Starter" | "Pro",
+): Promise<{ orgSlug: string; checkoutSessionId: string; amountCents: number }> {
+  const ctx = await createOrgWithPendingCheckout(t, { planName });
+  const outcome = await t.mutation(internal.billing.webhook.processWebhookEvent, {
+    eventId: `evt_grant_${planName}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    eventType: "checkout_session.payment.paid",
+    checkoutSessionId: ctx.checkoutSessionId,
+    referenceNumber: null,
+    paidAmount: ctx.amountCents,
+  });
+  if (outcome !== "applied") throw new Error(`grantPaidPlan failed: ${outcome}`);
+  return ctx;
 }

@@ -14,6 +14,7 @@ import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
 import type * as billing_checkout from "../billing/checkout.js";
 import type * as billing_payments from "../billing/payments.js";
+import type * as billing_webhook from "../billing/webhook.js";
 import type * as categories from "../categories.js";
 import type * as contestants from "../contestants.js";
 import type * as criteria from "../criteria.js";
@@ -83,6 +84,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   "billing/checkout": typeof billing_checkout;
   "billing/payments": typeof billing_payments;
+  "billing/webhook": typeof billing_webhook;
   categories: typeof categories;
   contestants: typeof contestants;
   criteria: typeof criteria;
