@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
+import { ExplainButton } from "@/components/tabulation/ExplainButton";
 import { Num } from "@/components/tabulation/Num";
 import { VersionBadge } from "@/components/tabulation/VersionBadge";
 
@@ -98,6 +99,9 @@ export function RoundResultsCard({
         )
       : round.standings;
   const groups = groupByCategory(rows, categoryNames);
+  // Explanations ground in the latest published version, so they are only
+  // offered while that version (not a historical one) is on screen.
+  const viewingCurrent = historical === undefined;
 
   return (
     <section className="space-y-2 rounded-lg border p-4" aria-label={round.name}>
@@ -148,6 +152,7 @@ export function RoundResultsCard({
                   <th className="py-1">Rank</th>
                   <th>Contestant</th>
                   <th>Round score</th>
+                  {viewingCurrent && <th className="py-1 text-right">Explain</th>}
                 </tr>
               </thead>
               <tbody>
@@ -160,6 +165,16 @@ export function RoundResultsCard({
                     <td>
                       <Num value={row.roundScore} precision={decimalPrecision} />
                     </td>
+                    {viewingCurrent && (
+                      <td className="text-right">
+                        <ExplainButton
+                          orgSlug={orgSlug}
+                          eventSlug={eventSlug}
+                          roundId={round.roundId}
+                          contestantId={row.contestantId}
+                        />
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
