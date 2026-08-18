@@ -97,6 +97,7 @@ export default function PlatformUsersPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        icon={Users}
         title="Users"
         description="Every account on the platform. Suspended users lose all access."
       />

@@ -115,7 +115,7 @@ export default function EnterResultsPage() {
       </div>
 
       {/* Banner */}
-      <Card className="border-border/60 shadow-sm bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-muted border-amber-500/20">
+      <Card className="border-border/60 shadow-sm bg-gradient-to-r from-warning/10 via-warning/5 to-muted border-warning/20">
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
@@ -124,7 +124,7 @@ export default function EnterResultsPage() {
                   Official Results
                 </Badge>
                 {isFinalized ? (
-                  <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-600 text-white text-xs">
+                  <Badge variant="default" className="bg-success hover:bg-success text-success-foreground text-xs">
                     Event Finalized
                   </Badge>
                 ) : (
@@ -140,7 +140,7 @@ export default function EnterResultsPage() {
             </div>
 
             <div className="flex items-center gap-2 bg-background/80 border border-border/60 p-3 rounded-xl">
-              <Trophy className="w-6 h-6 text-amber-500" />
+              <Trophy className="w-6 h-6 text-warning" />
               <div>
                 <span className="text-2xs uppercase font-semibold text-muted-foreground block">
                   Top Contestant
@@ -191,7 +191,7 @@ export default function EnterResultsPage() {
         <Card className="border-border/60 shadow-sm overflow-hidden">
           <CardHeader className="py-4 px-6 border-b border-border/40 bg-muted/20">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-amber-500" />
+              <Trophy className="w-4 h-4 text-warning" />
               <span>Weighted Final Standings</span>
             </CardTitle>
             <CardDescription className="text-xs">
@@ -237,7 +237,7 @@ export default function EnterResultsPage() {
                           Eliminated (R{row.eliminatedInRoundOrder})
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="text-2xs text-emerald-600 border-emerald-600/30">
+                        <Badge variant="outline" className="text-2xs text-success border-success/30">
                           Active
                         </Badge>
                       )}

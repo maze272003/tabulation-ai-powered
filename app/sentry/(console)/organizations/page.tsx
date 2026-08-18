@@ -51,6 +51,7 @@ export default function SentryOrganizationsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        icon={Building2}
         title="Organizations"
         description="Every organization on the platform with its subscription and usage."
       />

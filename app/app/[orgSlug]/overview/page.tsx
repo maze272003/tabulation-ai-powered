@@ -5,7 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/PageHeader";
-import { CalendarDays, CreditCard, Users } from "lucide-react";
+import { CalendarDays, CreditCard, LayoutDashboard, Users } from "lucide-react";
 import Link from "next/link";
 
 export default function OverviewPage({ params }: { params: Promise<{ orgSlug: string }> }) {
@@ -34,10 +34,11 @@ export default function OverviewPage({ params }: { params: Promise<{ orgSlug: st
   return (
     <div className="space-y-6">
       <PageHeader
+        icon={LayoutDashboard}
         title="Overview"
         description={`Welcome${org?.name ? ` to ${org.name}` : ""}. Here is the state of your organization.`}
       />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="stagger-fade grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {stats.map((stat) => (
           <Link key={stat.label} href={stat.href} className="group">
             <Card className="h-full transition-all group-hover:ring-primary/30 group-hover:shadow-md">

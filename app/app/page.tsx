@@ -25,6 +25,7 @@ export default function AppHome() {
   return (
     <main className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 sm:px-6">
       <PageHeader
+        icon={Building2}
         title="Your organizations"
         description="Select an organization to manage its events, templates, and billing."
         actions={<UserMenu />}

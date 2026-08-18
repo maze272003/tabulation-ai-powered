@@ -301,7 +301,7 @@ export default function EventAccountsPage({
                 <span className="text-xs text-muted-foreground">unlimited</span>
               </div>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-warning-muted text-warning flex items-center justify-center">
               <ShieldCheck className="w-5 h-5" />
             </div>
           </CardContent>
@@ -396,11 +396,11 @@ export default function EventAccountsPage({
                             Disabled
                           </Badge>
                         ) : isLocked ? (
-                          <Badge variant="outline" className="text-2xs text-amber-600 border-amber-500/40">
+                          <Badge variant="outline" className="text-2xs text-warning border-warning/40">
                             Locked Out
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-2xs text-emerald-600 border-emerald-500/40">
+                          <Badge variant="outline" className="text-2xs text-success border-success/40">
                             Active
                           </Badge>
                         )}
@@ -427,7 +427,7 @@ export default function EventAccountsPage({
                             size="xs"
                             onClick={() => handleToggleDisable(acc)}
                             disabled={isActing}
-                            className={`h-7 px-2 ${isDisabled ? "text-emerald-600 hover:text-emerald-700" : "text-muted-foreground hover:text-foreground"}`}
+                            className={`h-7 px-2 ${isDisabled ? "text-success hover:text-success/80" : "text-muted-foreground hover:text-foreground"}`}
                             title={isDisabled ? "Enable account" : "Disable account and revoke sessions"}
                           >
                             {isDisabled ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
@@ -500,7 +500,7 @@ export default function EventAccountsPage({
                   }`}
                 >
                   <div className="flex items-center gap-1.5 font-bold text-foreground">
-                    <ShieldCheck className="w-4 h-4 text-amber-600" />
+                    <ShieldCheck className="w-4 h-4 text-warning" />
                     <span>Event Staff</span>
                   </div>
                   <span className="text-2xs text-muted-foreground mt-0.5">
@@ -510,7 +510,7 @@ export default function EventAccountsPage({
               </div>
 
               {role === "judge" && isJudgeLimitReached && (
-                <p className="text-2xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1 font-medium">
+                <p className="text-2xs text-warning mt-1 flex items-center gap-1 font-medium">
                   <AlertTriangle className="w-3.5 h-3.5" />
                   <span>Judge limit reached ({maxJudges} max on your current tier).</span>
                 </p>

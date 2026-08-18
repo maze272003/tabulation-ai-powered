@@ -53,6 +53,7 @@ export default function PlatformAuditPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        icon={ScrollText}
         title="Audit log"
         description="Every administrative and organizational action, newest first."
       />

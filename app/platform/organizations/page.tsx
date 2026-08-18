@@ -53,6 +53,7 @@ export default function PlatformOrganizationsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        icon={Building2}
         title="Organizations"
         description="Every tenant on the platform. Suspend to revoke member access."
       />

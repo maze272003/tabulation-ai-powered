@@ -48,6 +48,7 @@ export default function EventsPage({ params }: { params: Promise<{ orgSlug: stri
   return (
     <div className="space-y-6">
       <PageHeader
+        icon={CalendarDays}
         title="Events"
         description="Create and manage competitions. Each event has its own accounts, rounds, and results."
         actions={

@@ -46,6 +46,7 @@ export default function SentryAuditPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <PageHeader
+          icon={ScrollText}
           title="Audit log"
           description="Every administrative action across the platform, newest first."
         />

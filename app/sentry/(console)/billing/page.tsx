@@ -41,7 +41,7 @@ export default function SentryBillingPage() {
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
 
   if (plans === undefined) {
-    return <PageHeader title="Billing" description="Loading billing data…" />;
+    return <PageHeader icon={CreditCard} title="Billing" description="Loading billing data…" />;
   }
 
   const editingPlan =
@@ -51,6 +51,7 @@ export default function SentryBillingPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <PageHeader
+          icon={CreditCard}
           title="Billing"
           description="Subscription plans and every organization's billing state."
         />

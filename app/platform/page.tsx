@@ -6,6 +6,7 @@ import {
   ArrowRight,
   Building2,
   CreditCard,
+  LayoutDashboard,
   ScrollText,
   ShieldCheck,
   UserPlus,
@@ -28,6 +29,7 @@ export default function PlatformOverviewPage() {
     return (
       <div className="space-y-6">
       <PageHeader
+        icon={LayoutDashboard}
         title="Overview"
         description="Platform-wide health of accounts, organizations, and subscriptions."
       />
@@ -47,11 +49,12 @@ export default function PlatformOverviewPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        icon={LayoutDashboard}
         title="Overview"
         description="Platform-wide health of accounts, organizations, and subscriptions."
       />
 
-      <section aria-label="Key metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section aria-label="Key metrics" className="stagger-fade grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           icon={Building2}
           label="Organizations"

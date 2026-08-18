@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/PageHeader";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Settings } from "lucide-react";
 
 export default function SettingsPage({ params }: { params: Promise<{ orgSlug: string }> }) {
   const { orgSlug } = use(params);
@@ -27,6 +27,7 @@ export default function SettingsPage({ params }: { params: Promise<{ orgSlug: st
   return (
     <div className="space-y-6">
       <PageHeader
+        icon={Settings}
         title="Settings"
         description="Manage your organization profile and identity."
       />

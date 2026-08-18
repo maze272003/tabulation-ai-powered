@@ -46,12 +46,12 @@ export default function SentrySettingsPage() {
   };
 
   if (settings === undefined) {
-    return <PageHeader title="Settings" description="Loading platform settings…" />;
+    return <PageHeader icon={Settings} title="Settings" description="Loading platform settings…" />;
   }
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Settings" description="Platform-wide operational toggles." />
+      <PageHeader icon={Settings} title="Settings" description="Platform-wide operational toggles." />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

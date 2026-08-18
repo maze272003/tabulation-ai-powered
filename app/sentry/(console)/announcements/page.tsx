@@ -86,6 +86,7 @@ export default function SentryAnnouncementsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <PageHeader
+          icon={Megaphone}
           title="Announcements"
           description="Broadcast product updates and notices to every signed-in user."
         />

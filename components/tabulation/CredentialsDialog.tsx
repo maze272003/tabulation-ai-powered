@@ -105,8 +105,8 @@ export function CredentialsDialog({
         </DialogHeader>
 
         {/* Warning Callout */}
-        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-300 text-xs flex items-start gap-2.5">
-          <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+        <div className="p-3 rounded-lg bg-warning-muted border border-warning/30 text-xs flex items-start gap-2.5">
+          <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-warning" />
           <span>
             <strong>Important:</strong> Passwords are encrypted and cannot be viewed again once this modal is closed. Copy these credentials now to share with the account holder.
           </span>
@@ -130,7 +130,7 @@ export function CredentialsDialog({
                 className="h-9 px-3 shrink-0"
                 onClick={() => copyToClipboard(eventCode, "Event code")}
               >
-                {copiedField === "Event code" ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                {copiedField === "Event code" ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
               </Button>
             </div>
           </div>
@@ -151,7 +151,7 @@ export function CredentialsDialog({
                 className="h-9 px-3 shrink-0"
                 onClick={() => copyToClipboard(username, "Username")}
               >
-                {copiedField === "Username" ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                {copiedField === "Username" ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
               </Button>
             </div>
           </div>
@@ -184,7 +184,7 @@ export function CredentialsDialog({
                   className="h-9 px-3 shrink-0"
                   onClick={() => copyToClipboard(password, "Password")}
                 >
-                  {copiedField === "Password" ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                  {copiedField === "Password" ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
                 </Button>
               </div>
             </div>
@@ -201,7 +201,7 @@ export function CredentialsDialog({
           >
             {copiedField === "Complete access details" ? (
               <>
-                <Check className="w-4 h-4 text-emerald-500" />
+                <Check className="w-4 h-4 text-success" />
                 <span>Copied All!</span>
               </>
             ) : (

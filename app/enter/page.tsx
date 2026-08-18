@@ -129,7 +129,7 @@ function JudgeDashboard({
               href="/enter/results"
               className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-2")}
             >
-              <Trophy className="w-4 h-4 text-amber-500" />
+              <Trophy className="w-4 h-4 text-warning" />
               <span>View Results</span>
             </Link>
           )}
@@ -280,10 +280,10 @@ function StaffDashboard({
   return (
     <div className="space-y-8 animate-in fade-in-50 duration-300">
       {/* Hero Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-muted border border-border/60 p-6 sm:p-8 shadow-xs">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-warning/10 via-warning/5 to-muted border border-border/60 p-6 sm:p-8 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 text-xs font-semibold">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-warning/15 text-warning text-xs font-semibold">
               <Award className="w-3.5 h-3.5" />
               <span>Event Staff Command Center</span>
             </div>
@@ -354,7 +354,7 @@ function StaffDashboard({
                     href={`/enter/staff/rounds/${round._id}/monitor`}
                     className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-full gap-1.5 h-9 text-xs")}
                   >
-                    <Activity className="w-3.5 h-3.5 text-blue-500" />
+                    <Activity className="w-3.5 h-3.5 text-info" />
                     <span>Live Monitor</span>
                   </Link>
                   <Link

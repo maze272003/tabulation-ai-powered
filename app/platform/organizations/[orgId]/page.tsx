@@ -3,7 +3,7 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
-import { ArrowLeft, Ban, PlayCircle, ScrollText } from "lucide-react";
+import { ArrowLeft, Ban, Building2, PlayCircle, ScrollText } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -119,6 +119,7 @@ export default function PlatformOrgDetailPage({
     <div className="space-y-6">
       <BackLink />
       <PageHeader
+        icon={Building2}
         title={org.name}
         description={org.slug}
         actions={<PlatformBadge label={orgStatusLabel[org.status]} tone={orgStatusTone[org.status]} />}

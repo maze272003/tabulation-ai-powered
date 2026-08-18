@@ -80,8 +80,8 @@ export default function StaffRoundReviewPage({
         <Card className="border-border/60 shadow-sm">
           <CardContent className="py-16 px-6">
             <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
-                <CirclePause className="w-6 h-6 text-amber-600" aria-hidden />
+              <div className="w-12 h-12 rounded-full bg-warning-muted border border-warning/30 flex items-center justify-center">
+                <CirclePause className="w-6 h-6 text-warning" aria-hidden />
               </div>
               <h2 className="text-lg font-semibold tracking-tight">Close the round before review</h2>
               <p className="text-sm text-muted-foreground max-w-md">
@@ -234,12 +234,12 @@ export default function StaffRoundReviewPage({
 
       {/* Unresolved Ties Alert Banner */}
       {hasUnresolvedTies && (
-        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-300 space-y-3">
+        <div className="p-4 rounded-xl bg-warning-muted border border-warning/30 space-y-3">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
             <div>
               <h3 className="font-semibold text-sm">Unresolved Ties Detected ({unresolvedTies.length})</h3>
-              <p className="text-xs text-amber-800/90 dark:text-amber-300/90 mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 All ties must be broken before you can publish official results for this round.
               </p>
             </div>
@@ -373,7 +373,7 @@ export default function StaffRoundReviewPage({
                   {eliminationEnabled && round.qualifiesToNextRound && (
                     <td className="text-center py-3 px-3">
                       {row.advancement === true ? (
-                        <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-600 text-white text-xs">
+                        <Badge variant="default" className="bg-success hover:bg-success text-success-foreground text-xs">
                           Advances
                         </Badge>
                       ) : row.advancement === false ? (
@@ -568,11 +568,11 @@ export default function StaffRoundReviewPage({
                 onClick={() => setOverrideAction("force_advance")}
                 className={`p-4 rounded-xl border text-center transition-all ${
                   overrideAction === "force_advance"
-                    ? "border-emerald-600 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold"
+                    ? "border-success bg-success-muted text-success font-bold"
                     : "border-border/60 hover:bg-muted"
                 }`}
               >
-                <TrendingUp className="w-5 h-5 mx-auto mb-1 text-emerald-600" />
+                <TrendingUp className="w-5 h-5 mx-auto mb-1 text-success" />
                 <span>Force Advance</span>
               </button>
 

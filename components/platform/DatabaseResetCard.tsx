@@ -198,7 +198,7 @@ export function DatabaseResetCard() {
                 type="checkbox"
                 checked={preserveUsers}
                 onChange={(e) => setPreserveUsers(e.target.checked)}
-                className="rounded border-gray-300"
+                className="size-4 accent-foreground"
               />
               <span>Preserve user profiles (keep user logins intact)</span>
             </label>
@@ -207,7 +207,7 @@ export function DatabaseResetCard() {
                 type="checkbox"
                 checked={reseed}
                 onChange={(e) => setReseed(e.target.checked)}
-                className="rounded border-gray-300"
+                className="size-4 accent-foreground"
               />
               <span>Re-seed system reference data (roles, permissions, plans, templates)</span>
             </label>

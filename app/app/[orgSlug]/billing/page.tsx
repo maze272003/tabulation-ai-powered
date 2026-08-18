@@ -25,7 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PageHeader } from "@/components/PageHeader";
-import { CheckCircle2, ExternalLink, XCircle } from "lucide-react";
+import { CheckCircle2, CreditCard, ExternalLink, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const pesoFormat = new Intl.NumberFormat("en-PH", {
@@ -351,6 +351,7 @@ export default function BillingPage({ params }: { params: Promise<{ orgSlug: str
   return (
     <div className="space-y-6">
       <PageHeader
+        icon={CreditCard}
         title="Billing"
         description="Your subscription plan, payments, and checkout for this organization."
       />

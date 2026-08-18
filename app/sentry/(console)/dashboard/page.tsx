@@ -8,6 +8,7 @@ import {
   CreditCard,
   DollarSign,
   Handshake,
+  LayoutDashboard,
   ScrollText,
   ShieldCheck,
   UserPlus,
@@ -40,7 +41,7 @@ export default function SentryDashboardPage() {
   if (stats === undefined) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Dashboard" description="Platform-wide health at a glance." />
+        <PageHeader icon={LayoutDashboard} title="Dashboard" description="Platform-wide health at a glance." />
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <TableSkeleton rows={2} cols={1} />
           <TableSkeleton rows={2} cols={1} />
@@ -59,9 +60,9 @@ export default function SentryDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Dashboard" description="Platform-wide health at a glance" />
+      <PageHeader icon={LayoutDashboard} title="Dashboard" description="Platform-wide health at a glance" />
 
-      <section aria-label="Key metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section aria-label="Key metrics" className="stagger-fade grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           icon={Building2}
           label="Organizations"
@@ -110,7 +111,7 @@ export default function SentryDashboardPage() {
                 Events
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded-sm bg-amber-500/70" aria-hidden />
+                <span className="size-2.5 rounded-sm bg-warning/70" aria-hidden />
                 Scores
               </span>
             </div>
@@ -130,7 +131,7 @@ export default function SentryDashboardPage() {
                     style={{ height: `${Math.max(2, (day.events / maxActivity) * 100)}%` }}
                   />
                   <div
-                    className="w-full rounded-sm bg-amber-500/70"
+                    className="w-full rounded-sm bg-warning/70"
                     style={{ height: `${Math.max(2, (day.scores / maxActivity) * 100)}%` }}
                   />
                   <div

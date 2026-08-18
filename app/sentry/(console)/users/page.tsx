@@ -103,6 +103,7 @@ export default function SentryUsersPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        icon={Users}
         title="Users"
         description="Every account on the platform, with live usage and access control."
       />

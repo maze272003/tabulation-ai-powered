@@ -29,6 +29,7 @@ export default function TemplatesPage({ params }: { params: Promise<{ orgSlug: s
   return (
     <div className="space-y-6">
       <PageHeader
+        icon={LayoutTemplate}
         title="Templates"
         description="Reusable event blueprints. Save a configured draft as a template to fast-track future events."
       />

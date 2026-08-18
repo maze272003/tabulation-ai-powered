@@ -267,7 +267,7 @@ function ScoreSheetForm({
 
           {isImmutable && (
             <div className="mt-4 p-3 rounded-lg bg-muted/60 border border-border/50 text-xs text-muted-foreground flex items-center gap-2">
-              <Lock className="w-4 h-4 text-amber-500 shrink-0" />
+              <Lock className="w-4 h-4 text-warning shrink-0" />
               <span>This sheet is submitted and locked for official tabulation. Scores cannot be edited.</span>
             </div>
           )}
@@ -333,7 +333,7 @@ function ScoreSheetForm({
                       />
                     </div>
                     {val !== "" && !error && (
-                      <div className="text-emerald-600 dark:text-emerald-400">
+                      <div className="text-success">
                         <CheckCircle2 className="w-5 h-5" />
                       </div>
                     )}

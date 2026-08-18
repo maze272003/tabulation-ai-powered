@@ -18,6 +18,7 @@ import {
 import { OrgSwitcher } from "@/components/OrgSwitcher";
 import { UserMenu } from "@/components/UserMenu";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { PageTransition } from "@/components/PageTransition";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS: { href: string; label: string; icon: LucideIcon; exact?: boolean }[] = [
@@ -88,16 +89,16 @@ export default function OrgLayout({
           <button
             type="button"
             aria-label="Close navigation"
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-black/50 animate-in fade-in-0 duration-200 motion-reduce:animate-none"
             onClick={() => setMobileNavOpen(false)}
           />
-          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col gap-4 bg-sidebar p-3 text-sidebar-foreground shadow-xl">
+          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col gap-4 bg-sidebar p-3 text-sidebar-foreground shadow-xl animate-in slide-in-from-left duration-250 motion-reduce:animate-none">
             <div className="flex items-center justify-between">
               <OrgSwitcher currentSlug={orgSlug} />
               <button
                 type="button"
                 aria-label="Close navigation"
-                className="rounded-md p-1.5 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                className="rounded-md p-1.5 text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 onClick={() => setMobileNavOpen(false)}
               >
                 <X aria-hidden className="size-4" />
@@ -124,8 +125,8 @@ export default function OrgLayout({
           </button>
           <span className="min-w-0 truncate text-sm font-semibold">{org.name}</span>
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 space-y-6 px-4 py-6 sm:px-6 sm:py-8">
-          {children}
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+          <PageTransition className="space-y-6">{children}</PageTransition>
         </main>
       </div>
     </div>

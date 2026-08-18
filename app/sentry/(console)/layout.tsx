@@ -18,6 +18,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { SentrySessionProvider, useSentrySession } from "@/components/sentry/SentrySession";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { PageTransition } from "@/components/PageTransition";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -143,8 +144,8 @@ function ConsoleShell({ children }: { children: React.ReactNode }) {
             })}
           </nav>
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 space-y-6 px-4 py-6 sm:px-6 sm:py-8">
-          {children}
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+          <PageTransition className="space-y-6">{children}</PageTransition>
         </main>
       </div>
     </div>

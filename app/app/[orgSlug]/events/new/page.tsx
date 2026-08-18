@@ -41,6 +41,7 @@ export default function NewEventPage({ params }: { params: Promise<{ orgSlug: st
   return (
     <div className="space-y-6">
       <PageHeader
+        icon={Sparkles}
         title="New event"
         description="Name your event, then start from a blank setup or a proven template."
       />

@@ -153,7 +153,7 @@ export default function EventSettingsPage({
                   onClick={handleCopyCode}
                   className="gap-1.5 h-8 text-xs font-medium"
                 >
-                  {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copiedCode ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copiedCode ? "Copied" : "Copy Code"}</span>
                 </Button>
               </div>
@@ -166,7 +166,7 @@ export default function EventSettingsPage({
                 onClick={handleCopyLink}
                 className="gap-1.5 h-9 text-xs font-medium"
               >
-                {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <ExternalLink className="w-3.5 h-3.5" />}
+                {copiedLink ? <Check className="w-3.5 h-3.5 text-success" /> : <ExternalLink className="w-3.5 h-3.5" />}
                 <span>Copy Sign-In Link</span>
               </Button>
 
@@ -300,8 +300,8 @@ export default function EventSettingsPage({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-300 text-xs flex items-start gap-2.5">
-            <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+          <div className="p-3 rounded-lg bg-warning-muted border border-warning/30 text-xs flex items-start gap-2.5">
+            <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-warning" />
             <span>
               Generating a new code will immediately invalidate the previous code (<strong className="font-mono">{ev.eventCode}</strong>). Judges and staff must use the new code for subsequent logins.
             </span>

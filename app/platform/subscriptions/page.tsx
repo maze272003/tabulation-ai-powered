@@ -94,6 +94,7 @@ export default function PlatformSubscriptionsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        icon={CreditCard}
         title="Subscriptions"
         description="Plan assignment for every organization. Stripe-managed billing arrives in Phase 6 — overrides here are administrative and audited."
       />

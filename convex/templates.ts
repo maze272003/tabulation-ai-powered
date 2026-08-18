@@ -143,13 +143,19 @@ export const generateFromPrompt = action({
       throw appError(ErrorCode.VALIDATION_ERROR, "Describe the event in 1-2000 characters");
     }
     await ctx.runMutation(internal.templates.consumeWizardQuota, { orgSlug: args.orgSlug });
-    const draft = await buildTemplateDraft(prompt, (userPrompt) =>
+    const result = await buildTemplateDraft(prompt, (userPrompt) =>
       geminiGenerateJson({ systemInstruction: WIZARD_SYSTEM_INSTRUCTION, prompt: userPrompt }),
     );
-    if (!draft) {
+    if (!result) {
       throw appError(ErrorCode.UPSTREAM, "The AI could not produce a valid template — try rewording your description");
     }
-    return draft;
+    if ("rejected" in result) {
+      throw appError(
+        ErrorCode.VALIDATION_ERROR,
+        result.reason || "This request is not related to a judged live event or competition format.",
+      );
+    }
+    return result.draft;
   },
 });
 
@@ -160,8 +166,9 @@ export const saveGenerated = mutation({
     // Defense in depth: the v.object validator is transport-level only; the
     // structural validator below enforces enums and numeric ranges.
     const validated = validateTemplateDraft(args.draft);
-    if ("error" in validated) {
-      throw appError(ErrorCode.VALIDATION_ERROR, `Invalid template draft: ${validated.error}`);
+    if (!("draft" in validated)) {
+      const errorMsg = "rejected" in validated ? validated.reason : validated.error;
+      throw appError(ErrorCode.VALIDATION_ERROR, `Invalid template draft: ${errorMsg}`);
     }
     if (!args.eventName.trim()) {
       throw appError(ErrorCode.VALIDATION_ERROR, "Event name is required");

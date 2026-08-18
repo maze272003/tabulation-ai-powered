@@ -152,7 +152,7 @@ export default function StaffRoundMonitorPage({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
             <div className="space-y-1">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-info-muted text-info flex items-center justify-center">
                   <Activity className="w-4 h-4 animate-pulse" />
                 </div>
                 <h1 className="text-2xl font-bold tracking-tight">Live Round Monitor</h1>
@@ -183,7 +183,7 @@ export default function StaffRoundMonitorPage({
               <div className="w-px h-8 bg-border/60" />
               <div>
                 <span className="text-muted-foreground block">In Progress</span>
-                <span className="font-bold text-base text-amber-600">{inProgressCount}</span>
+                <span className="font-bold text-base text-warning">{inProgressCount}</span>
               </div>
               <div className="w-px h-8 bg-border/60" />
               <div>

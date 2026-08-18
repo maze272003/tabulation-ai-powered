@@ -166,3 +166,60 @@
     @apply outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
 }
+
+/*
+ * Shared motion primitives. Durations stay in the 150–350ms range with a
+ * decelerating ease so entrances feel responsive but never sluggish.
+ */
+@keyframes fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility animate-page-in {
+  animation: fade-rise 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/*
+ * Staggered entrance for direct children of grids/lists. Delays cap at the
+ * 8th child; longer collections animate together with the last group.
+ */
+@utility stagger-fade {
+  & > * {
+    animation: fade-rise 350ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  & > :nth-child(2) {
+    animation-delay: 45ms;
+  }
+  & > :nth-child(3) {
+    animation-delay: 90ms;
+  }
+  & > :nth-child(4) {
+    animation-delay: 135ms;
+  }
+  & > :nth-child(5) {
+    animation-delay: 180ms;
+  }
+  & > :nth-child(6) {
+    animation-delay: 225ms;
+  }
+  & > :nth-child(7) {
+    animation-delay: 270ms;
+  }
+  & > :nth-child(n + 8) {
+    animation-delay: 315ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-page-in,
+  .stagger-fade > * {
+    animation: none;
+  }
+}

@@ -7,6 +7,7 @@ import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PageTransition } from "@/components/PageTransition";
 import { Shield, KeyRound, LogOut, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -150,7 +151,7 @@ export function EnterAppShell({
 
         {/* Page Content */}
         <main className="flex-1 container max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-          {children}
+          <PageTransition>{children}</PageTransition>
         </main>
       </div>
     </EnterContext.Provider>

@@ -33,11 +33,11 @@ import { cn } from "@/lib/utils";
 
 const STAGES = [
   { key: "lead", label: "Lead", tone: "bg-muted" },
-  { key: "qualified", label: "Qualified", tone: "bg-sky-500/20" },
-  { key: "proposal", label: "Proposal", tone: "bg-indigo-500/20" },
-  { key: "trial", label: "Trial", tone: "bg-amber-500/20" },
-  { key: "customer", label: "Customer", tone: "bg-emerald-500/20" },
-  { key: "churned", label: "Churned", tone: "bg-rose-500/10" },
+  { key: "qualified", label: "Qualified", tone: "bg-info-muted" },
+  { key: "proposal", label: "Proposal", tone: "bg-primary/15" },
+  { key: "trial", label: "Trial", tone: "bg-warning-muted" },
+  { key: "customer", label: "Customer", tone: "bg-success-muted" },
+  { key: "churned", label: "Churned", tone: "bg-destructive/10" },
 ] as const;
 
 type StageKey = (typeof STAGES)[number]["key"];
@@ -102,6 +102,7 @@ export default function SentryCrmPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <PageHeader
+          icon={Handshake}
           title="CRM"
           description="Sales pipeline for prospects and customers across the platform."
         />

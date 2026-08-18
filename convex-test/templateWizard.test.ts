@@ -30,10 +30,21 @@ describe("validateTemplateDraft", () => {
       },
     });
     expect("error" in result).toBe(false);
-    if (!("error" in result)) {
+    if ("draft" in result) {
       expect(result.draft.configSnapshot.rounds[0].order).toBe(0);
       expect(result.draft.configSnapshot.rounds[0].criteria[0].order).toBe(0);
     }
+  });
+
+  it("identifies explicitly rejected responses", () => {
+    const result = validateTemplateDraft({
+      rejected: true,
+      reason: "Not related to competitions",
+    });
+    expect(result).toEqual({
+      rejected: true,
+      reason: "Not related to competitions",
+    });
   });
 
   it("rejects out-of-range weights with a specific error", () => {
@@ -56,6 +67,40 @@ describe("validateTemplateDraft", () => {
     (bad.configSnapshot.rounds[0].criteria[0] as { minScore: number }).minScore = 101;
     expect("error" in validateTemplateDraft(bad)).toBe(true);
   });
+
+  it("handles empty categories, string numbers, long description truncation, and missing allowOverride", () => {
+    const raw = {
+      name: "A".repeat(100),
+      description: "B".repeat(400),
+      configSnapshot: {
+        decimalPrecision: "2",
+        resultVisibility: "organization",
+        categories: [],
+        rounds: [
+          {
+            name: "Round 1",
+            qualifiesToNextRound: true,
+            weight: "100",
+            advancement: { mode: "top_count", count: "5" },
+            criteria: [
+              { name: "Criterion 1", weight: "100", minScore: "0", maxScore: "100", decimalPrecision: "2" },
+            ],
+          },
+        ],
+      },
+    };
+    const result = validateTemplateDraft(raw);
+    expect("error" in result).toBe(false);
+    if ("draft" in result) {
+      expect(result.draft.name.length).toBe(80);
+      expect(result.draft.description.length).toBe(300);
+      expect(result.draft.configSnapshot.categories).toBeUndefined();
+      expect(result.draft.configSnapshot.decimalPrecision).toBe(2);
+      expect(result.draft.configSnapshot.rounds[0].weight).toBe(100);
+      expect(result.draft.configSnapshot.rounds[0].advancement?.allowOverride).toBe(true);
+      expect(result.draft.configSnapshot.rounds[0].criteria[0].weight).toBe(100);
+    }
+  });
 });
 
 describe("buildTemplateDraft", () => {
@@ -66,7 +111,7 @@ describe("buildTemplateDraft", () => {
       return VALID;
     });
     expect(calls).toBe(1);
-    expect(draft?.name).toBe("City Pageant");
+    expect(draft && "draft" in draft ? draft.draft.name : null).toBe("City Pageant");
   });
 
   it("retries once with the validation error, then succeeds", async () => {
@@ -77,9 +122,25 @@ describe("buildTemplateDraft", () => {
       attempt++;
       return attempt === 1 ? { nonsense: true } : VALID;
     });
-    expect(draft?.name).toBe("City Pageant");
+    expect(draft && "draft" in draft ? draft.draft.name : null).toBe("City Pageant");
     expect(prompts.length).toBe(2);
     expect(prompts[1]).toContain("invalid");
+  });
+
+  it("returns rejected response immediately without retrying off-topic prompts", async () => {
+    let calls = 0;
+    const result = await buildTemplateDraft("tell me a joke", async () => {
+      calls++;
+      return {
+        rejected: true,
+        reason: "This request is not related to a judged live event or competition format.",
+      };
+    });
+    expect(calls).toBe(1);
+    expect(result).toEqual({
+      rejected: true,
+      reason: "This request is not related to a judged live event or competition format.",
+    });
   });
 
   it("gives up after two invalid attempts", async () => {
@@ -92,3 +153,4 @@ describe("buildTemplateDraft", () => {
     expect(draft).toBeNull();
   });
 });
+

@@ -29,9 +29,9 @@ export function AnnouncementBanner() {
       {settings?.maintenanceMode === true && (
         <div
           role="status"
-          className="flex items-center gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-sm"
+          className="flex items-center gap-2.5 rounded-lg border border-warning/30 bg-warning-muted px-3.5 py-2 text-sm"
         >
-          <Wrench aria-hidden className="size-4 shrink-0 text-amber-600" />
+          <Wrench aria-hidden className="size-4 shrink-0 text-warning" />
           <p>
             <span className="font-semibold">Maintenance in progress.</span>{" "}
             <span className="text-muted-foreground">
