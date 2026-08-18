@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/PageHeader";
+import { AiEventWizardCard } from "@/components/tabulation/AiEventWizardCard";
 import { toast } from "sonner";
 import { Loader2, Sparkles } from "lucide-react";
 
@@ -77,6 +78,12 @@ export default function NewEventPage({ params }: { params: Promise<{ orgSlug: st
           </form>
         </CardContent>
       </Card>
+
+      <AiEventWizardCard
+        orgSlug={orgSlug}
+        eventName={name}
+        onCreated={(slug) => router.push(`/app/${orgSlug}/events/${slug}/overview`)}
+      />
 
       <div className="space-y-3">
         <h2 className="text-sm font-semibold text-muted-foreground">Start from a template</h2>
