@@ -38,3 +38,24 @@ Join thousands of developers building full-stack apps with Convex:
 
 - Join the [Convex Discord community](https://convex.dev/community) to get help in real-time.
 - Follow [Convex on GitHub](https://github.com/get-convex/), star and contribute to the open-source implementation of Convex.
+
+## AI features
+
+Phase 5 adds three advisory AI features:
+
+- **Judge integrity scoring** — deterministic statistics on the staff round
+  monitor/review. No LLM, no API key needed. Advisory only.
+- **AI event setup wizard** — `/app/<org>/events/new` → "Describe your event".
+  Gemini generates a template you review before anything is created.
+- **Results explainer** — "Why?" on result rows explains rankings from the
+  official snapshot, with a verifiable source-data panel.
+
+The wizard and explainer require the `GEMINI_API_KEY` Convex secret (never put
+it in `.env.local` or any client-reachable file):
+
+```
+npx convex env add GEMINI_API_KEY
+```
+
+Daily AI quotas: 20 wizard calls / 30 explanations per organization (shared
+across the org, resets at UTC midnight).
