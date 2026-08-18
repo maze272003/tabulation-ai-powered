@@ -253,11 +253,13 @@ export const explainContext = internalQuery({
       judgesParticipating: version.snapshot.judgeParticipation.filter((jp) => jp.sheetsTotal > 0).length,
     };
 
+    // .first() rather than .unique(): concurrent stores on a fresh version can
+    // leave duplicate rows; reads must degrade to first-wins, not throw.
     const cached = await ctx.db
       .query("resultExplanations")
       .withIndex("by_result_version_and_contestant", (q) =>
         q.eq("resultVersionId", version._id).eq("contestantId", args.contestantId))
-      .unique();
+      .first();
 
     return {
       versionId: version._id as Id<"resultVersions">,
@@ -285,18 +287,30 @@ export const storeExplanation = internalMutation({
     contestantId: v.id("contestants"),
     explanation: v.string(),
     model: v.string(),
+    versionId: v.optional(v.id("resultVersions")),
   },
   handler: async (ctx, args) => {
     const eactx = await requireResultAccess(ctx, args);
     const round = await ctx.db.get(args.roundId);
     if (!round || round.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Round not found");
-    const version = await latestVersion(ctx, args.roundId);
-    if (!version) throw appError(ErrorCode.NOT_FOUND, "No published results for this round");
+    // Key the row to the version the action read (args.versionId) instead of
+    // re-reading the latest: a correction landing between context and store
+    // would otherwise attach the explanation to a version it was not built
+    // from. When omitted, fall back to the round's latest version.
+    const version = args.versionId !== undefined
+      ? await ctx.db.get(args.versionId)
+      : await latestVersion(ctx, args.roundId);
+    if (!version || version.roundId !== args.roundId) {
+      throw appError(ErrorCode.NOT_FOUND, "No published results for this round");
+    }
+    // .first() rather than .unique(): two concurrent explains on a fresh
+    // version can both miss and insert; duplicates then degrade to
+    // first-wins instead of throwing on every later read.
     const existing = await ctx.db
       .query("resultExplanations")
       .withIndex("by_result_version_and_contestant", (q) =>
         q.eq("resultVersionId", version._id).eq("contestantId", args.contestantId))
-      .unique();
+      .first();
     if (existing) {
       await ctx.db.patch(existing._id, { explanation: args.explanation, model: args.model });
       return { resultExplanationId: existing._id };
@@ -334,6 +348,7 @@ export const explain = action({
     await ctx.runMutation(internal.results.storeExplanation, {
       orgSlug: args.orgSlug, eventSlug: args.eventSlug, roundId: args.roundId,
       contestantId: args.contestantId, explanation, model: GEMINI_MODEL,
+      versionId: context.versionId,
     });
     return { explanation, cached: false, facts: context.facts };
   },

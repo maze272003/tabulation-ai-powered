@@ -8,7 +8,7 @@ import { loadRound } from "../lib/eventAuthz";
 import { buildSnapshot, loadRoundCompute } from "../lib/roundCompute";
 import { writeAudit } from "../lib/audit";
 import { latestVersion } from "../lib/eventResults";
-import { computeJudgeIntegrity, type JudgeIntegrityReport } from "../lib/judgeIntegrity";
+import { computeJudgeIntegrity, type IntegrityFlag, type JudgeIntegrityReport } from "../lib/judgeIntegrity";
 
 export const list = query({
   args: { sessionToken: v.string() },
@@ -47,30 +47,59 @@ export const list = query({
  * Loads every integrity input for one round in a single parallel pass and
  * delegates to the pure statistics helper. Read-only and advisory: results
  * never feed tabulation. "locked" sheets count as submitted because locking
- * freezes an already-judged sheet.
+ * freezes an already-judged sheet. Also returns per-judge sheet counts so
+ * callers can surface judges the statistics helper skips (no scores yet).
  */
 async function loadIntegrity(
   ctx: QueryCtx,
   args: { eventId: Id<"events">; round: Doc<"rounds"> },
-): Promise<JudgeIntegrityReport[]> {
+): Promise<{
+  reports: JudgeIntegrityReport[];
+  sheetCountsByJudge: Map<Id<"eventAccounts">, { submitted: number; total: number }>;
+}> {
   const [criteria, scores, sheets] = await Promise.all([
     ctx.db.query("criteria").withIndex("by_round_id", (q) => q.eq("roundId", args.round._id)).collect(),
     ctx.db.query("scores").withIndex("by_event_id_and_round_id", (q) => q.eq("eventId", args.eventId).eq("roundId", args.round._id)).collect(),
     ctx.db.query("scoreSheets").withIndex("by_event_id_and_round_id", (q) => q.eq("eventId", args.eventId).eq("roundId", args.round._id)).collect(),
   ]);
-  const sheetCounts = new Map<Id<"eventAccounts">, { submitted: number; total: number }>();
+  const sheetCountsByJudge = new Map<Id<"eventAccounts">, { submitted: number; total: number }>();
   for (const sheet of sheets) {
-    const counts = sheetCounts.get(sheet.judgeId) ?? { submitted: 0, total: 0 };
+    const counts = sheetCountsByJudge.get(sheet.judgeId) ?? { submitted: 0, total: 0 };
     counts.total += 1;
     if (sheet.status === "submitted" || sheet.status === "locked") counts.submitted += 1;
-    sheetCounts.set(sheet.judgeId, counts);
+    sheetCountsByJudge.set(sheet.judgeId, counts);
   }
-  return computeJudgeIntegrity({
+  const reports = computeJudgeIntegrity({
     roundStatus: args.round.status,
     criteria: criteria.map((c) => ({ id: c._id, weight: c.weight, minScore: c.minScore, maxScore: c.maxScore })),
     scores: scores.map((s) => ({ judgeId: s.judgeId, contestantId: s.contestantId, criterionId: s.criterionId, value: s.value })),
-    sheets: [...sheetCounts.entries()].map(([judgeId, counts]) => ({ judgeId, ...counts })),
+    sheets: [...sheetCountsByJudge.entries()].map(([judgeId, counts]) => ({ judgeId, ...counts })),
   });
+  return { reports, sheetCountsByJudge };
+}
+
+/**
+ * computeJudgeIntegrity only emits reports for judges who have scores, and
+ * scores exist only after submission — without this fallback an inactive
+ * judge would render as 100% complete. Mirrors the lib's completion math
+ * (total 0 -> 1) and its completion-flag format exactly.
+ */
+function unscoredJudgeReport(
+  judgeId: Id<"eventAccounts">,
+  counts: { submitted: number; total: number } | undefined,
+  roundStatus: Doc<"rounds">["status"],
+): JudgeIntegrityReport {
+  const submitted = counts?.submitted ?? 0;
+  const total = counts?.total ?? 0;
+  const completion = total === 0 ? 1 : submitted / total;
+  const flags: IntegrityFlag[] = completion < 1 && roundStatus !== "open"
+    ? [{
+      metric: "completion",
+      level: "info",
+      explanation: `${submitted} of ${total} score sheets submitted.`,
+    }]
+    : [];
+  return { judgeId, biasZ: null, differentiationRatio: null, agreement: null, completion, flags };
 }
 
 export const roundMonitor = query({
@@ -93,7 +122,7 @@ export const roundMonitor = query({
       .withIndex("by_event_id_and_round_id", (q) =>
         q.eq("eventId", sctx.event._id).eq("roundId", round._id))
       .collect();
-    const integrity = await loadIntegrity(ctx, { eventId: sctx.event._id, round });
+    const { reports: integrity } = await loadIntegrity(ctx, { eventId: sctx.event._id, round });
     const judgesOut: { judgeId: Id<"eventAccounts">; name: string }[] = judges.map((j) => ({
       judgeId: j._id,
       name: j.displayName,
@@ -123,23 +152,25 @@ export const integrityReport = query({
       .query("eventAccounts")
       .withIndex("by_event_id_and_kind", (q) => q.eq("eventId", sctx.event._id).eq("kind", "judge"))
       .collect();
-    const integrity = await loadIntegrity(ctx, { eventId: sctx.event._id, round });
-    const byId = new Map(integrity.map((report) => [report.judgeId, report]));
+    const { reports, sheetCountsByJudge } = await loadIntegrity(ctx, { eventId: sctx.event._id, round });
+    const byId = new Map(reports.map((report) => [report.judgeId, report]));
     return {
       roundName: round.name,
       judges: judges
         .map((judge) => {
           // Judges with no scores yet (nothing submitted) still appear so the
-          // review page can show an empty, in-progress panel.
-          const metrics = byId.get(judge._id);
+          // review page can show an empty, in-progress panel — with their real
+          // sheet completion instead of a whitewashed 100%.
+          const metrics = byId.get(judge._id)
+            ?? unscoredJudgeReport(judge._id, sheetCountsByJudge.get(judge._id), round.status);
           return {
             judgeId: judge._id,
             name: judge.displayName,
-            biasZ: metrics?.biasZ ?? null,
-            differentiationRatio: metrics?.differentiationRatio ?? null,
-            agreement: metrics?.agreement ?? null,
-            completion: metrics?.completion ?? 1,
-            flags: metrics?.flags ?? [],
+            biasZ: metrics.biasZ,
+            differentiationRatio: metrics.differentiationRatio,
+            agreement: metrics.agreement,
+            completion: metrics.completion,
+            flags: metrics.flags,
           };
         })
         .sort((a, b) => a.name.localeCompare(b.name)),

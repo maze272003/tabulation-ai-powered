@@ -128,4 +128,34 @@ describe("integrity surfaces", () => {
     expect(report.judges.length).toBe(2); // bob + carol
     expect(report.judges.every((j) => Array.isArray(j.flags))).toBe(true);
   });
+
+  it("integrityReport shows a judge with zero submissions as 0% complete, not 100%", async () => {
+    const t = setupTest();
+    const ids = await prepareThreeJudgePanel(t);
+    // Dave never submits: he has sheets but no scores, so the statistics
+    // helper skips him entirely — the fallback must surface him.
+    await submitAll(t, ids.judgeSessions.bob, ids.criterionIds, [[5, 5], [6, 6]]);
+    await submitAll(t, ids.judgeSessions.carol, ids.criterionIds, [[5, 5], [6, 6]]);
+    await t.withIdentity(aliceIdentity).mutation(api.roundAdmin.closeRound, { ...BASE, roundId: ids.roundId });
+
+    const staffToken = await addStaffSession(t);
+    const report = await t.query(api.enter.rounds.integrityReport, {
+      sessionToken: staffToken, roundId: ids.roundId,
+    });
+
+    expect(report.judges.length).toBe(3);
+    const dave = report.judges.find((j) => j.judgeId === ids.judgeIds.dave)!;
+    expect(dave.completion).toBe(0);
+    expect(dave.biasZ).toBeNull();
+    expect(dave.differentiationRatio).toBeNull();
+    expect(dave.agreement).toBeNull();
+    expect(dave.flags).toEqual([
+      { metric: "completion", level: "info", explanation: "0 of 2 score sheets submitted." },
+    ]);
+
+    // Scored judges keep the lib's own report unchanged.
+    const bob = report.judges.find((j) => j.judgeId === ids.judgeIds.bob)!;
+    expect(bob.completion).toBe(1);
+    expect(bob.flags.some((f) => f.metric === "completion")).toBe(false);
+  });
 });

@@ -36,12 +36,18 @@ describe("results.explain", () => {
     const { ids } = await setupPublishedRound(t);
 
     // Seed the cache directly through the internal mutation (no GEMINI_API_KEY needed):
-    // storeExplanation upserts by (latestVersion, contestantId).
+    // storeExplanation upserts keyed to the exact version the action read,
+    // same as the production path (explainContext -> storeExplanation).
+    const context = await t.withIdentity(aliceIdentity).query(internal.results.explainContext, {
+      ...BASE, roundId: ids.roundId, contestantId: ids.contestantIds[0],
+    });
+    expect(context.cachedExplanation).toBeNull();
     const stored = await t.withIdentity(aliceIdentity).mutation(internal.results.storeExplanation, {
       ...BASE, roundId: ids.roundId,
       contestantId: ids.contestantIds[0],
       explanation: "Cached: Maria ranked first on weighted criteria.",
       model: "test",
+      versionId: context.versionId,
     });
     expect(stored).toBeTruthy();
 
