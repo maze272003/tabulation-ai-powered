@@ -1,10 +1,20 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { action, internalMutation, mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { appError, ErrorCode } from "./lib/errors";
 import { requireOrgMember, requirePermission } from "./lib/authz";
 import { requireDraftEvent } from "./lib/eventAuthz";
 import { requireFeature } from "./lib/entitlements";
 import { writeAudit } from "./lib/audit";
+import { geminiGenerateJson } from "./lib/gemini";
+import { AI_USAGE_RESOURCES, WIZARD_DAILY_LIMIT, consumeAiQuota } from "./lib/aiUsage";
+import {
+  WIZARD_SYSTEM_INSTRUCTION,
+  buildTemplateDraft,
+  validateTemplateDraft,
+  type TemplateDraft,
+} from "./lib/templateWizard";
 
 export const list = query({
   args: { orgSlug: v.string() },
@@ -83,5 +93,94 @@ export const remove = mutation({
       orgId: actx.org._id, actorId: actx.user._id, action: "template.removed",
       resourceType: "eventTemplate", resourceId: args.templateId, before: { name: tpl.name },
     });
+  },
+});
+
+const draftArg = v.object({
+  name: v.string(),
+  description: v.string(),
+  configSnapshot: v.object({
+    decimalPrecision: v.number(),
+    resultVisibility: v.string(),
+    categories: v.optional(v.array(v.object({ name: v.string(), order: v.number() }))),
+    rounds: v.array(v.object({
+      name: v.string(),
+      order: v.number(),
+      qualifiesToNextRound: v.boolean(),
+      scoringRules: v.optional(v.object({ winner: v.string() })),
+      weight: v.optional(v.number()),
+      advancement: v.optional(v.object({
+        mode: v.string(),
+        count: v.optional(v.number()),
+        percent: v.optional(v.number()),
+        allowOverride: v.boolean(),
+      })),
+      criteria: v.array(v.object({
+        name: v.string(),
+        order: v.number(),
+        weight: v.number(),
+        minScore: v.number(),
+        maxScore: v.number(),
+        decimalPrecision: v.number(),
+      })),
+    })),
+  }),
+});
+
+export const consumeWizardQuota = internalMutation({
+  args: { orgSlug: v.string() },
+  handler: async (ctx, args) => {
+    const actx = await requirePermission(ctx, { orgSlug: args.orgSlug, permission: "event.create" });
+    await consumeAiQuota(ctx, actx.org._id, AI_USAGE_RESOURCES.wizard, WIZARD_DAILY_LIMIT);
+  },
+});
+
+export const generateFromPrompt = action({
+  args: { orgSlug: v.string(), prompt: v.string() },
+  handler: async (ctx, args): Promise<TemplateDraft> => {
+    const prompt = args.prompt.trim();
+    if (!prompt || prompt.length > 2000) {
+      throw appError(ErrorCode.VALIDATION_ERROR, "Describe the event in 1-2000 characters");
+    }
+    await ctx.runMutation(internal.templates.consumeWizardQuota, { orgSlug: args.orgSlug });
+    const draft = await buildTemplateDraft(prompt, (userPrompt) =>
+      geminiGenerateJson({ systemInstruction: WIZARD_SYSTEM_INSTRUCTION, prompt: userPrompt }),
+    );
+    if (!draft) {
+      throw appError(ErrorCode.UPSTREAM, "The AI could not produce a valid template — try rewording your description");
+    }
+    return draft;
+  },
+});
+
+export const saveGenerated = mutation({
+  args: { orgSlug: v.string(), eventName: v.string(), draft: draftArg },
+  handler: async (ctx, args): Promise<{ templateId: Id<"eventTemplates"> }> => {
+    const actx = await requirePermission(ctx, { orgSlug: args.orgSlug, permission: "event.create" });
+    // Defense in depth: the v.object validator is transport-level only; the
+    // structural validator below enforces enums and numeric ranges.
+    const validated = validateTemplateDraft(args.draft);
+    if ("error" in validated) {
+      throw appError(ErrorCode.VALIDATION_ERROR, `Invalid template draft: ${validated.error}`);
+    }
+    if (!args.eventName.trim()) {
+      throw appError(ErrorCode.VALIDATION_ERROR, "Event name is required");
+    }
+    const templateId = await ctx.db.insert("eventTemplates", {
+      orgId: actx.org._id,
+      name: validated.draft.name,
+      description: validated.draft.description,
+      configSnapshot: validated.draft.configSnapshot,
+      isSystem: false,
+    });
+    await writeAudit(ctx, {
+      orgId: actx.org._id,
+      actorId: actx.user._id,
+      action: "template.ai_generated",
+      resourceType: "eventTemplate",
+      resourceId: templateId,
+      after: { name: validated.draft.name, eventName: args.eventName.trim(), promptGenerated: true },
+    });
+    return { templateId };
   },
 });
