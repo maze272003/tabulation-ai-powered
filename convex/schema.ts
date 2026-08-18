@@ -488,4 +488,16 @@ export default defineSchema({
     updatedById: v.union(v.null(), v.id("userProfiles")),
     updatedAt: v.number(),
   }),
+
+  resultExplanations: defineTable({
+    resultVersionId: v.id("resultVersions"),
+    eventId: v.id("events"),
+    contestantId: v.id("contestants"),
+    explanation: v.string(),
+    model: v.string(),
+    createdById: v.id("userProfiles"),
+    createdAt: v.number(),
+  })
+    .index("by_result_version_and_contestant", ["resultVersionId", "contestantId"])
+    .index("by_event_id", ["eventId"]),
 });
