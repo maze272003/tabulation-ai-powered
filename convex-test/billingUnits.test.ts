@@ -4,7 +4,12 @@ import {
   MONTHLY_PERIOD_MS,
   YEARLY_PERIOD_MS,
 } from "../convex/lib/billing";
-import { createCheckoutSession, verifyPaymongoSignature } from "../convex/lib/paymongo";
+import {
+  configuredPaymentMethodTypes,
+  createCheckoutSession,
+  DEFAULT_PAYMENT_METHOD_TYPES,
+  verifyPaymongoSignature,
+} from "../convex/lib/paymongo";
 
 async function hmacHex(secret: string, payload: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -77,6 +82,85 @@ describe("paymongo signature verification", () => {
 });
 
 describe("paymongo checkout session", () => {
+  it("creates a session with default payment_method_types in payload", async () => {
+    vi.stubEnv("PAYMONGO_SECRET_KEY", "sk_test_secret");
+    let capturedBody: string | null = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        capturedBody = (init?.body as string) ?? null;
+        return new Response(
+          JSON.stringify({
+            data: {
+              id: "cs_123",
+              attributes: { checkout_url: "https://checkout.paymongo.com/cs_123" },
+            },
+          }),
+          { status: 200 },
+        );
+      }),
+    );
+
+    const session = await createCheckoutSession({
+      lineItemName: "Pro monthly",
+      amountCents: 49900,
+      currency: "PHP",
+      referenceNumber: "ref_test_1",
+      successUrl: "https://example.com/success",
+      cancelUrl: "https://example.com/cancel",
+      metadata: { userId: "user_1" },
+    });
+
+    expect(session).toEqual({
+      checkoutSessionId: "cs_123",
+      checkoutUrl: "https://checkout.paymongo.com/cs_123",
+    });
+    expect(capturedBody).not.toBeNull();
+    const parsed = JSON.parse(capturedBody!);
+    expect(parsed.data.attributes.payment_method_types).toEqual(DEFAULT_PAYMENT_METHOD_TYPES);
+  });
+
+  it("creates a session with custom paymentMethodTypes when provided", async () => {
+    vi.stubEnv("PAYMONGO_SECRET_KEY", "sk_test_secret");
+    let capturedBody: string | null = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        capturedBody = (init?.body as string) ?? null;
+        return new Response(
+          JSON.stringify({
+            data: {
+              id: "cs_custom",
+              attributes: { checkout_url: "https://checkout.paymongo.com/cs_custom" },
+            },
+          }),
+          { status: 200 },
+        );
+      }),
+    );
+
+    await createCheckoutSession({
+      lineItemName: "Pro monthly",
+      amountCents: 49900,
+      currency: "PHP",
+      referenceNumber: "ref_test_2",
+      successUrl: "https://example.com/success",
+      cancelUrl: "https://example.com/cancel",
+      metadata: { userId: "user_2" },
+      paymentMethodTypes: ["card", "gcash"],
+    });
+
+    const parsed = JSON.parse(capturedBody!);
+    expect(parsed.data.attributes.payment_method_types).toEqual(["card", "gcash"]);
+  });
+
+  it("configuredPaymentMethodTypes parses PAYMONGO_PAYMENT_METHOD_TYPES env var", () => {
+    expect(configuredPaymentMethodTypes()).toEqual(DEFAULT_PAYMENT_METHOD_TYPES);
+
+    vi.stubEnv("PAYMONGO_PAYMENT_METHOD_TYPES", "card, gcash, qrph");
+    expect(configuredPaymentMethodTypes()).toEqual(["card", "gcash", "qrph"]);
+  });
+
   it("maps a network-level fetch failure to a PAYMENT_PROVIDER error", async () => {
     vi.stubEnv("PAYMONGO_SECRET_KEY", "sk_test_secret");
     vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("fetch failed"))));
@@ -91,6 +175,32 @@ describe("paymongo checkout session", () => {
         metadata: { userId: "user_1" },
       }),
     ).rejects.toMatchObject({ data: { code: "PAYMENT_PROVIDER" } });
+  });
+
+  it("maps PayMongo API error response with details to a PAYMENT_PROVIDER error", async () => {
+    vi.stubEnv("PAYMONGO_SECRET_KEY", "sk_test_secret");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            errors: [{ detail: "Parameter payment_method_types is required" }],
+          }),
+          { status: 400 },
+        ),
+      ),
+    );
+    await expect(
+      createCheckoutSession({
+        lineItemName: "Pro monthly",
+        amountCents: 49900,
+        currency: "PHP",
+        referenceNumber: "ref_test_1",
+        successUrl: "https://example.com/success",
+        cancelUrl: "https://example.com/cancel",
+        metadata: { userId: "user_1" },
+      }),
+    ).rejects.toThrow("PayMongo checkout session creation failed: Parameter payment_method_types is required");
   });
 });
 

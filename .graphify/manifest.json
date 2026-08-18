@@ -16,8 +16,8 @@
     "hash": "b0ff65c67e748733611cafa02c7228b4"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/app/app/[orgSlug]/layout.tsx": {
-    "mtime": 1786878520304.3132,
-    "hash": "5eb42857d123bbc76a7f9e50bf6dcde5"
+    "mtime": 1786983174324.592,
+    "hash": "0d4921af998b1d1581bab113470b4e07"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/app/app/[orgSlug]/overview/page.tsx": {
     "mtime": 1786878294282.2366,
@@ -88,8 +88,8 @@
     "hash": "89fd7888d5bbc59f2eae651ffc05fc70"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/components/ui/dropdown-menu.tsx": {
-    "mtime": 1786545127851.4565,
-    "hash": "89728fd5784555d58a9ad1c72b6a803d"
+    "mtime": 1787065637106.0588,
+    "hash": "6ea6c5edfa43f5d3b64b05ef251a7f71"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/components/ui/input.tsx": {
     "mtime": 1786545127853.4678,
@@ -188,8 +188,8 @@
     "hash": "598ede7fb5faf3ae87442cd425cad275"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/lib/errors.ts": {
-    "mtime": 1786974948905.2363,
-    "hash": "2380cf552f008bd65192cd1319af2d9a"
+    "mtime": 1786983554289.7527,
+    "hash": "1df01a65283d002066e64b95c9550372"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/lib/eventAuthz.ts": {
     "mtime": 1786870110621.3423,
@@ -216,12 +216,12 @@
     "hash": "3e3914f0610504f8bff50d7ede2e4f6c"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/schema.ts": {
-    "mtime": 1786974612162.9026,
-    "hash": "1f3d22938739441e053488f9b3974d0b"
+    "mtime": 1787065870259.4504,
+    "hash": "abffbe1ea71b82c188a5c1fe5d2685dc"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/seed.ts": {
-    "mtime": 1786927479113.2212,
-    "hash": "c738dcae3e319e3491a9665a9f76e8af"
+    "mtime": 1786980486240.693,
+    "hash": "08b091b10b88a1767d85bba79785d530"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/subscriptions.ts": {
     "mtime": 1786976689238.514,
@@ -948,8 +948,8 @@
     "hash": "26d5bb86a023639f59ba21d3ba7b63c4"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/app/app/[orgSlug]/events/[eventSlug]/results/page.tsx": {
-    "mtime": 1786978027545.971,
-    "hash": "1c6402d9269d8ed9de771d95634a37d7"
+    "mtime": 1786979159893.4285,
+    "hash": "e3508a68d03fe4ac82fa720b5814f358"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/app/app/[orgSlug]/events/[eventSlug]/rounds/[roundId]/monitor/page.tsx": {
     "mtime": 1786861912239.0007,
@@ -968,8 +968,8 @@
     "hash": "c34d615cf4f256bae1f53b13a11176d7"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/app/app/[orgSlug]/events/new/page.tsx": {
-    "mtime": 1786878294273.621,
-    "hash": "7f2d77788d524edf9e5721a974355ede"
+    "mtime": 1787065442591.0312,
+    "hash": "68b6dd5e7189745622294a7302290af0"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/app/app/[orgSlug]/events/page.tsx": {
     "mtime": 1786878294276.0942,
@@ -992,8 +992,8 @@
     "hash": "a30bf63b2992cda959b5ee320501f4c0"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/components/EventShell.tsx": {
-    "mtime": 1786878294327.3618,
-    "hash": "dcb430250480a16e6651cde54774fabd"
+    "mtime": 1786979759709.4536,
+    "hash": "0fda9daa853b8662d44667b3a5287310"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/components/tabulation/BlackoutNotice.tsx": {
     "mtime": 1786861912281.3457,
@@ -1008,8 +1008,8 @@
     "hash": "6c7b890a0ca0787432f527bd7af24e47"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/components/tabulation/RoundResultsCard.tsx": {
-    "mtime": 1786863907978.62,
-    "hash": "e58f7f2eda2657142c5cc22695b8eda2"
+    "mtime": 1787066479967.6792,
+    "hash": "9e5c55e14e07e0ec74ae4aaa324858db"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/components/tabulation/SaveIndicator.tsx": {
     "mtime": 1786861912286.669,
@@ -1044,16 +1044,16 @@
     "hash": "f899a24be347221123ee76339ff97c53"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/results.ts": {
-    "mtime": 1786977997595.0903,
-    "hash": "598790009fdccdde901170a1971dbfb2"
+    "mtime": 1787067463678.0427,
+    "hash": "34ade84fb100fb0e6fd3371c3f568a7f"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/roundAdmin.ts": {
     "mtime": 1786883848133.7317,
     "hash": "671a4c76c1d5398eb59096cac64fb4cf"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/templates.ts": {
-    "mtime": 1786861912354.7598,
-    "hash": "3fc0e846880d82efb46aebfcb3077031"
+    "mtime": 1787064852484.9807,
+    "hash": "7ea83fd2688f5181ab760f692d4bede1"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/app/platform/audit/page.tsx": {
     "mtime": 1786878294307.5247,
@@ -1160,24 +1160,24 @@
     "hash": "5ece8b3383a4829abce528adf8b47998"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/app/enter/staff/rounds/[roundId]/review/page.tsx": {
-    "mtime": 1786883132588.5376,
-    "hash": "5a6f8fddb6921865c587fa2a8bcdbb63"
+    "mtime": 1786985278157.081,
+    "hash": "090f99da6af162b81fa5fa419fa83759"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/components/enter/EnterAppShell.tsx": {
     "mtime": 1786887762569.6594,
     "hash": "9798db340d72d20971b15a3564035a84"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/accounts.ts": {
-    "mtime": 1786977749302.8533,
-    "hash": "db03b649cdcdbdbe1b902d3d12fa26e8"
+    "mtime": 1786983143681.3857,
+    "hash": "c5aac82e107d0851141ed70a305c0260"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/enter/results.ts": {
     "mtime": 1786871264453.0215,
     "hash": "bc97034e9265dda1488cf810239582e8"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/enter/rounds.ts": {
-    "mtime": 1786888722903.2798,
-    "hash": "277d4de77c2dfa6d32a2c5f71204564f"
+    "mtime": 1787067429471.9294,
+    "hash": "9536cccdb70bef6a2a9cf4ebd7f629ca"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/enter/scoring.ts": {
     "mtime": 1786888732661.1394,
@@ -1308,20 +1308,20 @@
     "hash": "a7d11d73a2c4c649aff42f3321766cc2"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/billing/webhook.ts": {
-    "mtime": 1786976231519.4453,
-    "hash": "bb303410891f57457cdfd187f1017771"
+    "mtime": 1786979250810.5437,
+    "hash": "1ff91d01dcb73141d8de7859141d8377"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/crons.ts": {
     "mtime": 1786976547009.273,
     "hash": "1ef537434cb12846aecf58146ffaff7a"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/lib/billing.ts": {
-    "mtime": 1786974952100.7378,
-    "hash": "7fa1205124e1b0fb799c8b5e8aeb480b"
+    "mtime": 1786979250648.8916,
+    "hash": "fc3b7bc335862a24ff900d77d4922fdc"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/lib/paymongo.ts": {
-    "mtime": 1786975361682.3997,
-    "hash": "427a6929957717d546e186d40355ff51"
+    "mtime": 1786980247278.623,
+    "hash": "a55e1d1fb440f6b1b1657dd45dda8fc8"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/lib/superadmin.ts": {
     "mtime": 1786892294699.4712,
@@ -1440,8 +1440,8 @@
     "hash": "167a7e707992fb83e7ea42f4da30745e"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/components/tabulation/BulkAccountsDialog.tsx": {
-    "mtime": 1786977797748.8328,
-    "hash": "98fbafbf908aebcde312a0676273f05b"
+    "mtime": 1786983152873.6172,
+    "hash": "dc04afbbc05b43b777e1bd491b3362c8"
   },
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/components/tabulation/ImportContestantsDialog.tsx": {
     "mtime": 1786977516203.9927,
@@ -1454,5 +1454,45 @@
   "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/lib/download.ts": {
     "mtime": 1786977778106.4014,
     "hash": "4a4a9f36ddbd9f521fdf7852cbb2ff0e"
+  },
+  "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/app/app/[orgSlug]/events/[eventSlug]/results/print/page.tsx": {
+    "mtime": 1786978578301.5999,
+    "hash": "8c38155135497df1fa84bccf2a96993b"
+  },
+  "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/components/enter/RoundIntegrityPanel.tsx": {
+    "mtime": 1786985270320.7578,
+    "hash": "489e43e88e7c6c6c6ed71916c8935fd8"
+  },
+  "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/components/tabulation/AiEventWizardCard.tsx": {
+    "mtime": 1787065429490.499,
+    "hash": "4709f78a878846c20dd8f372a1c2f59e"
+  },
+  "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/components/tabulation/ExplainButton.tsx": {
+    "mtime": 1787066445657.6216,
+    "hash": "97d2e855ba5d6c89563fcec5cbd1a1eb"
+  },
+  "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/lib/aiUsage.ts": {
+    "mtime": 1787064187555.041,
+    "hash": "eaae17d52ac0b0913a51bad01ba1e770"
+  },
+  "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/lib/gemini.ts": {
+    "mtime": 1787067439313.3352,
+    "hash": "90a289f5d6989885922ecf95e129cd87"
+  },
+  "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/lib/judgeIntegrity.ts": {
+    "mtime": 1786984048588.7983,
+    "hash": "fba2505ab8ea3b258826db3a1ca47ab2"
+  },
+  "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/lib/templateWizard.ts": {
+    "mtime": 1787064559671.2927,
+    "hash": "dc5fe8d575288d10e9934422b39cb94f"
+  },
+  "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/convex/publicResults.ts": {
+    "mtime": 1786983163792.9785,
+    "hash": "98d1c5a8944b7491aedff30d3d2dce0f"
+  },
+  "C:/Users/USER/Documents/data/convex/tabulation-ai-powered/e2e/07-bulk-import-public-results.spec.ts": {
+    "mtime": 1786981968056.022,
+    "hash": "b90c3c67f5ca7639166f4131ace08a4d"
   }
 }

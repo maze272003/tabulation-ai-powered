@@ -89,6 +89,28 @@ export async function verifyPaymongoSignature(
   return timingSafeEqualHex(expected, signature.toLowerCase());
 }
 
+export const DEFAULT_PAYMENT_METHOD_TYPES: readonly string[] = [
+  "card",
+  "gcash",
+  "paymaya",
+  "grab_pay",
+  "dob",
+  "billease",
+  "qrph",
+];
+
+export function configuredPaymentMethodTypes(): string[] {
+  const envTypes = process.env.PAYMONGO_PAYMENT_METHOD_TYPES;
+  if (envTypes) {
+    const parsed = envTypes
+      .split(",")
+      .map((t) => t.trim().toLowerCase())
+      .filter((t) => t.length > 0);
+    if (parsed.length > 0) return parsed;
+  }
+  return [...DEFAULT_PAYMENT_METHOD_TYPES];
+}
+
 export type PaymongoCheckoutSession = { checkoutSessionId: string; checkoutUrl: string };
 
 export type CheckoutSessionInput = {
@@ -99,6 +121,7 @@ export type CheckoutSessionInput = {
   successUrl: string;
   cancelUrl: string;
   metadata: Record<string, string>;
+  paymentMethodTypes?: string[];
 };
 
 function extractErrorMessage(json: unknown): string {
@@ -131,6 +154,11 @@ function extractCheckoutUrl(json: unknown): string | null {
 export async function createCheckoutSession(
   input: CheckoutSessionInput,
 ): Promise<PaymongoCheckoutSession> {
+  const paymentMethodTypes =
+    input.paymentMethodTypes && input.paymentMethodTypes.length > 0
+      ? input.paymentMethodTypes
+      : configuredPaymentMethodTypes();
+
   let response: Response;
   try {
     response = await fetch(`${PAYMONGO_API_BASE}/checkout_sessions`, {
@@ -152,6 +180,7 @@ export async function createCheckoutSession(
                 quantity: 1,
               },
             ],
+            payment_method_types: paymentMethodTypes,
             success_url: input.successUrl,
             cancel_url: input.cancelUrl,
             reference_number: input.referenceNumber,
