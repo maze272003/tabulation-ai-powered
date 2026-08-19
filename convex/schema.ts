@@ -126,6 +126,7 @@ export default defineSchema({
       v.literal("expired"),
       v.literal("cancelled"),
       v.literal("flagged"),
+      v.literal("refunded"),
     ),
     periodStartAt: v.union(v.null(), v.number()),
     periodEndAt: v.union(v.null(), v.number()),
@@ -518,4 +519,87 @@ export default defineSchema({
     .index("by_org_id", ["orgId"])
     .index("by_payment_id", ["paymentId"])
     .index("by_status", ["status"]),
+
+  supportTickets: defineTable({
+    orgId: v.id("organizations"),
+    createdById: v.id("userProfiles"),
+    ticketType: v.union(
+      v.literal("refund"),
+      v.literal("general_support"),
+      v.literal("billing_issue"),
+      v.literal("technical"),
+    ),
+    subject: v.string(),
+    description: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("in_review"),
+      v.literal("approved"),
+      v.literal("rejected"),
+      v.literal("resolved"),
+    ),
+    priority: v.union(
+      v.literal("low"),
+      v.literal("normal"),
+      v.literal("high"),
+      v.literal("urgent"),
+    ),
+    paymentId: v.optional(v.id("billingPayments")),
+    planId: v.optional(v.id("plans")),
+    refundAmountCents: v.optional(v.number()),
+    refundPaidAt: v.optional(v.number()),
+    refundExpiresAt: v.optional(v.number()),
+    crmLeadId: v.optional(v.id("crmLeads")),
+    assignedAdminId: v.union(v.null(), v.id("userProfiles")),
+    lastMessageAt: v.number(),
+    unreadCustomerCount: v.number(),
+    unreadAdminCount: v.number(),
+    decisionReason: v.optional(v.string()),
+    resolvedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_org_id", ["orgId"])
+    .index("by_created_by", ["createdById"])
+    .index("by_status", ["status"])
+    .index("by_ticket_type", ["ticketType"])
+    .index("by_payment_id", ["paymentId"])
+    .index("by_last_message_at", ["lastMessageAt"]),
+
+  ticketMessages: defineTable({
+    ticketId: v.id("supportTickets"),
+    orgId: v.id("organizations"),
+    senderId: v.id("userProfiles"),
+    senderRole: v.union(
+      v.literal("customer"),
+      v.literal("superadmin"),
+      v.literal("system"),
+    ),
+    body: v.string(),
+    attachments: v.optional(v.array(v.string())),
+    createdAt: v.number(),
+  })
+    .index("by_ticket_id", ["ticketId"])
+    .index("by_org_id", ["orgId"]),
+
+  notifications: defineTable({
+    userId: v.id("userProfiles"),
+    orgId: v.optional(v.id("organizations")),
+    type: v.union(
+      v.literal("ticket_created"),
+      v.literal("ticket_reply"),
+      v.literal("ticket_status_change"),
+      v.literal("refund_approved"),
+      v.literal("refund_rejected"),
+      v.literal("chat_message"),
+      v.literal("system"),
+    ),
+    title: v.string(),
+    message: v.string(),
+    link: v.string(),
+    isRead: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_user_id_and_read", ["userId", "isRead"])
+    .index("by_user_id_and_created_at", ["userId", "createdAt"])
+    .index("by_org_id", ["orgId"]),
 });

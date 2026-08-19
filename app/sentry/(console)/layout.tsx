@@ -8,6 +8,7 @@ import {
   CreditCard,
   Handshake,
   LayoutDashboard,
+  LifeBuoy,
   LogOut,
   Megaphone,
   ScrollText,
@@ -24,6 +25,7 @@ import { cn } from "@/lib/utils";
 
 const NAV_ITEMS: { href: string; label: string; icon: LucideIcon; exact?: boolean }[] = [
   { href: "/sentry/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { href: "/sentry/support", label: "Support & Tickets", icon: LifeBuoy },
   { href: "/sentry/users", label: "Users", icon: Users },
   { href: "/sentry/organizations", label: "Organizations", icon: Building2 },
   { href: "/sentry/billing", label: "Billing", icon: CreditCard },

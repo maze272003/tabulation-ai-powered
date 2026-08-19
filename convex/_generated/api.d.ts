@@ -75,7 +75,10 @@ import type * as superadmin_crm from "../superadmin/crm.js";
 import type * as superadmin_dashboard from "../superadmin/dashboard.js";
 import type * as superadmin_orgs from "../superadmin/orgs.js";
 import type * as superadmin_settings from "../superadmin/settings.js";
+import type * as superadmin_tickets from "../superadmin/tickets.js";
 import type * as superadmin_users from "../superadmin/users.js";
+import type * as support_notifications from "../support/notifications.js";
+import type * as support_tickets from "../support/tickets.js";
 import type * as templates from "../templates.js";
 
 import type {
@@ -152,7 +155,10 @@ declare const fullApi: ApiFromModules<{
   "superadmin/dashboard": typeof superadmin_dashboard;
   "superadmin/orgs": typeof superadmin_orgs;
   "superadmin/settings": typeof superadmin_settings;
+  "superadmin/tickets": typeof superadmin_tickets;
   "superadmin/users": typeof superadmin_users;
+  "support/notifications": typeof support_notifications;
+  "support/tickets": typeof support_tickets;
   templates: typeof templates;
 }>;
 

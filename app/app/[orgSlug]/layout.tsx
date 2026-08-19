@@ -11,6 +11,7 @@ import {
   CreditCard,
   LayoutDashboard,
   LayoutTemplate,
+  LifeBuoy,
   Menu,
   Settings,
   X,
@@ -19,6 +20,7 @@ import { OrgSwitcher } from "@/components/OrgSwitcher";
 import { UserMenu } from "@/components/UserMenu";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { PageTransition } from "@/components/PageTransition";
+import { NotificationBell } from "@/components/NotificationBell";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS: { href: string; label: string; icon: LucideIcon; exact?: boolean }[] = [
@@ -26,6 +28,7 @@ const NAV_ITEMS: { href: string; label: string; icon: LucideIcon; exact?: boolea
   { href: "events", label: "Events", icon: CalendarDays },
   { href: "templates", label: "Templates", icon: LayoutTemplate },
   { href: "billing", label: "Billing", icon: CreditCard },
+  { href: "support", label: "Support & Tickets", icon: LifeBuoy },
   { href: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -113,18 +116,25 @@ export default function OrgLayout({
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Mobile top bar */}
-        <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur lg:hidden print:hidden">
-          <button
-            type="button"
-            aria-label="Open navigation"
-            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            onClick={() => setMobileNavOpen(true)}
-          >
-            <Menu aria-hidden className="size-5" />
-          </button>
-          <span className="min-w-0 truncate text-sm font-semibold">{org.name}</span>
+        {/* Top bar with Notification Navbar bell & mobile menu */}
+        <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur print:hidden">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              aria-label="Open navigation"
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
+              onClick={() => setMobileNavOpen(true)}
+            >
+              <Menu aria-hidden className="size-5" />
+            </button>
+            <span className="min-w-0 truncate text-sm font-semibold">{org.name}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+          </div>
         </header>
+
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
           <PageTransition className="space-y-6">{children}</PageTransition>
         </main>

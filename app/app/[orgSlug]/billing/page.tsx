@@ -4,6 +4,7 @@ import { Suspense, use, useEffect, useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
@@ -113,12 +114,12 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
   const plans = useQuery(api.plans.list, {});
   const payments = useQuery(api.billing.payments.listForOrg, { orgSlug });
   const activeCheckout = useQuery(api.billing.payments.getActiveCheckout, { orgSlug });
-  const refundEligibility = useQuery(api.billing.refunds.getEligibility, { orgSlug });
+  const refundEligibility = useQuery(api.support.tickets.getRefundEligibility, { orgSlug });
 
   const startCheckout = useAction(api.billing.checkout.createCheckout);
   const cancelCheckout = useMutation(api.billing.checkout.cancelCheckout);
   const syncCheckout = useAction(api.billing.checkout.syncCheckoutStatus);
-  const submitRefundTicket = useMutation(api.billing.refunds.submitRefundTicket);
+  const submitRefundTicket = useMutation(api.support.tickets.createRefundTicket);
 
   const [busyPlan, setBusyPlan] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -309,7 +310,7 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
               <p className="text-xs text-muted-foreground">
                 {refundEligibility.existingTicket ? (
                   <span>
-                    Your refund ticket (<em>"{refundEligibility.existingTicket.reason}"</em>) was
+                    Your refund ticket (<em>"{refundEligibility.existingTicket.subject}"</em>) was
                     submitted on {formatDate(refundEligibility.existingTicket.createdAt)}. Our CRM
                     support team is reviewing it.
                   </span>
@@ -337,6 +338,12 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
               >
                 <Clock className="size-4 text-warning" /> Request Refund Ticket
               </Button>
+            ) : refundEligibility.existingTicket ? (
+              <Link href={`/app/${orgSlug}/support/${refundEligibility.existingTicket.id}`}>
+                <Button variant="outline" size="sm" className="shrink-0 gap-1.5">
+                  <LifeBuoy className="size-4 text-primary" /> View Ticket & Chat
+                </Button>
+              </Link>
             ) : null}
           </div>
         </div>
