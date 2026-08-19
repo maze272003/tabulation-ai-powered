@@ -233,6 +233,7 @@ describe("paymongo checkout session", () => {
       paymentId: "pay_doc_1",
       paidAmount: 49900,
       isPaid: true,
+      paymongoPaymentId: null,
     });
   });
 
@@ -265,6 +266,7 @@ describe("paymongo checkout session", () => {
       paymentId: null,
       paidAmount: null,
       isPaid: false,
+      paymongoPaymentId: null,
     });
   });
 });

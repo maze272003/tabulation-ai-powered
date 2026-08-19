@@ -1,11 +1,13 @@
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
-import { mutation, query } from "../_generated/server";
+import { action, mutation, query } from "../_generated/server";
 import type { QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import { api } from "../_generated/api";
 import { requireSuperadminSession } from "../lib/superadmin";
 import { writeAudit } from "../lib/audit";
 import { appError, ErrorCode } from "../lib/errors";
+import { createPaymongoRefund, retrieveCheckoutSession } from "../lib/paymongo";
 import { createNotification } from "../support/notifications";
 import { ticketPriorityValidator, ticketStatusValidator, ticketTypeValidator } from "../support/tickets";
 
@@ -327,6 +329,62 @@ export const updateStatus = mutation({
     });
 
     return { success: true };
+  },
+});
+
+export const approveRefundWithPayMongo = action({
+  args: {
+    token: v.string(),
+    ticketId: v.id("supportTickets"),
+  },
+  handler: async (ctx, args) => {
+    const detail = await ctx.runQuery(api.superadmin.tickets.getDetail, {
+      token: args.token,
+      ticketId: args.ticketId,
+    });
+
+    if (detail.ticketType !== "refund") {
+      throw appError(ErrorCode.VALIDATION_ERROR, "Ticket is not a refund request");
+    }
+
+    let paymongoRefundId: string | null = null;
+
+    // Call PayMongo API if checkout session exists
+    if (detail.payment?.checkoutSessionId) {
+      try {
+        const checkoutSession = await retrieveCheckoutSession(detail.payment.checkoutSessionId);
+        if (checkoutSession.paymongoPaymentId) {
+          const refundAmount = detail.refundAmountCents ?? detail.payment.amountCents;
+          const refundRes = await createPaymongoRefund({
+            amountCents: refundAmount,
+            paymongoPaymentId: checkoutSession.paymongoPaymentId,
+            reason: "requested_by_customer",
+            notes: "10-hour refund policy approved by superadmin",
+          });
+          paymongoRefundId = refundRes.refundId;
+        }
+      } catch (error) {
+        console.warn(
+          "PayMongo refund call encountered an issue (will still approve in database):",
+          error instanceof Error ? error.message : error,
+        );
+      }
+    }
+
+    // Update status in system database and downgrade subscription
+    await ctx.runMutation(api.superadmin.tickets.updateStatus, {
+      token: args.token,
+      ticketId: args.ticketId,
+      status: "approved",
+    });
+
+    return {
+      success: true,
+      paymongoRefundId,
+      message: paymongoRefundId
+        ? `Refund processed with PayMongo (${paymongoRefundId}) and subscription downgraded to Free.`
+        : "Refund approved and subscription downgraded to Free.",
+    };
   },
 });
 

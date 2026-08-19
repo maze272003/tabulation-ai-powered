@@ -218,6 +218,7 @@ export type RetrievedCheckoutSession = {
   paymentId: string | null;
   paidAmount: number | null;
   isPaid: boolean;
+  paymongoPaymentId: string | null;
 };
 
 /**
@@ -259,28 +260,43 @@ export async function retrieveCheckoutSession(
 
   let paidAmount: number | null = null;
   let isPaid = status === "paid";
+  let paymongoPaymentId: string | null = null;
 
   if (Array.isArray(attributes.payments) && attributes.payments.length > 0) {
     for (const p of attributes.payments) {
-      if (isRecord(p) && isRecord(p.attributes)) {
-        if (typeof p.attributes.amount === "number" && paidAmount === null) {
-          paidAmount = p.attributes.amount;
+      if (isRecord(p)) {
+        if (typeof p.id === "string" && !paymongoPaymentId) {
+          paymongoPaymentId = p.id;
         }
-        if (p.attributes.status === "paid") {
-          isPaid = true;
-          if (typeof p.attributes.amount === "number") {
+        if (isRecord(p.attributes)) {
+          if (typeof p.attributes.amount === "number" && paidAmount === null) {
             paidAmount = p.attributes.amount;
           }
-          break;
+          if (p.attributes.status === "paid") {
+            isPaid = true;
+            if (typeof p.id === "string") {
+              paymongoPaymentId = p.id;
+            }
+            if (typeof p.attributes.amount === "number") {
+              paidAmount = p.attributes.amount;
+            }
+            break;
+          }
         }
       }
     }
   }
 
   // Also check payment_intent if present
-  if (!isPaid && isRecord(attributes.payment_intent) && isRecord(attributes.payment_intent.attributes)) {
+  if (isRecord(attributes.payment_intent) && isRecord(attributes.payment_intent.attributes)) {
     const piAttr = attributes.payment_intent.attributes;
-    if (piAttr.status === "succeeded" || piAttr.status === "paid") {
+    if (Array.isArray(piAttr.payments) && piAttr.payments.length > 0) {
+      const firstPay = piAttr.payments[0];
+      if (isRecord(firstPay) && typeof firstPay.id === "string" && !paymongoPaymentId) {
+        paymongoPaymentId = firstPay.id;
+      }
+    }
+    if (!isPaid && (piAttr.status === "succeeded" || piAttr.status === "paid")) {
       isPaid = true;
       if (typeof piAttr.amount === "number" && paidAmount === null) {
         paidAmount = piAttr.amount;
@@ -307,6 +323,73 @@ export async function retrieveCheckoutSession(
     paymentId,
     paidAmount,
     isPaid,
+    paymongoPaymentId,
+  };
+}
+
+export type CreateRefundInput = {
+  amountCents: number;
+  paymongoPaymentId: string;
+  reason?: "duplicate" | "fraudulent" | "requested_by_customer" | "others";
+  notes?: string;
+};
+
+export type PaymongoRefundResult = {
+  refundId: string;
+  status: string;
+  amount: number;
+};
+
+/**
+ * Creates a refund directly via PayMongo's Refund API (POST /v1/refunds).
+ */
+export async function createPaymongoRefund(
+  input: CreateRefundInput,
+): Promise<PaymongoRefundResult> {
+  let response: Response;
+  try {
+    response = await fetch(`${PAYMONGO_API_BASE}/refunds`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${btoa(`${paymongoSecretKey()}:`)}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        data: {
+          attributes: {
+            amount: input.amountCents,
+            payment_id: input.paymongoPaymentId,
+            reason: input.reason ?? "requested_by_customer",
+            notes: input.notes ?? "Refund approved within 10-hour policy",
+          },
+        },
+      }),
+    });
+  } catch (error) {
+    throw appError(
+      ErrorCode.PAYMENT_PROVIDER,
+      `PayMongo refund request failed: ${error instanceof Error ? error.message : "network error"}`,
+    );
+  }
+
+  const json: unknown = await response.json().catch(() => null);
+  if (!response.ok || !isRecord(json) || !isRecord(json.data)) {
+    const detail = extractErrorMessage(json);
+    throw appError(
+      ErrorCode.PAYMENT_PROVIDER,
+      `PayMongo refund failed${detail ? `: ${detail}` : ""}`,
+    );
+  }
+
+  const data = json.data;
+  const attributes = isRecord(data.attributes) ? data.attributes : {};
+  const status = typeof attributes.status === "string" ? attributes.status : "succeeded";
+  const amount = typeof attributes.amount === "number" ? attributes.amount : input.amountCents;
+
+  return {
+    refundId: typeof data.id === "string" ? data.id : "",
+    status,
+    amount,
   };
 }
 

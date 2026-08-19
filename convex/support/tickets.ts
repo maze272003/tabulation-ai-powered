@@ -516,6 +516,43 @@ export const markMessagesRead = mutation({
     }
 
     await ctx.db.patch(ticket._id, { unreadCustomerCount: 0 });
+
+    // Auto mark as read any unread notifications pointing to this ticket
+    const unreadNotifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_user_id_and_read", (q) =>
+        q.eq("userId", actx.user._id).eq("isRead", false),
+      )
+      .collect();
+
+    for (const notif of unreadNotifications) {
+      if (notif.link?.includes(args.ticketId)) {
+        await ctx.db.patch(notif._id, { isRead: true });
+      }
+    }
+
     return { success: true };
+  },
+});
+
+export const getOrgSupportBadge = query({
+  args: { orgSlug: v.string() },
+  handler: async (ctx, args) => {
+    const actx = await requirePermission(ctx, {
+      orgSlug: args.orgSlug,
+      permission: "organization.view",
+    });
+
+    const tickets = await ctx.db
+      .query("supportTickets")
+      .withIndex("by_org_id", (q) => q.eq("orgId", actx.org._id))
+      .collect();
+
+    let unreadCount = 0;
+    for (const t of tickets) {
+      unreadCount += t.unreadCustomerCount || 0;
+    }
+
+    return { unreadCount };
   },
 });

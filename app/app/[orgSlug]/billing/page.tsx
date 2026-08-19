@@ -469,6 +469,7 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Payment ID</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Plan</TableHead>
                   <TableHead>Amount</TableHead>
@@ -480,6 +481,18 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
               <TableBody>
                 {payments.map((payment) => (
                   <TableRow key={payment._id}>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-mono text-xs font-medium text-foreground">
+                          {payment.referenceNumber || payment._id}
+                        </span>
+                        {payment.referenceNumber && payment.referenceNumber !== payment._id ? (
+                          <span className="font-mono text-[10px] text-muted-foreground">
+                            ID: {payment._id}
+                          </span>
+                        ) : null}
+                      </div>
+                    </TableCell>
                     <TableCell>{formatDate(payment._creationTime)}</TableCell>
                     <TableCell>{payment.planName ?? "—"}</TableCell>
                     <TableCell>{formatPeso(payment.amountCents)}</TableCell>

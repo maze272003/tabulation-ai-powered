@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useEffect, useRef, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { notFound, useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -115,6 +115,7 @@ export default function SuperadminTicketDetailPage({
 
   const sendAdminMessage = useMutation(api.superadmin.tickets.sendAdminMessage);
   const updateStatus = useMutation(api.superadmin.tickets.updateStatus);
+  const approveRefundWithPayMongo = useAction(api.superadmin.tickets.approveRefundWithPayMongo);
 
   const [inputMessage, setInputMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -171,12 +172,11 @@ export default function SuperadminTicketDetailPage({
     if (!token) return;
     setUpdatingStatus(true);
     try {
-      await updateStatus({
+      const res = await approveRefundWithPayMongo({
         token,
         ticketId: ticket._id,
-        status: "approved",
       });
-      toast.success("Refund approved! Subscription has been downgraded to Free.");
+      toast.success(res.message);
       setApprovalModalOpen(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to approve refund.");

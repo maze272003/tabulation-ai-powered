@@ -41,6 +41,8 @@ export default function OrgLayout({
 }) {
   const { orgSlug } = use(params);
   const org = useQuery(api.organizations.get, { orgSlug });
+  const supportBadge = useQuery(api.support.tickets.getOrgSupportBadge, { orgSlug });
+  const unreadSupportCount = supportBadge?.unreadCount ?? 0;
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -54,6 +56,7 @@ export default function OrgLayout({
       {NAV_ITEMS.map((item) => {
         const href = `${base}/${item.href}`;
         const active = item.exact ? pathname === href : pathname.startsWith(href);
+        const hasUnread = item.href === "support" && unreadSupportCount > 0;
         return (
           <Link
             key={item.href}
@@ -68,7 +71,12 @@ export default function OrgLayout({
             )}
           >
             <item.icon aria-hidden className={cn("size-4", active && "text-primary")} />
-            {item.label}
+            <span className="flex-1 truncate">{item.label}</span>
+            {hasUnread ? (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground animate-in zoom-in-50">
+                {unreadSupportCount > 99 ? "99+" : unreadSupportCount}
+              </span>
+            ) : null}
           </Link>
         );
       })}

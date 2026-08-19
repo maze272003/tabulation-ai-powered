@@ -2,26 +2,22 @@
 
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
   Bell,
   CheckCheck,
-  CreditCard,
   LifeBuoy,
+  Megaphone,
   MessageSquare,
   ShieldAlert,
   ShieldCheck,
-  X,
+  Sparkles,
 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
@@ -59,11 +55,16 @@ function getNotificationIcon(type: string) {
 export function NotificationBell() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"all" | "notifications" | "announcements">("all");
 
-  const notifications = useQuery(api.support.notifications.listMyNotifications, { limit: 15 });
+  const notifications = useQuery(api.support.notifications.listMyNotifications, { limit: 20 });
   const unreadCount = useQuery(api.support.notifications.getUnreadCount) ?? 0;
+  const announcements = useQuery(api.announcements.listActive, {});
   const markAsRead = useMutation(api.support.notifications.markAsRead);
   const markAllAsRead = useMutation(api.support.notifications.markAllAsRead);
+
+  const announcementCount = announcements?.length ?? 0;
+  const totalBadgeCount = unreadCount + announcementCount;
 
   const handleNotificationClick = async (
     notificationId: Id<"notifications">,
@@ -90,23 +91,24 @@ export function NotificationBell() {
         render={
           <button
             type="button"
-            aria-label={`Notifications (${unreadCount} unread)`}
+            aria-label={`Notifications (${totalBadgeCount} items, ${unreadCount} unread)`}
             className="relative flex size-9 items-center justify-center rounded-lg border bg-background/80 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
           >
             <Bell className="size-4.5" />
-            {unreadCount > 0 ? (
+            {totalBadgeCount > 0 ? (
               <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground animate-in zoom-in-50">
-                {unreadCount > 99 ? "99+" : unreadCount}
+                {totalBadgeCount > 99 ? "99+" : totalBadgeCount}
               </span>
             ) : null}
           </button>
         }
       />
 
-      <DropdownMenuContent align="end" className="w-80 sm:w-96 p-0">
+      <DropdownMenuContent align="end" className="w-80 sm:w-96 p-0 shadow-lg">
+        {/* Header */}
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div className="flex items-center gap-2">
-            <h4 className="text-sm font-semibold">Notifications</h4>
+            <h4 className="text-sm font-semibold">Activity & Updates</h4>
             {unreadCount > 0 ? (
               <Badge variant="secondary" className="h-5 px-1.5 text-[11px]">
                 {unreadCount} unread
@@ -125,61 +127,147 @@ export function NotificationBell() {
           ) : null}
         </div>
 
-        <div className="max-h-[380px] overflow-y-auto divide-y">
-          {notifications === undefined ? (
-            <div className="p-4 space-y-3">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="h-12 rounded bg-muted/60 animate-pulse" />
-              ))}
-            </div>
-          ) : notifications.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              <Bell className="size-6 mx-auto mb-2 opacity-40" />
-              No notifications yet.
-            </div>
-          ) : (
-            notifications.map((n) => (
-              <div
-                key={n._id}
-                role="button"
-                tabIndex={0}
-                onClick={() => handleNotificationClick(n._id, n.link, n.isRead)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    void handleNotificationClick(n._id, n.link, n.isRead);
-                  }
-                }}
-                className={cn(
-                  "flex items-start gap-3 p-3 text-left transition-colors cursor-pointer hover:bg-muted/50",
-                  !n.isRead && "bg-primary/5 font-medium",
-                )}
-              >
-                <div className="mt-0.5">{getNotificationIcon(n.type)}</div>
-                <div className="flex-1 min-w-0 space-y-0.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-semibold text-foreground truncate">{n.title}</p>
-                    <span className="text-[10px] text-muted-foreground shrink-0">
-                      {timeAgo(n.createdAt)}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground line-clamp-2">{n.message}</p>
-                </div>
-                {!n.isRead ? (
-                  <span className="size-2 rounded-full bg-primary mt-1.5 shrink-0" />
-                ) : null}
-              </div>
-            ))
-          )}
+        {/* Navigation Tabs */}
+        <div className="flex border-b bg-muted/30 px-2 pt-1 gap-1 text-xs">
+          <button
+            type="button"
+            onClick={() => setActiveTab("all")}
+            className={cn(
+              "px-3 py-1.5 font-medium rounded-t-md transition-colors border-b-2",
+              activeTab === "all"
+                ? "border-primary text-foreground bg-background"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("notifications")}
+            className={cn(
+              "px-3 py-1.5 font-medium rounded-t-md transition-colors border-b-2 flex items-center gap-1.5",
+              activeTab === "notifications"
+                ? "border-primary text-foreground bg-background"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Chats & Tickets
+            {unreadCount > 0 ? (
+              <span className="flex size-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
+                {unreadCount}
+              </span>
+            ) : null}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("announcements")}
+            className={cn(
+              "px-3 py-1.5 font-medium rounded-t-md transition-colors border-b-2 flex items-center gap-1.5",
+              activeTab === "announcements"
+                ? "border-primary text-foreground bg-background"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Announcements
+            {announcementCount > 0 ? (
+              <span className="flex size-4 items-center justify-center rounded-full bg-warning text-[9px] font-bold text-warning-foreground">
+                {announcementCount}
+              </span>
+            ) : null}
+          </button>
         </div>
 
-        {notifications && notifications.length > 0 ? (
-          <div className="border-t p-2 text-center bg-muted/20">
-            <span className="text-[11px] text-muted-foreground">
-              Notifications update in real time
-            </span>
-          </div>
-        ) : null}
+        {/* Notification & Announcement List */}
+        <div className="max-h-[380px] overflow-y-auto divide-y">
+          {/* Announcements (Shown on All or Announcements tab) */}
+          {(activeTab === "all" || activeTab === "announcements") &&
+          announcements &&
+          announcements.length > 0 ? (
+            <div className="bg-warning-muted/40 divide-y divide-warning/20">
+              {announcements.map((ann) => (
+                <div key={ann._id} className="p-3 text-left space-y-1 bg-warning-muted/20">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <Megaphone className="size-3.5 text-warning shrink-0" />
+                      <Badge variant="outline" className="border-warning/40 text-[10px] text-warning px-1 py-0 font-semibold uppercase">
+                        Announcement
+                      </Badge>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">
+                      {timeAgo(ann.publishedAt)}
+                    </span>
+                  </div>
+                  <p className="text-xs font-semibold text-foreground">{ann.title}</p>
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">{ann.body}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {/* Ticket Notifications (Shown on All or Notifications tab) */}
+          {activeTab !== "announcements" ? (
+            notifications === undefined ? (
+              <div className="p-4 space-y-3">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="h-12 rounded bg-muted/60 animate-pulse" />
+                ))}
+              </div>
+            ) : notifications.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                <Bell className="size-6 mx-auto mb-2 opacity-40" />
+                No ticket notifications yet.
+              </div>
+            ) : (
+              notifications.map((n) => (
+                <div
+                  key={n._id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleNotificationClick(n._id, n.link, n.isRead)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      void handleNotificationClick(n._id, n.link, n.isRead);
+                    }
+                  }}
+                  className={cn(
+                    "flex items-start gap-3 p-3 text-left transition-colors cursor-pointer hover:bg-muted/50",
+                    !n.isRead && "bg-primary/5 font-medium",
+                  )}
+                >
+                  <div className="mt-0.5">{getNotificationIcon(n.type)}</div>
+                  <div className="flex-1 min-w-0 space-y-0.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold text-foreground truncate">{n.title}</p>
+                      <span className="text-[10px] text-muted-foreground shrink-0">
+                        {timeAgo(n.createdAt)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{n.message}</p>
+                  </div>
+                  {!n.isRead ? (
+                    <span className="size-2 rounded-full bg-primary mt-1.5 shrink-0" />
+                  ) : null}
+                </div>
+              ))
+            )
+          ) : null}
+
+          {/* Empty state for Announcements tab */}
+          {activeTab === "announcements" && (!announcements || announcements.length === 0) ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              <Sparkles className="size-6 mx-auto mb-2 opacity-40" />
+              No active platform announcements.
+            </div>
+          ) : null}
+        </div>
+
+        {/* Footer */}
+        <div className="border-t p-2 text-center bg-muted/20">
+          <span className="text-[11px] text-muted-foreground">
+            Updates and live support chats sync in real time
+          </span>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );

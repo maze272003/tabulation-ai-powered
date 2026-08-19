@@ -87,12 +87,12 @@ function TicketDetailContent({
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Clear unread customer count when viewing the ticket
+  // Clear unread customer count and auto-clear related notifications when viewing the ticket
   useEffect(() => {
-    if (ticket && ticket.unreadCustomerCount > 0) {
+    if (ticket) {
       void markMessagesRead({ orgSlug, ticketId });
     }
-  }, [ticket, orgSlug, ticketId, markMessagesRead]);
+  }, [ticket?._id, orgSlug, ticketId, markMessagesRead, messages?.length]);
 
   // Auto scroll to bottom when new messages arrive
   useEffect(() => {

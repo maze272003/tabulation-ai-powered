@@ -39,6 +39,23 @@ export const create = mutation({
       after: { title, isActive: args.isActive },
       reason: `superadmin:${session.label}`,
     });
+    if (args.isActive) {
+      const allUsers = await ctx.db.query("userProfiles").take(100);
+      const activeUsers = allUsers.filter((u) => u.status === "active");
+
+      for (const u of activeUsers) {
+        await ctx.db.insert("notifications", {
+          userId: u._id,
+          type: "system",
+          title: `Announcement: ${title}`,
+          message: body.slice(0, 200),
+          link: "",
+          isRead: false,
+          createdAt: Date.now(),
+        });
+      }
+    }
+
     return announcementId;
   },
 });
