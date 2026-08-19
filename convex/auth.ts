@@ -47,13 +47,28 @@ export const ensureUserProfile = mutation({
       await maybeBootstrapPlatformOwner(ctx, { ...existing, email });
       return existing._id;
     }
+
+    const firstUser = await ctx.db.query("userProfiles").first();
+    const isFirstUser = firstUser === null;
+    const configuredOwnerEmail = process.env.PLATFORM_OWNER_EMAIL;
+    const isOwnerEmail = Boolean(
+      configuredOwnerEmail &&
+      identity.email &&
+      identity.email.toLowerCase() === configuredOwnerEmail.toLowerCase(),
+    );
+
     const settings = await ctx.db.query("platformSettings").first();
-    if (settings && !settings.allowSignups) {
+    if (settings && !settings.allowSignups && !isFirstUser && !isOwnerEmail) {
       throw new ConvexError({
         code: "FORBIDDEN",
         message: "New signups are temporarily closed",
       });
     }
+
+    if (settings && !settings.allowSignups && (isFirstUser || isOwnerEmail)) {
+      await ctx.db.patch(settings._id, { allowSignups: true, updatedAt: Date.now() });
+    }
+
     const email = identity.email ?? "";
     const id = await ctx.db.insert("userProfiles", {
       tokenIdentifier: identity.tokenIdentifier,

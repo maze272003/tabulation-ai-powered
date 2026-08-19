@@ -8,6 +8,7 @@ import {
   configuredPaymentMethodTypes,
   createCheckoutSession,
   DEFAULT_PAYMENT_METHOD_TYPES,
+  retrieveCheckoutSession,
   verifyPaymongoSignature,
 } from "../convex/lib/paymongo";
 
@@ -201,6 +202,70 @@ describe("paymongo checkout session", () => {
         metadata: { userId: "user_1" },
       }),
     ).rejects.toThrow("PayMongo checkout session creation failed: Parameter payment_method_types is required");
+  });
+
+  it("retrieves a paid checkout session correctly", async () => {
+    vi.stubEnv("PAYMONGO_SECRET_KEY", "sk_test_secret");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            data: {
+              id: "cs_paid_123",
+              attributes: {
+                status: "paid",
+                reference_number: "ref_123",
+                payments: [{ attributes: { amount: 49900, status: "paid" } }],
+                metadata: { paymentId: "pay_doc_1" },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+    const session = await retrieveCheckoutSession("cs_paid_123");
+    expect(session).toEqual({
+      id: "cs_paid_123",
+      status: "paid",
+      referenceNumber: "ref_123",
+      paymentId: "pay_doc_1",
+      paidAmount: 49900,
+      isPaid: true,
+    });
+  });
+
+  it("retrieves an active/unpaid checkout session", async () => {
+    vi.stubEnv("PAYMONGO_SECRET_KEY", "sk_test_secret");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            data: {
+              id: "cs_active_123",
+              attributes: {
+                status: "active",
+                reference_number: "ref_123",
+                payments: [],
+                metadata: {},
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+    const session = await retrieveCheckoutSession("cs_active_123");
+    expect(session).toEqual({
+      id: "cs_active_123",
+      status: "active",
+      referenceNumber: "ref_123",
+      paymentId: null,
+      paidAmount: null,
+      isPaid: false,
+    });
   });
 });
 

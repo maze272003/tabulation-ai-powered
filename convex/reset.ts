@@ -33,6 +33,7 @@ const ALL_TABLES: readonly TableNames[] = [
   "permissions",
   "roles",
   "plans",
+  "platformSettings",
   "userProfiles",
 ] as const;
 

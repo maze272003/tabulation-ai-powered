@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, use, useState } from "react";
+import { Suspense, use, useEffect, useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { useSearchParams } from "next/navigation";
@@ -25,7 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PageHeader } from "@/components/PageHeader";
-import { CheckCircle2, CreditCard, ExternalLink, XCircle } from "lucide-react";
+import { CheckCircle2, CreditCard, ExternalLink, Loader2, RefreshCw, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const pesoFormat = new Intl.NumberFormat("en-PH", {
@@ -83,15 +83,57 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
 
   const startCheckout = useAction(api.billing.checkout.createCheckout);
   const cancelCheckout = useMutation(api.billing.checkout.cancelCheckout);
+  const syncCheckout = useAction(api.billing.checkout.syncCheckoutStatus);
   const changePlan = useMutation(api.subscriptions.changePlan);
   const resume = useMutation(api.subscriptions.resume);
 
   const [busyPlan, setBusyPlan] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const currentPlanId = subscription?.subscription.planId ?? null;
   const status = subscription?.subscription.status ?? null;
   const cancelAtPeriodEnd = subscription?.subscription.cancelAtPeriodEnd ?? false;
   const periodEndAt = subscription?.subscription.currentPeriodEndAt ?? null;
+
+  // Automatically verify and poll payment status if redirected from checkout with ?billing=success
+  useEffect(() => {
+    if (!activeCheckout && billingResult !== "success") return;
+
+    let isMounted = true;
+    let attempts = 0;
+    const maxAttempts = 10;
+    setSyncing(true);
+
+    const checkPayment = async () => {
+      try {
+        const res = await syncCheckout({ orgSlug });
+        if (!isMounted) return;
+        if (res.status === "activated") {
+          toast.success(`Subscription activated! You are now on the ${res.planName} plan.`);
+          setSyncing(false);
+          return;
+        }
+        if (res.status === "cancelled" || res.status === "no_pending" || res.status === "already_active") {
+          setSyncing(false);
+          return;
+        }
+        attempts++;
+        if (attempts < maxAttempts && isMounted) {
+          setTimeout(checkPayment, 2000);
+        } else if (isMounted) {
+          setSyncing(false);
+        }
+      } catch {
+        if (isMounted) setSyncing(false);
+      }
+    };
+
+    void checkPayment();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [billingResult, activeCheckout?.paymentId, orgSlug, syncCheckout]);
 
   const handleCheckout = async (planName: string) => {
     setBusyPlan(planName);
@@ -134,6 +176,30 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
     }
   };
 
+  const handleSyncCheckout = async () => {
+    setSyncing(true);
+    try {
+      const res = await syncCheckout({ orgSlug });
+      if (res.status === "activated") {
+        toast.success(`Subscription activated! You are now on the ${res.planName} plan.`);
+      } else if (res.status === "still_pending") {
+        toast.info(
+          "Payment is not yet confirmed by PayMongo. If you have completed payment, please wait a moment and try again.",
+        );
+      } else if (res.status === "cancelled") {
+        toast.info("The checkout session was cancelled or expired.");
+      } else if (res.status === "error") {
+        toast.error(res.message ?? "Could not verify payment with PayMongo.");
+      } else {
+        toast.info("No pending checkout found.");
+      }
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   if (subscription === undefined || plans === undefined) {
     return (
       <div className="grid gap-4 md:grid-cols-3" aria-busy>
@@ -150,9 +216,13 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
   return (
     <div className="space-y-6">
       {billingResult === "success" ? (
-        <div className="rounded-lg border border-success/30 bg-success-muted px-4 py-3 text-sm text-success">
-          Payment received — your plan updates as soon as PayMongo confirms it (usually within a
-          minute).
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-success/30 bg-success-muted px-4 py-3 text-sm text-success">
+          <span>
+            {syncing
+              ? "Verifying payment with PayMongo…"
+              : "Payment received — your plan updates as soon as PayMongo confirms it."}
+          </span>
+          {syncing ? <Loader2 aria-hidden className="size-4 animate-spin" /> : null}
         </div>
       ) : null}
       {billingResult === "cancelled" ? (
@@ -187,12 +257,23 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
               waiting to be completed.
             </CardDescription>
           </CardHeader>
-          <CardFooter className="gap-2">
+          <CardFooter className="flex flex-wrap gap-2">
             {pendingCheckoutUrl ? (
               <Button onClick={() => window.location.assign(pendingCheckoutUrl)}>
                 Complete payment <ExternalLink aria-hidden className="size-4" />
               </Button>
             ) : null}
+            <Button variant="outline" disabled={syncing} onClick={handleSyncCheckout}>
+              {syncing ? (
+                <>
+                  <Loader2 aria-hidden className="size-4 animate-spin" /> Verifying…
+                </>
+              ) : (
+                <>
+                  <RefreshCw aria-hidden className="size-4" /> Verify payment
+                </>
+              )}
+            </Button>
             <Button variant="outline" onClick={handleCancelCheckout}>
               Cancel checkout
             </Button>

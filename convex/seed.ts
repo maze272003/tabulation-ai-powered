@@ -133,6 +133,20 @@ export async function seedReferenceDataInternal(ctx: MutationCtx) {
       });
     }
   }
+  const settings = await ctx.db.query("platformSettings").first();
+  if (!settings) {
+    await ctx.db.insert("platformSettings", {
+      maintenanceMode: false,
+      allowSignups: true,
+      updatedById: null,
+      updatedAt: Date.now(),
+    });
+  } else {
+    const hasUsers = (await ctx.db.query("userProfiles").first()) !== null;
+    if (!hasUsers && !settings.allowSignups) {
+      await ctx.db.patch(settings._id, { allowSignups: true, updatedAt: Date.now() });
+    }
+  }
 }
 
 export const seedReferenceData = mutation({

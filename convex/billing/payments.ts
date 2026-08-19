@@ -49,6 +49,7 @@ export const getActiveCheckout = query({
     const plan = await ctx.db.get(pending.planId);
     return {
       paymentId: pending._id,
+      checkoutSessionId: pending.checkoutSessionId,
       checkoutUrl: pending.checkoutUrl,
       planName: plan?.name ?? null,
       amountCents: pending.amountCents,

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { api, internal } from "../convex/_generated/api";
 import { aliceIdentity, createOrgWithPendingCheckout, setupTest } from "./setup";
 
@@ -136,5 +136,69 @@ describe("paymongo webhook processing", () => {
     expect(sub2?.subscription.currentPeriodEndAt).toBeGreaterThan(
       sub1?.subscription.currentPeriodEndAt ?? 0,
     );
+  });
+
+  it("handles payment.paid event type successfully", async () => {
+    const t = setupTest();
+    const ctx = await createOrgWithPendingCheckout(t, { sessionSuffix: "pay_paid" });
+    const outcome = await t.mutation(internal.billing.webhook.processWebhookEvent, {
+      eventId: "evt_payment_paid",
+      eventType: "payment.paid",
+      checkoutSessionId: ctx.checkoutSessionId,
+      referenceNumber: null,
+      paymentId: ctx.paymentId,
+      paidAmount: ctx.amountCents,
+    });
+    expect(outcome).toBe("applied");
+    const sub = await t
+      .withIdentity(aliceIdentity)
+      .query(api.subscriptions.getForOrg, { orgSlug: ctx.orgSlug });
+    expect(sub?.subscription.status).toBe("active");
+  });
+
+  it("syncs checkout status and activates subscription when PayMongo confirms paid", async () => {
+    const t = setupTest();
+    const ctx = await createOrgWithPendingCheckout(t, { sessionSuffix: "sync_paid" });
+
+    // Mock PayMongo GET /checkout_sessions/:id returning paid
+    const suffix = "sync_paid";
+    vi.stubGlobal(
+      "fetch",
+      async () =>
+        new Response(
+          JSON.stringify({
+            data: {
+              id: ctx.checkoutSessionId,
+              attributes: {
+                status: "paid",
+                reference_number: `ref_${suffix}`,
+                payments: [{ attributes: { amount: ctx.amountCents, status: "paid" } }],
+                metadata: { paymentId: ctx.paymentId },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubEnv("PAYMONGO_SECRET_KEY", `sk_test_${suffix}`);
+
+    try {
+      const res = await t
+        .withIdentity(aliceIdentity)
+        .action(api.billing.checkout.syncCheckoutStatus, {
+          orgSlug: ctx.orgSlug,
+        });
+      expect(res.status).toBe("activated");
+      expect(res.planName).toBe("Starter");
+
+      const sub = await t
+        .withIdentity(aliceIdentity)
+        .query(api.subscriptions.getForOrg, { orgSlug: ctx.orgSlug });
+      expect(sub?.subscription.status).toBe("active");
+      expect(sub?.subscription.currentPeriodEndAt).toBeGreaterThan(Date.now());
+    } finally {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    }
   });
 });

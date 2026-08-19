@@ -1,6 +1,6 @@
 import { appError, ErrorCode } from "./errors";
 
-const PAYMONGO_API_BASE = "https://api.paymongo.com/v2";
+const PAYMONGO_API_BASE = "https://api.paymongo.com/v1";
 const SIGNATURE_TOLERANCE_MS = 5 * 60 * 1000;
 
 export function paymongoSecretKey(): string {
@@ -210,3 +210,103 @@ export async function createCheckoutSession(
   }
   return { checkoutSessionId, checkoutUrl };
 }
+
+export type RetrievedCheckoutSession = {
+  id: string;
+  status: string;
+  referenceNumber: string | null;
+  paymentId: string | null;
+  paidAmount: number | null;
+  isPaid: boolean;
+};
+
+/**
+ * Retrieves a checkout session by ID from PayMongo to verify its current payment status.
+ */
+export async function retrieveCheckoutSession(
+  checkoutSessionId: string,
+): Promise<RetrievedCheckoutSession> {
+  let response: Response;
+  try {
+    response = await fetch(`${PAYMONGO_API_BASE}/checkout_sessions/${checkoutSessionId}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Basic ${btoa(`${paymongoSecretKey()}:`)}`,
+      },
+    });
+  } catch (error) {
+    throw appError(
+      ErrorCode.PAYMENT_PROVIDER,
+      `PayMongo request failed: ${error instanceof Error ? error.message : "network error"}`,
+    );
+  }
+  const json: unknown = await response.json().catch(() => null);
+  if (!response.ok || !isRecord(json) || !isRecord(json.data)) {
+    const detail = extractErrorMessage(json);
+    throw appError(
+      ErrorCode.PAYMENT_PROVIDER,
+      `Failed to retrieve PayMongo checkout session${detail ? `: ${detail}` : ""}`,
+    );
+  }
+  const data = json.data;
+  const attributes = isRecord(data.attributes) ? data.attributes : {};
+  const status = typeof attributes.status === "string" ? attributes.status : "";
+  const referenceNumber =
+    typeof attributes.reference_number === "string" ? attributes.reference_number : null;
+
+  const metadata = isRecord(attributes.metadata) ? attributes.metadata : {};
+  const paymentId = typeof metadata.paymentId === "string" ? metadata.paymentId : null;
+
+  let paidAmount: number | null = null;
+  let isPaid = status === "paid";
+
+  if (Array.isArray(attributes.payments) && attributes.payments.length > 0) {
+    for (const p of attributes.payments) {
+      if (isRecord(p) && isRecord(p.attributes)) {
+        if (typeof p.attributes.amount === "number" && paidAmount === null) {
+          paidAmount = p.attributes.amount;
+        }
+        if (p.attributes.status === "paid") {
+          isPaid = true;
+          if (typeof p.attributes.amount === "number") {
+            paidAmount = p.attributes.amount;
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  // Also check payment_intent if present
+  if (!isPaid && isRecord(attributes.payment_intent) && isRecord(attributes.payment_intent.attributes)) {
+    const piAttr = attributes.payment_intent.attributes;
+    if (piAttr.status === "succeeded" || piAttr.status === "paid") {
+      isPaid = true;
+      if (typeof piAttr.amount === "number" && paidAmount === null) {
+        paidAmount = piAttr.amount;
+      }
+    }
+  }
+
+  // Also check if paid_at exists or line_items
+  if (!isPaid && typeof attributes.paid_at === "number" && attributes.paid_at > 0) {
+    isPaid = true;
+  }
+
+  if (paidAmount === null && Array.isArray(attributes.line_items) && attributes.line_items.length > 0) {
+    const firstItem = attributes.line_items[0];
+    if (isRecord(firstItem) && typeof firstItem.amount === "number") {
+      paidAmount = firstItem.amount;
+    }
+  }
+
+  return {
+    id: typeof data.id === "string" ? data.id : checkoutSessionId,
+    status,
+    referenceNumber,
+    paymentId,
+    paidAmount,
+    isPaid,
+  };
+}
+

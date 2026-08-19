@@ -1,11 +1,11 @@
 import { v } from "convex/values";
 import { action, internalMutation, mutation } from "../_generated/server";
-import { internal } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import { appError, ErrorCode } from "../lib/errors";
 import { requirePermission } from "../lib/authz";
 import { writeAudit } from "../lib/audit";
 import { randomHex } from "../lib/billing";
-import { createCheckoutSession, siteUrl } from "../lib/paymongo";
+import { createCheckoutSession, retrieveCheckoutSession, siteUrl } from "../lib/paymongo";
 
 const REFERENCE_SUFFIX_LENGTH = 6;
 
@@ -182,3 +182,53 @@ export const cancelCheckout = mutation({
     });
   },
 });
+
+export const syncCheckoutStatus = action({
+  args: { orgSlug: v.string() },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    status: "activated" | "already_active" | "still_pending" | "cancelled" | "no_pending" | "error";
+    planName?: string;
+    message?: string;
+  }> => {
+    const active = await ctx.runQuery(api.billing.payments.getActiveCheckout, {
+      orgSlug: args.orgSlug,
+    });
+    if (!active) {
+      return { status: "no_pending" };
+    }
+    if (!active.checkoutSessionId) {
+      return { status: "still_pending" };
+    }
+
+    try {
+      const session = await retrieveCheckoutSession(active.checkoutSessionId);
+      if (session.isPaid) {
+        const res: { status: "applied" | "already_paid" | "flagged"; planName: string | null } =
+          await ctx.runMutation(internal.billing.webhook.applyPaidPayment, {
+            paymentId: active.paymentId,
+            paidAmount: session.paidAmount ?? undefined,
+          });
+        return {
+          status: "activated",
+          planName: res.planName ?? active.planName ?? "Paid",
+        };
+      }
+      if (session.status === "expired" || session.status === "cancelled") {
+        await ctx.runMutation(internal.billing.checkout.failPayment, {
+          paymentId: active.paymentId,
+          reason: `Checkout session was ${session.status}`,
+        });
+        return { status: "cancelled" };
+      }
+      return { status: "still_pending" };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to sync checkout status with PayMongo";
+      console.error("Failed to sync checkout status with PayMongo:", message);
+      return { status: "error", message };
+    }
+  },
+});
+
