@@ -17,6 +17,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
   Table,
   TableBody,
   TableCell,
@@ -25,7 +35,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PageHeader } from "@/components/PageHeader";
-import { CheckCircle2, CreditCard, ExternalLink, Loader2, RefreshCw, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock,
+  CreditCard,
+  ExternalLink,
+  LifeBuoy,
+  Loader2,
+  RefreshCw,
+  ShieldAlert,
+  XCircle,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const pesoFormat = new Intl.NumberFormat("en-PH", {
@@ -44,7 +64,19 @@ function formatDate(ms: number | null): string {
     year: "numeric",
     month: "short",
     day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   });
+}
+
+function formatRemainingTime(ms: number): string {
+  if (ms <= 0) return "Expired";
+  const hours = Math.floor(ms / (1000 * 60 * 60));
+  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  if (hours === 0) {
+    return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+  }
+  return `${hours} hour${hours === 1 ? "" : "s"} ${minutes} minute${minutes === 1 ? "" : "s"}`;
 }
 
 function errorMessage(error: unknown): string {
@@ -52,6 +84,7 @@ function errorMessage(error: unknown): string {
     const data = error.data as { message?: string };
     if (typeof data.message === "string") return data.message;
   }
+  if (error instanceof Error) return error.message;
   return "Something went wrong. Please try again.";
 }
 
@@ -80,19 +113,24 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
   const plans = useQuery(api.plans.list, {});
   const payments = useQuery(api.billing.payments.listForOrg, { orgSlug });
   const activeCheckout = useQuery(api.billing.payments.getActiveCheckout, { orgSlug });
+  const refundEligibility = useQuery(api.billing.refunds.getEligibility, { orgSlug });
 
   const startCheckout = useAction(api.billing.checkout.createCheckout);
   const cancelCheckout = useMutation(api.billing.checkout.cancelCheckout);
   const syncCheckout = useAction(api.billing.checkout.syncCheckoutStatus);
-  const changePlan = useMutation(api.subscriptions.changePlan);
-  const resume = useMutation(api.subscriptions.resume);
+  const submitRefundTicket = useMutation(api.billing.refunds.submitRefundTicket);
 
   const [busyPlan, setBusyPlan] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
 
+  // Refund Ticket Modal State
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
+  const [refundReason, setRefundReason] = useState("");
+  const [refundDetails, setRefundDetails] = useState("");
+  const [submittingRefund, setSubmittingRefund] = useState(false);
+
   const currentPlanId = subscription?.subscription.planId ?? null;
   const status = subscription?.subscription.status ?? null;
-  const cancelAtPeriodEnd = subscription?.subscription.cancelAtPeriodEnd ?? false;
   const periodEndAt = subscription?.subscription.currentPeriodEndAt ?? null;
 
   // Automatically verify and poll payment status if redirected from checkout with ?billing=success
@@ -146,27 +184,6 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
     }
   };
 
-  const handleSwitchToFree = async () => {
-    setBusyPlan("Free");
-    try {
-      await changePlan({ orgSlug, planName: "Free" });
-      toast.success("Your plan will cancel at the end of the paid period.");
-    } catch (error) {
-      toast.error(errorMessage(error));
-    } finally {
-      setBusyPlan(null);
-    }
-  };
-
-  const handleResume = async () => {
-    try {
-      await resume({ orgSlug });
-      toast.success("Subscription resumed.");
-    } catch (error) {
-      toast.error(errorMessage(error));
-    }
-  };
-
   const handleCancelCheckout = async () => {
     try {
       await cancelCheckout({ orgSlug });
@@ -200,6 +217,31 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
     }
   };
 
+  const handleSubmitRefund = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (refundReason.trim().length < 3) {
+      toast.error("Please provide a reason for the refund request.");
+      return;
+    }
+
+    setSubmittingRefund(true);
+    try {
+      const res = await submitRefundTicket({
+        orgSlug,
+        reason: refundReason.trim(),
+        details: refundDetails.trim() || undefined,
+      });
+      toast.success(res.message);
+      setRefundDialogOpen(false);
+      setRefundReason("");
+      setRefundDetails("");
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      setSubmittingRefund(false);
+    }
+  };
+
   if (subscription === undefined || plans === undefined) {
     return (
       <div className="grid gap-4 md:grid-cols-3" aria-busy>
@@ -212,6 +254,8 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
 
   const visiblePlans = plans.filter((plan) => plan.isActive !== false);
   const pendingCheckoutUrl = activeCheckout?.checkoutUrl ?? null;
+  const currentPlan = plans.find((p) => p._id === currentPlanId);
+  const isPaidPlan = (currentPlan?.priceCents ?? 0) > 0;
 
   return (
     <div className="space-y-6">
@@ -220,7 +264,7 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
           <span>
             {syncing
               ? "Verifying payment with PayMongo…"
-              : "Payment received — your plan updates as soon as PayMongo confirms it."}
+              : "Payment received — your subscription is active."}
           </span>
           {syncing ? <Loader2 aria-hidden className="size-4 animate-spin" /> : null}
         </div>
@@ -239,15 +283,66 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
           </span>
         </div>
       ) : null}
-      {cancelAtPeriodEnd && status === "active" ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-info/40 bg-info-muted px-4 py-3 text-sm text-info">
-          <span>Your subscription cancels on {formatDate(periodEndAt)}.</span>
-          <Button size="sm" variant="outline" onClick={handleResume}>
-            Resume subscription
-          </Button>
+
+      {/* 10-Hour Refund Policy / CRM Support Ticket Status */}
+      {isPaidPlan && refundEligibility ? (
+        <div className="rounded-xl border bg-card p-4 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <LifeBuoy className="size-5 text-primary" />
+                <h3 className="font-heading text-sm font-semibold">Subscription Refund Policy</h3>
+                {refundEligibility.existingTicket ? (
+                  <Badge variant="outline" className="border-warning text-warning capitalize">
+                    Ticket {refundEligibility.existingTicket.status}
+                  </Badge>
+                ) : refundEligibility.isEligible ? (
+                  <Badge className="bg-success-muted text-success border-success/30">
+                    10-Hour Window Active
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-muted-foreground">
+                    Refund Window Closed
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {refundEligibility.existingTicket ? (
+                  <span>
+                    Your refund ticket (<em>"{refundEligibility.existingTicket.reason}"</em>) was
+                    submitted on {formatDate(refundEligibility.existingTicket.createdAt)}. Our CRM
+                    support team is reviewing it.
+                  </span>
+                ) : refundEligibility.isEligible ? (
+                  <span>
+                    Refund requests are valid strictly within <strong>10 hours</strong> of payment.
+                    You have <strong>{formatRemainingTime(refundEligibility.remainingMs)}</strong>{" "}
+                    remaining to submit a ticket.
+                  </span>
+                ) : (
+                  <span>
+                    Subscriptions cannot be self-cancelled. Refund tickets are only accepted within
+                    10 hours of payment. This window has passed.
+                  </span>
+                )}
+              </p>
+            </div>
+
+            {refundEligibility.isEligible && !refundEligibility.existingTicket ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0 gap-1.5"
+                onClick={() => setRefundDialogOpen(true)}
+              >
+                <Clock className="size-4 text-warning" /> Request Refund Ticket
+              </Button>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
+      {/* Active Checkout Card */}
       {activeCheckout ? (
         <Card>
           <CardHeader>
@@ -281,6 +376,7 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
         </Card>
       ) : null}
 
+      {/* Plans Grid */}
       <div className="grid gap-4 md:grid-cols-3">
         {visiblePlans.map((plan) => {
           const isCurrent = plan._id === currentPlanId;
@@ -329,35 +425,14 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
               </CardContent>
               <CardFooter className="flex flex-col gap-2">
                 {isCurrent && !isFree ? (
-                  <>
-                    <Button
-                      className="w-full"
-                      disabled={busy || activeCheckout !== null}
-                      onClick={() => void handleCheckout(plan.name)}
-                    >
-                      {busy ? "Redirecting…" : "Renew"}
-                    </Button>
-                    {cancelAtPeriodEnd ? null : (
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        disabled={busy || activeCheckout !== null}
-                        onClick={handleSwitchToFree}
-                      >
-                        Switch to Free at period end
-                      </Button>
-                    )}
-                  </>
-                ) : !isCurrent && isFree ? (
                   <Button
-                    variant="outline"
                     className="w-full"
                     disabled={busy || activeCheckout !== null}
-                    onClick={handleSwitchToFree}
+                    onClick={() => void handleCheckout(plan.name)}
                   >
-                    Switch to Free at period end
+                    {busy ? "Redirecting…" : "Renew"}
                   </Button>
-                ) : !isCurrent ? (
+                ) : !isCurrent && !isFree ? (
                   <Button
                     className="w-full"
                     disabled={busy || activeCheckout !== null}
@@ -372,6 +447,7 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
         })}
       </div>
 
+      {/* Payment History */}
       <Card>
         <CardHeader>
           <CardTitle className="font-heading text-lg">Payment history</CardTitle>
@@ -423,6 +499,93 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
           )}
         </CardContent>
       </Card>
+
+      {/* Refund Request Modal Dialog */}
+      <Dialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <form onSubmit={handleSubmitRefund} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <LifeBuoy className="size-5 text-primary" /> Request Subscription Refund
+              </DialogTitle>
+              <DialogDescription>
+                Refund tickets are processed by our CRM support team. Submissions are valid strictly
+                within <strong>10 hours</strong> from the payment timestamp.
+              </DialogDescription>
+            </DialogHeader>
+
+            {refundEligibility?.isEligible ? (
+              <div className="rounded-lg border bg-muted/50 p-3 text-xs space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Plan:</span>
+                  <span className="font-medium">{refundEligibility.planName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Amount:</span>
+                  <span className="font-medium">{formatPeso(refundEligibility.amountCents)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Paid At:</span>
+                  <span>{formatDate(refundEligibility.paidAt)}</span>
+                </div>
+                <div className="flex justify-between text-warning font-medium">
+                  <span>Window Remaining:</span>
+                  <span>{formatRemainingTime(refundEligibility.remainingMs)}</span>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="space-y-2">
+              <Label htmlFor="refund-reason">
+                Reason for Refund <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="refund-reason"
+                placeholder="e.g. Upgraded by mistake, wrong tier selected"
+                value={refundReason}
+                onChange={(e) => setRefundReason(e.target.value)}
+                required
+                maxLength={500}
+                disabled={submittingRefund}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="refund-details">
+                Additional Details <span className="text-muted-foreground text-xs">(Optional)</span>
+              </Label>
+              <textarea
+                id="refund-details"
+                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 min-h-[80px]"
+                placeholder="Provide any additional context for our support team..."
+                value={refundDetails}
+                onChange={(e) => setRefundDetails(e.target.value)}
+                disabled={submittingRefund}
+              />
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setRefundDialogOpen(false)}
+                disabled={submittingRefund}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={submittingRefund}>
+                {submittingRefund ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" /> Submitting…
+                  </>
+                ) : (
+                  "Submit Refund Ticket"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

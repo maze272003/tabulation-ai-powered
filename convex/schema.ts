@@ -500,4 +500,22 @@ export default defineSchema({
   })
     .index("by_result_version_and_contestant", ["resultVersionId", "contestantId"])
     .index("by_event_id", ["eventId"]),
+
+  refundTickets: defineTable({
+    orgId: v.id("organizations"),
+    paymentId: v.id("billingPayments"),
+    requestedById: v.id("userProfiles"),
+    planId: v.id("plans"),
+    amountCents: v.number(),
+    reason: v.string(),
+    details: v.optional(v.string()),
+    status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
+    paidAt: v.number(),
+    expiresAt: v.number(),
+    crmLeadId: v.union(v.null(), v.id("crmLeads")),
+    createdAt: v.number(),
+  })
+    .index("by_org_id", ["orgId"])
+    .index("by_payment_id", ["paymentId"])
+    .index("by_status", ["status"]),
 });
