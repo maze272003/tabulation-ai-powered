@@ -182,8 +182,28 @@
   }
 }
 
+@keyframes border-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @utility animate-page-in {
   animation: fade-rise 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@utility animate-border-spin {
+  animation: border-spin 8s linear infinite;
+}
+
+@utility glass-card {
+  background: color-mix(in oklch, var(--card) 85%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
 }
 
 /*
@@ -219,7 +239,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .animate-page-in,
+  .animate-border-spin,
   .stagger-fade > * {
     animation: none;
   }
-}
+}
