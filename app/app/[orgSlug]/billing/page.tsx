@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BorderBeamPanel } from "@/components/ui/border-beam-panel";
 import {
   Card,
   CardContent,
@@ -384,31 +385,38 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
       ) : null}
 
       {/* Plans Grid */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3 items-stretch">
         {visiblePlans.map((plan) => {
           const isCurrent = plan._id === currentPlanId;
           const isFree = (plan.priceCents ?? 0) === 0;
           const busy = busyPlan === plan.name;
-          return (
-            <Card
-              key={plan._id}
-              className={cn("flex flex-col", isCurrent && "border-primary ring-1 ring-primary")}
-            >
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="font-heading text-xl">{plan.name}</CardTitle>
-                  {isCurrent ? <Badge>Current</Badge> : null}
+          const isFeatured = plan.name.toLowerCase().includes("pro") || plan.name.toLowerCase().includes("growth");
+
+          const cardContent = (
+            <div className="flex flex-col h-full justify-between p-6">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="font-heading font-bold text-lg">{plan.name}</h3>
+                  {isCurrent ? (
+                    <Badge className="bg-primary text-primary-foreground text-[10px] font-bold">
+                      Current Plan
+                    </Badge>
+                  ) : isFeatured ? (
+                    <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] font-bold">
+                      Recommended
+                    </Badge>
+                  ) : null}
                 </div>
-                <CardDescription>
+                <p className="text-xs text-muted-foreground mb-4">
                   {isFree ? "Free forever" : `${formatPeso(plan.priceCents ?? 0)} / month`}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex-1 space-y-3 text-sm">
-                <p className="text-muted-foreground">
+                </p>
+
+                <p className="text-xs font-medium text-foreground mb-3 pb-3 border-b border-border/60">
                   Up to {plan.limits.maxEvents} event{plan.limits.maxEvents === 1 ? "" : "s"} ·{" "}
                   {plan.limits.maxJudges} judges · {plan.limits.maxContestants} contestants
                 </p>
-                <ul className="space-y-1.5">
+
+                <ul className="space-y-2 mb-6 text-xs">
                   {PLAN_FEATURE_LABELS.map(({ key, label }) => {
                     const enabled = plan.features[key as keyof typeof plan.features] === true;
                     return (
@@ -416,39 +424,70 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
                         key={key}
                         className={cn(
                           "flex items-center gap-2",
-                          enabled ? "text-foreground" : "text-muted-foreground/60",
+                          enabled ? "text-foreground font-medium" : "text-muted-foreground/50",
                         )}
                       >
                         {enabled ? (
-                          <CheckCircle2 aria-hidden className="size-4 text-success" />
+                          <CheckCircle2 aria-hidden className="size-3.5 text-success shrink-0" />
                         ) : (
-                          <XCircle aria-hidden className="size-4" />
+                          <XCircle aria-hidden className="size-3.5 text-muted-foreground/40 shrink-0" />
                         )}
-                        {label}
+                        <span>{label}</span>
                       </li>
                     );
                   })}
                 </ul>
-              </CardContent>
-              <CardFooter className="flex flex-col gap-2">
+              </div>
+
+              <div className="pt-2">
                 {isCurrent && !isFree ? (
                   <Button
-                    className="w-full"
+                    className="w-full font-semibold shadow-xs"
                     disabled={busy || activeCheckout !== null}
                     onClick={() => void handleCheckout(plan.name)}
                   >
-                    {busy ? "Redirecting…" : "Renew"}
+                    {busy ? "Redirecting…" : "Renew Subscription"}
                   </Button>
                 ) : !isCurrent && !isFree ? (
                   <Button
-                    className="w-full"
+                    className={cn("w-full font-semibold shadow-xs", isFeatured ? "shadow-md shadow-primary/20" : "")}
+                    variant={isFeatured ? "default" : "outline"}
                     disabled={busy || activeCheckout !== null}
                     onClick={() => void handleCheckout(plan.name)}
                   >
-                    {busy ? "Redirecting…" : `Get ${plan.name}`}
+                    {busy ? "Redirecting…" : `Upgrade to ${plan.name}`}
+                  </Button>
+                ) : isCurrent && isFree ? (
+                  <Button variant="outline" className="w-full font-medium" disabled>
+                    Active Free Tier
                   </Button>
                 ) : null}
-              </CardFooter>
+              </div>
+            </div>
+          );
+
+          if (isFeatured && !isCurrent) {
+            return (
+              <BorderBeamPanel
+                key={plan._id}
+                glow
+                className="bg-card h-full"
+                containerClassName="h-full"
+              >
+                {cardContent}
+              </BorderBeamPanel>
+            );
+          }
+
+          return (
+            <Card
+              key={plan._id}
+              className={cn(
+                "flex flex-col h-full bg-card/90",
+                isCurrent && "border-primary ring-1 ring-primary/40 shadow-xs"
+              )}
+            >
+              {cardContent}
             </Card>
           );
         })}

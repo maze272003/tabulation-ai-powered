@@ -52,24 +52,52 @@ export default function SentryBillingPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <PageHeader
           icon={CreditCard}
-          title="Billing"
-          description="Subscription plans and every organization's billing state."
+          title="Billing & Subscription Plans"
+          description="Subscription plans, tier limits, and organization billing states."
         />
         <Button
-          className="gap-1.5"
+          className="gap-1.5 shadow-sm"
           onClick={() => {
             setEditingPlanId("new");
             setEditorOpen(true);
           }}
         >
           <Plus aria-hidden className="size-4" />
-          New plan
+          New Plan
         </Button>
+      </div>
+
+      {/* Telemetry Overview Cards */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card className="p-4 bg-card/90 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground font-medium">Configured Plans</span>
+            <CreditCard className="size-4 text-primary" />
+          </div>
+          <p className="mt-2 text-2xl font-bold font-heading text-foreground">{plans.length}</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Active pricing tiers</p>
+        </Card>
+        <Card className="p-4 bg-card/90 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground font-medium">Subscriptions Tracked</span>
+            <CreditCard className="size-4 text-success" />
+          </div>
+          <p className="mt-2 text-2xl font-bold font-heading text-success">{results.length}</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Active organization states</p>
+        </Card>
+        <Card className="p-4 bg-card/90 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground font-medium">Payment Gateway</span>
+            <CreditCard className="size-4 text-info" />
+          </div>
+          <p className="mt-2 text-lg font-bold font-heading text-foreground">PayMongo Live</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">GCash • Maya • Cards</p>
+        </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
+          <CardTitle className="flex items-center gap-2 text-base font-bold">
             <CreditCard aria-hidden className="size-4 text-muted-foreground" />
             Plans
           </CardTitle>
