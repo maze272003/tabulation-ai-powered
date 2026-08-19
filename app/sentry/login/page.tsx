@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useMutation } from "convex/react";
-import { KeyRound, Loader2, ShieldCheck } from "lucide-react";
+import { ArrowLeft, KeyRound, Loader2, Lock, ShieldCheck, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { SentrySessionProvider, useSentrySession } from "@/components/sentry/SentrySession";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 
 export default function SentryLoginPage() {
   return (
@@ -36,33 +38,50 @@ function LoginForm() {
       toast.success("Signed in to the ops console");
       router.replace("/sentry/dashboard");
     } catch {
-      toast.error("Invalid credentials");
+      toast.error("Invalid superadmin credentials");
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted/40 p-6">
-      <div className="w-full max-w-sm space-y-6">
+    <main className="relative flex min-h-screen items-center justify-center bg-background p-6 overflow-hidden selection:bg-primary/20">
+      {/* Background ambient lighting */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 w-[500px] h-[350px] bg-gradient-to-b from-primary/20 via-sky-500/10 to-transparent blur-3xl opacity-70"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] bg-[size:40px_40px] opacity-25"
+      />
+
+      <div className="relative z-10 w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center gap-3 text-center">
-          <span className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
-            <ShieldCheck aria-hidden className="size-6" />
+          <span className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/25 shadow-md shadow-primary/10">
+            <ShieldCheck aria-hidden className="size-7" />
           </span>
           <div>
-            <h1 className="font-heading text-xl font-semibold">Ops console</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Restricted area — superadmin credentials required.
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <h1 className="font-heading text-2xl font-bold tracking-tight">Ops Console</h1>
+              <Badge variant="outline" className="text-[10px] uppercase font-mono tracking-wider">
+                Restricted
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Superadmin authentication required for platform telemetry & administration.
             </p>
           </div>
         </div>
 
         <form
           onSubmit={submit}
-          className="space-y-4 rounded-xl bg-card p-6 ring-1 ring-foreground/10"
+          className="space-y-4 rounded-2xl border border-border/70 bg-card/95 p-6 shadow-xl backdrop-blur-md"
         >
-          <div className="space-y-2">
-            <Label htmlFor="sentry-username">Username</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="sentry-username" className="text-xs font-semibold text-muted-foreground">
+              Admin Username
+            </Label>
             <Input
               id="sentry-username"
               value={username}
@@ -70,10 +89,15 @@ function LoginForm() {
               autoComplete="username"
               autoFocus
               required
+              className="h-10 text-xs"
+              placeholder="e.g. sentry-admin"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="sentry-password">Password</Label>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="sentry-password" className="text-xs font-semibold text-muted-foreground">
+              Master Password
+            </Label>
             <Input
               id="sentry-password"
               type="password"
@@ -81,16 +105,29 @@ function LoginForm() {
               onChange={(event) => setPassword(event.target.value)}
               autoComplete="current-password"
               required
+              className="h-10 text-xs"
+              placeholder="••••••••••••"
             />
           </div>
-          <Button type="submit" className="w-full gap-2" disabled={busy}>
+
+          <Button type="submit" className="w-full h-10 gap-2 font-semibold shadow-sm shadow-primary/20" disabled={busy}>
             {busy ? (
               <Loader2 aria-hidden className="size-4 animate-spin" />
             ) : (
               <KeyRound aria-hidden className="size-4" />
             )}
-            {busy ? "Signing in…" : "Sign in"}
+            {busy ? "Authenticating Session…" : "Sign In to Ops Console"}
           </Button>
+
+          <div className="pt-2 text-center">
+            <Link
+              href="/sign-in"
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="size-3" />
+              <span>Back to Organization Login</span>
+            </Link>
+          </div>
         </form>
       </div>
     </main>
