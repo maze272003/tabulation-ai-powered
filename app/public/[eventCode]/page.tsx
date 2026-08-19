@@ -2,13 +2,19 @@
 
 import { use, useEffect, useState } from "react";
 import { useQuery } from "convex/react";
-import { Maximize2, Minimize2 } from "lucide-react";
+import { Award, Maximize2, Minimize2, Sparkles, Trophy } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { formatScore } from "@/components/tabulation/status";
+import { cn } from "@/lib/utils";
 
-const MEDAL_CLASSES = ["bg-amber-400/15", "bg-slate-400/15", "bg-orange-400/15"] as const;
+const MEDAL_STYLES = [
+  "bg-amber-500/15 border-amber-500/30 text-amber-500",
+  "bg-slate-300/15 border-slate-300/30 text-slate-300",
+  "bg-amber-700/15 border-amber-700/30 text-amber-600",
+] as const;
 
 export default function PublicResultsPage({ params }: { params: Promise<{ eventCode: string }> }) {
   const { eventCode } = use(params);
@@ -30,21 +36,21 @@ export default function PublicResultsPage({ params }: { params: Promise<{ eventC
         await document.documentElement.requestFullscreen();
       }
     } catch {
-      // Fullscreen can be blocked by browser policy; the layout still works windowed.
+      // Fullscreen policy fallback
     }
   }
 
-  if (result === undefined) return <LoadingScreen label="Loading results…" />;
+  if (result === undefined) return <LoadingScreen label="Loading official results…" />;
 
-  // Null is the not-found contract for missing, non-public, and archived
-  // events; an Error indicates a genuine query failure. Both render the same
-  // non-leaking state.
   if (result === null || result instanceof Error) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-2 p-8 text-center">
-        <h1 className="text-2xl font-bold">Results not available</h1>
-        <p className="text-sm text-muted-foreground">
-          This event does not exist or has not made its results public.
+      <main className="flex min-h-screen flex-col items-center justify-center gap-3 p-8 text-center bg-background">
+        <div className="flex size-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+          <Trophy className="size-7 opacity-40" />
+        </div>
+        <h1 className="text-xl font-bold font-heading">Results Not Available</h1>
+        <p className="text-xs text-muted-foreground max-w-sm">
+          This event does not exist or official results have not been published by the organizer.
         </p>
       </main>
     );
@@ -55,34 +61,47 @@ export default function PublicResultsPage({ params }: { params: Promise<{ eventC
 
   return (
     <main
-      className={`min-h-screen bg-background p-4 sm:p-8 ${isFullscreen ? "flex flex-col justify-center" : ""}`}
+      className={cn(
+        "min-h-screen bg-background p-4 sm:p-8 transition-colors selection:bg-primary/20",
+        isFullscreen && "flex flex-col justify-center bg-slate-950 text-white"
+      )}
     >
       <div
-        className={`animate-page-in stagger-fade mx-auto w-full ${isFullscreen ? "max-w-none" : "max-w-3xl"} space-y-6`}
+        className={cn(
+          "animate-page-in mx-auto w-full space-y-6",
+          isFullscreen ? "max-w-none px-6" : "max-w-3xl"
+        )}
       >
-        <header className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border/60 pb-6">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[10px]">
+                Official Standings
+              </Badge>
+              <span className="text-xs text-muted-foreground font-mono">Code: {eventCode.toUpperCase()}</span>
+            </div>
             <h1
-              className="text-2xl font-bold sm:text-3xl"
+              className="text-2xl font-bold font-heading sm:text-3xl tracking-tight"
               style={primaryColor ? { color: primaryColor } : undefined}
             >
               {result.event.name}
             </h1>
-            <p className="text-sm text-muted-foreground">Live results</p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => void toggleFullscreen()}>
-            {isFullscreen ? <Minimize2 aria-hidden /> : <Maximize2 aria-hidden />}
-            {isFullscreen ? "Exit scoreboard" : "Scoreboard mode"}
+          <Button variant="outline" size="sm" onClick={() => void toggleFullscreen()} className="gap-2 shadow-xs">
+            {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+            <span>{isFullscreen ? "Exit Scoreboard" : "Scoreboard Mode"}</span>
           </Button>
         </header>
 
         {result.rounds.length === 0 ? (
-          <p className="rounded-lg border p-8 text-center text-sm text-muted-foreground">
-            No results have been published yet. This page updates automatically the moment they are.
-          </p>
+          <div className="rounded-2xl border border-border/60 p-12 text-center text-sm text-muted-foreground bg-card/60">
+            <Trophy className="size-8 mx-auto mb-2 opacity-30 text-primary" />
+            <p>No results have been published yet. This page updates live in real time.</p>
+          </div>
         ) : (
-          <>
-            <div className="flex flex-wrap gap-2" role="tablist" aria-label="Rounds">
+          <div className="space-y-6">
+            {/* Round selection tablist */}
+            <div className="flex flex-wrap gap-2" role="tablist" aria-label="Competition Rounds">
               {result.rounds.map((r) => (
                 <Button
                   key={r.roundId}
@@ -91,6 +110,7 @@ export default function PublicResultsPage({ params }: { params: Promise<{ eventC
                   role="tab"
                   aria-selected={r.roundId === round?.roundId}
                   onClick={() => setSelectedRound(r.roundId)}
+                  className="font-semibold shadow-xs"
                 >
                   {r.name}
                 </Button>
@@ -101,35 +121,71 @@ export default function PublicResultsPage({ params }: { params: Promise<{ eventC
               .filter((category) => category.standings.length > 0)
               .map((category) => {
                 const categoryName =
-                  result.categories.find((c) => c.id === category.categoryId)?.name ?? "Standings";
+                  result.categories.find((c) => c.id === category.categoryId)?.name ?? "Official Standings";
                 return (
-                  <section key={category.categoryId} className="space-y-2" aria-label={`${categoryName} standings`}>
-                    <h2 className={`font-semibold ${isFullscreen ? "text-3xl" : "text-lg"}`}>{categoryName}</h2>
-                    <ol className="overflow-hidden rounded-lg border">
-                      {category.standings.map((standing, i) => (
-                        <li
-                          key={`${standing.number}-${standing.name}`}
-                          className={`flex items-center justify-between gap-4 border-b px-4 last:border-b-0 ${
-                            isFullscreen ? "py-5 text-2xl" : "py-3 text-sm"
-                          } ${i < 3 ? MEDAL_CLASSES[i] : ""}`}
-                        >
-                          <span className="flex items-center gap-3 font-medium">
-                            <span className={`font-mono ${isFullscreen ? "text-3xl" : "text-base"}`}>
-                              {standing.rank ?? "—"}
-                            </span>
-                            <span className="text-muted-foreground">#{standing.number}</span>
-                            <span>{standing.name}</span>
-                          </span>
-                          <span className={`font-mono font-semibold ${isFullscreen ? "text-3xl" : ""}`}>
-                            {standing.roundScore === null ? "—" : formatScore(standing.roundScore, 2)}
-                          </span>
-                        </li>
-                      ))}
-                    </ol>
+                  <section key={category.categoryId} className="space-y-3" aria-label={`${categoryName} standings`}>
+                    <div className="flex items-center justify-between">
+                      <h2 className={cn("font-heading font-bold", isFullscreen ? "text-3xl" : "text-lg")}>
+                        {categoryName}
+                      </h2>
+                      <span className="text-xs text-muted-foreground">
+                        {category.standings.length} Contestants Ranked
+                      </span>
+                    </div>
+
+                    <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm divide-y divide-border/60">
+                      {category.standings.map((standing, i) => {
+                        const isMedal = i < 3;
+                        return (
+                          <div
+                            key={`${standing.number}-${standing.name}`}
+                            className={cn(
+                              "flex items-center justify-between gap-4 px-4 sm:px-6 transition-colors",
+                              isFullscreen ? "py-5 text-2xl" : "py-3.5 text-sm",
+                              i === 0
+                                ? "bg-amber-500/10"
+                                : i === 1
+                                ? "bg-slate-300/10"
+                                : i === 2
+                                ? "bg-amber-700/10"
+                                : "hover:bg-muted/30"
+                            )}
+                          >
+                            <div className="flex items-center gap-3.5 min-w-0">
+                              <span
+                                className={cn(
+                                  "flex size-7 shrink-0 items-center justify-center rounded-full font-mono text-xs font-bold",
+                                  i === 0
+                                    ? "bg-amber-500 text-amber-950 font-extrabold"
+                                    : i === 1
+                                    ? "bg-slate-300 text-slate-900 font-extrabold"
+                                    : i === 2
+                                    ? "bg-amber-700/80 text-white font-extrabold"
+                                    : "bg-muted text-muted-foreground"
+                                )}
+                              >
+                                {standing.rank ?? "—"}
+                              </span>
+                              <span className="text-xs font-mono text-muted-foreground font-semibold">
+                                #{standing.number}
+                              </span>
+                              <span className="font-bold truncate text-foreground">{standing.name}</span>
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <span className={cn("font-mono font-extrabold text-foreground", isFullscreen ? "text-3xl" : "text-base")}>
+                                {standing.roundScore === null ? "—" : formatScore(standing.roundScore, 2)}
+                              </span>
+                              <span className="block text-[10px] text-muted-foreground">Final Score</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </section>
                 );
               })}
-          </>
+          </div>
         )}
       </div>
     </main>
