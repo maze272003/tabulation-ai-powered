@@ -56,9 +56,11 @@ Editing (60fps)                     Truth & Export
 
 | Family | Use |
 |---|---|
-| Inter (Regular/SemiBold/Bold) | body, default |
-| Playfair Display (Regular/Bold) | elegant headings |
+| Lato (Regular/Bold/Italic) | body, default |
+| Crimson Text (Regular/Bold/Italic) | elegant headings |
 | Great Vibes (Regular) | script names |
+
+*Inter and Playfair Display are variable-font-only upstream; static TTFs were substituted for deterministic react-pdf embedding.*
 
 Served from `public/fonts/`, registered in react-pdf via `Font.register({ family, src })` and mirrored as `@font-face`. No user font uploads in Phase 2.
 
