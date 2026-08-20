@@ -43,6 +43,7 @@
     "@convex-dev/eslint-plugin": "^2.0.0",
     "@edge-runtime/vm": "^5.0.0",
     "@playwright/test": "^1.62.1",
+    "@react-pdf/types": "^2.11.3",
     "@sentropic/graphify": "^0.17.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^24.13.3",
