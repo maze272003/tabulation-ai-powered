@@ -4,17 +4,18 @@ import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
-import type { DocumentSpec } from "@/convex/documents/spec";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
+import { isDocumentSpec, type DocumentSpec } from "@/convex/documents/spec";
 import { toastMutationError } from "@/lib/convex-errors";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/tabulation/StateBlock";
 import { ConfirmDialog } from "@/components/tabulation/ConfirmDialog";
+import { GenerateCertificatesDialog } from "@/components/documents/GenerateCertificatesDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Award, Copy, FilePlus2, Loader2, Pencil, Trash2 } from "lucide-react";
+import { Award, Copy, FilePlus2, Loader2, Pencil, Sparkles, Trash2 } from "lucide-react";
 
 const BLANK_CERTIFICATE_SPEC: DocumentSpec = {
   version: 1,
@@ -61,6 +62,11 @@ export function DocumentTemplateLibrary({ orgSlug }: { orgSlug: string }) {
   const [creatingBlank, setCreatingBlank] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: Id<"documentTemplates">; name: string } | null>(null);
+  const [generateTarget, setGenerateTarget] = useState<{
+    _id: Id<"documentTemplates">;
+    name: string;
+    spec: DocumentSpec;
+  } | null>(null);
 
   async function customize(templateId: Id<"documentTemplates">, name: string) {
     setBusyId(templateId);
@@ -88,6 +94,11 @@ export function DocumentTemplateLibrary({ orgSlug }: { orgSlug: string }) {
       toastMutationError(error, { fallback: "Could not create the template." });
       setCreatingBlank(false);
     }
+  }
+
+  function openGenerateDialog(template: Doc<"documentTemplates">) {
+    if (!isDocumentSpec(template.spec)) return;
+    setGenerateTarget({ _id: template._id, name: template.name, spec: template.spec });
   }
 
   async function removeTemplate(templateId: Id<"documentTemplates">) {
@@ -149,19 +160,30 @@ export function DocumentTemplateLibrary({ orgSlug }: { orgSlug: string }) {
                 </p>
                 <div className="mt-auto flex flex-wrap gap-1">
                   {template.isSystem ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={busyId === template._id}
-                      onClick={() => void customize(template._id, template.name)}
-                    >
-                      {busyId === template._id ? (
-                        <Loader2 aria-hidden className="animate-spin" />
-                      ) : (
-                        <Pencil aria-hidden />
-                      )}
-                      Customize
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={busyId === template._id}
+                        onClick={() => void customize(template._id, template.name)}
+                      >
+                        {busyId === template._id ? (
+                          <Loader2 aria-hidden className="animate-spin" />
+                        ) : (
+                          <Pencil aria-hidden />
+                        )}
+                        Customize
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!isDocumentSpec(template.spec)}
+                        onClick={() => openGenerateDialog(template)}
+                      >
+                        <Sparkles aria-hidden />
+                        Generate
+                      </Button>
+                    </>
                   ) : (
                     <>
                       <Button
@@ -171,6 +193,15 @@ export function DocumentTemplateLibrary({ orgSlug }: { orgSlug: string }) {
                       >
                         <Pencil aria-hidden />
                         Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!isDocumentSpec(template.spec)}
+                        onClick={() => openGenerateDialog(template)}
+                      >
+                        <Sparkles aria-hidden />
+                        Generate
                       </Button>
                       <Button
                         variant="ghost"
@@ -215,6 +246,17 @@ export function DocumentTemplateLibrary({ orgSlug }: { orgSlug: string }) {
           destructive
           busy={deleting}
           onConfirm={() => void removeTemplate(deleteTarget.id)}
+        />
+      ) : null}
+
+      {generateTarget ? (
+        <GenerateCertificatesDialog
+          orgSlug={orgSlug}
+          open
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setGenerateTarget(null);
+          }}
+          template={generateTarget}
         />
       ) : null}
     </div>
