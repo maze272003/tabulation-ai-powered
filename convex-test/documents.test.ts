@@ -37,7 +37,7 @@ describe("documents: system templates", () => {
 });
 
 describe("documents: template CRUD authz and validation", () => {
-  async function orgTemplateId(t: ReturnType<typeof setupTest>): Promise<string> {
+  async function orgTemplateId(t: ReturnType<typeof setupTest>) {
     const created = await t.withIdentity(aliceIdentity).mutation(api.documents.templates.create, {
       orgSlug: "acme",
       name: "My Certificate",
