@@ -7,6 +7,7 @@ import Link from "next/link";
 import { use, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
+  Award,
   CalendarDays,
   CreditCard,
   LayoutDashboard,
@@ -28,6 +29,7 @@ const NAV_ITEMS: { href: string; label: string; icon: LucideIcon; exact?: boolea
   { href: "overview", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "events", label: "Events & Competitions", icon: CalendarDays },
   { href: "templates", label: "Scoring Templates", icon: LayoutTemplate },
+  { href: "documents", label: "Documents & Certificates", icon: Award },
   { href: "billing", label: "Billing & Units", icon: CreditCard },
   { href: "support", label: "Support & Help Desk", icon: LifeBuoy },
   { href: "settings", label: "Settings", icon: Settings },
