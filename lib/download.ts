@@ -13,6 +13,10 @@ export function toCsv(headers: string[], rows: CsvCell[][]): string {
 
 export function downloadTextFile(filename: string, content: string, mime = "text/csv"): void {
   const blob = new Blob([content], { type: `${mime};charset=utf-8` });
+  downloadBlobFile(filename, blob);
+}
+
+export function downloadBlobFile(filename: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
