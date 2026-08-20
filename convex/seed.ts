@@ -1,6 +1,7 @@
 import { mutation, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { ROLE_PERMISSIONS, SYSTEM_PERMISSIONS, SYSTEM_PLANS, SYSTEM_ROLES, SYSTEM_TEMPLATES } from "./lib/constants";
+import { seedSystemDocumentTemplates } from "./documents/systemTemplates";
 import { hashPassword } from "./lib/password";
 
 /**
@@ -147,6 +148,7 @@ export async function seedReferenceDataInternal(ctx: MutationCtx) {
       await ctx.db.patch(settings._id, { allowSignups: true, updatedAt: Date.now() });
     }
   }
+  await seedSystemDocumentTemplates(ctx);
 }
 
 export const seedReferenceData = mutation({

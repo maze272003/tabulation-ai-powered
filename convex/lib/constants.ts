@@ -23,10 +23,11 @@ export const SYSTEM_PERMISSIONS = [
   { name: "score.enter", category: "score", description: "Enter and submit own score sheets" },
   { name: "score.manage", category: "score", description: "Run rounds, publish results, finalize events" },
   { name: "result.view", category: "result", description: "View published results" },
+  { name: "documents.manage", category: "documents", description: "Create and customize document templates" },
 ] as const;
 
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
-  "Org Owner": ["organization.view", "organization.update", "organization.members.manage", "organization.delete", "audit.view", "subscription.view", "subscription.manage", "event.create", "event.view", "event.update", "event.delete", "event.publish", "event.archive", "contestant.manage", "judge.manage", "score.manage", "result.view"],
+  "Org Owner": ["organization.view", "organization.update", "organization.members.manage", "organization.delete", "audit.view", "subscription.view", "subscription.manage", "event.create", "event.view", "event.update", "event.delete", "event.publish", "event.archive", "contestant.manage", "judge.manage", "score.manage", "result.view", "documents.manage"],
 };
 
 export const SYSTEM_PLANS = [

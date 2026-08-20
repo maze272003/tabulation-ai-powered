@@ -431,6 +431,21 @@ export default defineSchema({
     .index("by_org_id", ["orgId"])
     .index("by_name", ["name"]),
 
+  documentTemplates: defineTable({
+    orgId: v.optional(v.id("organizations")),
+    kind: v.union(v.literal("certificate"), v.literal("results"), v.literal("judgeSheet")),
+    name: v.string(),
+    description: v.string(),
+    // DocumentSpec — intentionally v.any(); every write re-validates via isDocumentSpec.
+    spec: v.any(),
+    isSystem: v.boolean(),
+    sourceTemplateId: v.optional(v.id("documentTemplates")),
+    updatedBy: v.optional(v.id("userProfiles")),
+    updatedAt: v.number(),
+  })
+    .index("by_org_id", ["orgId"])
+    .index("by_kind", ["kind"]),
+
   superadminSessions: defineTable({
     token: v.string(),
     label: v.string(),
