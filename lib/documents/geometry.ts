@@ -122,7 +122,11 @@ export function resizeBox(
   if (handle.includes("n")) height -= ldy;
 
   if (opts.aspectRatio && handle.length === 2) {
-    const scale = Math.max(width / box.widthMm, height / box.heightMm);
+    const widthScale = width / box.widthMm;
+    const heightScale = height / box.heightMm;
+    // Follow the dominant pointer axis: Math.max of the relative scales would
+    // ignore axis-aligned corner drags entirely.
+    const scale = Math.abs(ldx) >= Math.abs(ldy) ? widthScale : heightScale;
     width = box.widthMm * scale;
     height = box.heightMm * scale;
   }

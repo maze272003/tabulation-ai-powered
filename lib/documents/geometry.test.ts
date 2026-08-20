@@ -108,6 +108,13 @@ describe("resizeBox", () => {
     expect(next.widthMm / next.heightMm).toBeCloseTo(30 / 40, 6);
   });
 
+  it("applies aspect ratio on single-axis corner drags instead of ignoring them", () => {
+    const next = resizeBox(box, "se", -5, 0, { aspectRatio: true });
+    expect(next.widthMm).toBeCloseTo(25, 6);
+    expect(next.heightMm).toBeCloseTo((25 / 30) * 40, 6);
+    expect(next.widthMm / next.heightMm).toBeCloseTo(30 / 40, 6);
+  });
+
   it("enforces a 2mm minimum size", () => {
     const next = resizeBox(box, "se", -100, -100, { aspectRatio: false });
     expect(next.widthMm).toBeGreaterThanOrEqual(2);
