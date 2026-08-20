@@ -2,7 +2,7 @@
 
 import { use, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { Download, EyeOff, Flag, History, Printer } from "lucide-react";
+import { Download, EyeOff, FileCheck2, Flag, History, Printer } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import { RoundResultsCard } from "@/components/tabulation/RoundResultsCard";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/tabulation/StateBlock";
 import { downloadTextFile, toCsv } from "@/lib/download";
 import { cn } from "@/lib/utils";
+import { CertifiedTabulationReport } from "@/components/tabulation/CertifiedTabulationReport";
 
 export default function ResultsPage({
   params,
@@ -32,6 +33,7 @@ export default function ResultsPage({
   const results = useQuery(api.results.eventResults, { orgSlug, eventSlug });
   const ev = useQuery(api.events.get, { orgSlug, eventSlug });
   const categories = useQuery(api.categories.list, { orgSlug, eventSlug });
+  const contestants = useQuery(api.contestants.list, { orgSlug, eventSlug });
   const sub = useQuery(api.subscriptions.getForOrg, { orgSlug });
   const planAllowsExport = sub?.plan?.features?.canExportReports === true;
   const exportData = useQuery(
@@ -43,6 +45,7 @@ export default function ResultsPage({
   const [correctFor, setCorrectFor] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [finalizeOpen, setFinalizeOpen] = useState(false);
+  const [certifiedReportOpen, setCertifiedReportOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const canExport = planAllowsExport && !(exportData instanceof Error);
@@ -78,6 +81,33 @@ export default function ResultsPage({
       rows,
     }));
   }, [results, categoryNames]);
+
+  const numberMap = useMemo(
+    () => new Map(contestants?.map((c) => [c._id, c.number])),
+    [contestants],
+  );
+
+  const reportStandings = useMemo(() => {
+    if (!results || results instanceof Error) return [];
+    if (results.final && results.final.length > 0) {
+      return results.final.map((f) => ({
+        rank: f.rank,
+        contestantNumber: numberMap.get(f.contestantId) ?? 0,
+        contestantName: f.contestantName,
+        categoryName: categoryNames.get(f.categoryId),
+        roundScore: f.totalScore,
+      }));
+    }
+    const firstRound = results.rounds[0];
+    if (!firstRound) return [];
+    return firstRound.standings.map((s) => ({
+      rank: s.rank,
+      contestantNumber: numberMap.get(s.contestantId) ?? 0,
+      contestantName: s.contestantName,
+      categoryName: categoryNames.get(s.categoryId),
+      roundScore: s.roundScore,
+    }));
+  }, [results, categoryNames, numberMap]);
 
   const onError = (err: unknown) => {
     const data = (err as { data?: { code?: string; message?: string } })?.data;
@@ -120,6 +150,16 @@ export default function ResultsPage({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">Results</h2>
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCertifiedReportOpen(true)}
+            disabled={!results || results instanceof Error || results.rounds.length === 0}
+            className="gap-1.5 font-medium border-primary/30 text-primary hover:bg-primary/10"
+          >
+            <FileCheck2 aria-hidden className="size-4" />
+            Certified Audit Report
+          </Button>
           <a
             href={`/app/${orgSlug}/events/${eventSlug}/results/print`}
             target="_blank"
@@ -305,6 +345,16 @@ export default function ResultsPage({
             setBusy(false);
           }
         }}
+      />
+
+      <CertifiedTabulationReport
+        open={certifiedReportOpen}
+        onOpenChange={setCertifiedReportOpen}
+        eventName={ev?.name ?? "Event"}
+        eventCode={ev?.eventCode ?? ""}
+        roundName={results?.rounds[0]?.name}
+        decimalPrecision={ev?.decimalPrecision ?? 2}
+        standings={reportStandings}
       />
     </div>
   );

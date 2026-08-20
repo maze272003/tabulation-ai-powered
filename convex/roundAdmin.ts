@@ -365,3 +365,154 @@ export const correctResults = mutation({
     });
   },
 });
+
+export const roundTelemetry = query({
+  args: { orgSlug: v.string(), eventSlug: v.string(), roundId: v.id("rounds") },
+  handler: async (ctx, args) => {
+    const eactx = await requireReadyEvent(ctx, {
+      orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "score.manage",
+    });
+    const round = await loadRound(ctx, eactx, args.roundId);
+    const judges = await ctx.db
+      .query("eventAccounts")
+      .withIndex("by_event_id_and_kind", (q) => q.eq("eventId", eactx.event._id).eq("kind", "judge"))
+      .collect();
+    const sheets = await ctx.db
+      .query("scoreSheets")
+      .withIndex("by_event_id_and_round_id", (q) =>
+        q.eq("eventId", eactx.event._id).eq("roundId", round._id))
+      .collect();
+
+    const totalSheets = sheets.length;
+    const submittedSheets = sheets.filter((s) => s.status === "submitted" || s.status === "locked").length;
+    const inProgressSheets = sheets.filter((s) => s.status === "in_progress").length;
+    const notStartedSheets = sheets.filter((s) => s.status === "not_started").length;
+    const completionPercent = totalSheets > 0 ? Math.round((submittedSheets / totalSheets) * 100) : 0;
+    const isAllSubmitted = totalSheets > 0 && submittedSheets === totalSheets;
+
+    const judgeStats = judges.map((j) => {
+      const jSheets = sheets.filter((s) => s.judgeId === j._id);
+      const jSubmitted = jSheets.filter((s) => s.status === "submitted" || s.status === "locked").length;
+      return {
+        judgeId: j._id,
+        name: j.displayName,
+        total: jSheets.length,
+        submitted: jSubmitted,
+        isComplete: jSheets.length > 0 && jSubmitted === jSheets.length,
+      };
+    });
+
+    const laggingJudges = judgeStats.filter((j) => !j.isComplete);
+
+    return {
+      roundId: round._id,
+      roundName: round.name,
+      roundStatus: round.status,
+      totalSheets,
+      submittedSheets,
+      inProgressSheets,
+      notStartedSheets,
+      completionPercent,
+      isAllSubmitted,
+      judgeStats,
+      laggingJudges,
+    };
+  },
+});
+
+export const autoAdvanceNextRound = mutation({
+  args: { orgSlug: v.string(), eventSlug: v.string(), roundId: v.id("rounds") },
+  handler: async (ctx, args) => {
+    const eactx = await requireReadyEvent(ctx, {
+      orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "score.manage",
+    });
+    const round = await loadRound(ctx, eactx, args.roundId);
+    if (round.status !== "published") {
+      throw appError(ErrorCode.CONFLICT, "Only published rounds can advance contestants");
+    }
+    const allRounds = await ctx.db
+      .query("rounds")
+      .withIndex("by_event_id", (q) => q.eq("eventId", eactx.event._id))
+      .collect();
+    const sortedRounds = [...allRounds].sort((a, b) => a.order - b.order);
+    const nextRound = sortedRounds.find((r) => r.order > round.order);
+    if (!nextRound) {
+      return { advanced: 0, nextRoundId: null, message: "This was the final round." };
+    }
+
+    const result = await loadRoundCompute(ctx, eactx, round._id);
+    const advancedContestantIds = new Set<Id<"contestants">>();
+    for (const [cid, isAdvancing] of result.advancement.entries()) {
+      if (isAdvancing === true || (!result.advancementConfig.enabled && isAdvancing !== false)) {
+        advancedContestantIds.add(cid);
+      }
+    }
+
+    // Get judges
+    const judges = await ctx.db
+      .query("eventAccounts")
+      .withIndex("by_event_id_and_kind", (q) => q.eq("eventId", eactx.event._id).eq("kind", "judge"))
+      .collect();
+    const activeJudges = judges.filter((j) => j.status === "active");
+
+    // Clean up or ensure score sheets for next round
+    const existingNextSheets = await ctx.db
+      .query("scoreSheets")
+      .withIndex("by_event_id_and_round_id", (q) =>
+        q.eq("eventId", eactx.event._id).eq("roundId", nextRound._id))
+      .collect();
+
+    // Remove sheets for contestants that did not advance
+    let removed = 0;
+    for (const sheet of existingNextSheets) {
+      if (!advancedContestantIds.has(sheet.contestantId)) {
+        await ctx.db.delete(sheet._id);
+        removed++;
+      }
+    }
+
+    // Ensure sheets exist for all advancing contestants and active judges
+    let created = 0;
+    for (const judge of activeJudges) {
+      for (const contestantId of advancedContestantIds) {
+        const hasSheet = existingNextSheets.some(
+          (s) => s.judgeId === judge._id && s.contestantId === contestantId
+        );
+        if (!hasSheet) {
+          await ctx.db.insert("scoreSheets", {
+            eventId: eactx.event._id,
+            roundId: nextRound._id,
+            judgeId: judge._id,
+            contestantId,
+            status: "not_started",
+          });
+          created++;
+        }
+      }
+    }
+
+    // Optionally set next round to open if it was closed
+    if (nextRound.status === "closed") {
+      await ctx.db.patch(nextRound._id, { status: "open" });
+    }
+
+    await writeAudit(ctx, {
+      orgId: eactx.org._id, actorId: eactx.user._id, action: "round.advanced_next",
+      resourceType: "round", resourceId: nextRound._id,
+      after: {
+        fromRoundId: round._id,
+        nextRoundId: nextRound._id,
+        advancedContestants: advancedContestantIds.size,
+        sheetsCreated: created,
+        sheetsPruned: removed,
+      },
+    });
+
+    return {
+      advanced: advancedContestantIds.size,
+      nextRoundId: nextRound._id,
+      nextRoundName: nextRound.name,
+      message: `Advanced ${advancedContestantIds.size} contestants to ${nextRound.name}.`,
+    };
+  },
+});

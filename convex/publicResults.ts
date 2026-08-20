@@ -66,7 +66,7 @@ export const get = query({
     }
 
     return {
-      event: { name: event.name, branding: event.branding },
+      event: { name: event.name, branding: event.branding, decimalPrecision: event.decimalPrecision },
       categories: categories.map((category) => ({ id: category._id, name: category.name })),
       rounds,
     };

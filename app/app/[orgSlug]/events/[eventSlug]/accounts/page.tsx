@@ -21,6 +21,7 @@ import {
   CredentialsDialog,
 } from "@/components/tabulation/CredentialsDialog";
 import { BulkAccountsDialog } from "@/components/tabulation/BulkAccountsDialog";
+import { PrintJudgeBadgesDialog } from "@/components/tabulation/PrintJudgeBadgesDialog";
 import {
   Users,
   UserPlus,
@@ -33,6 +34,7 @@ import {
   AlertTriangle,
   Loader2,
   Sparkles,
+  Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -78,6 +80,7 @@ export default function EventAccountsPage({
   // Modals state
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [printBadgesOpen, setPrintBadgesOpen] = useState(false);
   const [credentialsModalOpen, setCredentialsModalOpen] = useState(false);
   const [credentialsData, setCredentialsData] = useState<CredentialsData | null>(null);
 
@@ -257,6 +260,15 @@ export default function EventAccountsPage({
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setPrintBadgesOpen(true)}
+            className="gap-1.5 h-9 font-medium"
+            disabled={judgesCount === 0}
+          >
+            <Printer className="w-4 h-4" />
+            <span>Print Badges</span>
+          </Button>
           <Button
             variant="outline"
             onClick={() => setBulkDialogOpen(true)}
@@ -652,6 +664,15 @@ export default function EventAccountsPage({
         kind="judge"
         eventName={currentEvent.name}
         eventCode={currentEvent.eventCode}
+      />
+
+      <PrintJudgeBadgesDialog
+        open={printBadgesOpen}
+        onOpenChange={setPrintBadgesOpen}
+        eventName={currentEvent.name}
+        eventCode={currentEvent.eventCode}
+        venue={ev?.venue}
+        accounts={rawAccounts ?? []}
       />
     </div>
   );

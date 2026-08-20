@@ -17,10 +17,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { FileUp, Loader2, Plus, Trash2, UserRound } from "lucide-react";
+import { FileUp, Loader2, Plus, Trash2, UserRound, Printer } from "lucide-react";
 import { EmptyState, TableSkeleton } from "@/components/tabulation/StateBlock";
 import { toastMutationError } from "@/lib/convex-errors";
 import { ImportContestantsDialog } from "@/components/tabulation/ImportContestantsDialog";
+import { PrintContestantPlacardsDialog } from "@/components/tabulation/PrintContestantPlacardsDialog";
 
 const STATUS_TONE: Record<string, string> = {
   active: "bg-success-muted text-success",
@@ -30,6 +31,7 @@ const STATUS_TONE: Record<string, string> = {
 
 export default function ContestantsPage({ params }: { params: Promise<{ orgSlug: string; eventSlug: string }> }) {
   const { orgSlug, eventSlug } = use(params);
+  const ev = useQuery(api.events.get, { orgSlug, eventSlug });
   const list = useQuery(api.contestants.list, { orgSlug, eventSlug });
   const cats = useQuery(api.categories.list, { orgSlug, eventSlug });
   const add = useMutation(api.contestants.add);
@@ -38,6 +40,7 @@ export default function ContestantsPage({ params }: { params: Promise<{ orgSlug:
   const [number, setNumber] = useState("");
   const [adding, setAdding] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [printPlacardsOpen, setPrintPlacardsOpen] = useState(false);
 
   const onError = (err: unknown) =>
     toastMutationError(err, {
@@ -52,15 +55,27 @@ export default function ContestantsPage({ params }: { params: Promise<{ orgSlug:
             <CardTitle>Add a contestant</CardTitle>
             <CardDescription>Contestant numbers must be unique within the event.</CardDescription>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setImportOpen(true)}
-          >
-            <FileUp aria-hidden className="size-4" />
-            Import CSV
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPrintPlacardsOpen(true)}
+              disabled={!list || list.length === 0}
+            >
+              <Printer aria-hidden className="size-4" />
+              Print Placards
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setImportOpen(true)}
+            >
+              <FileUp aria-hidden className="size-4" />
+              Import CSV
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <form
@@ -190,6 +205,22 @@ export default function ContestantsPage({ params }: { params: Promise<{ orgSlug:
         onOpenChange={setImportOpen}
         orgSlug={orgSlug}
         eventSlug={eventSlug}
+      />
+
+      <PrintContestantPlacardsDialog
+        open={printPlacardsOpen}
+        onOpenChange={setPrintPlacardsOpen}
+        eventName={ev?.name ?? "Event"}
+        eventCode={ev?.eventCode ?? ""}
+        contestants={
+          list?.map((c) => ({
+            _id: c._id,
+            number: c.number,
+            name: c.name,
+            categoryName: cats?.find((x) => x._id === c.categoryId)?.name,
+            group: c.group,
+          })) ?? []
+        }
       />
     </div>
   );

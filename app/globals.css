@@ -243,4 +243,55 @@
   .stagger-fade > * {
     animation: none;
   }
+}
+
+/* Print stylesheets for judge badges, placards, and official certified reports */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 12pt;
+  }
+
+  /* Hide navigation, sidebars, headers, dialog backdrops and buttons during print */
+  header,
+  nav,
+  aside,
+  button,
+  .no-print,
+  [role="dialog"] > div:first-child:not([class*="printable"]),
+  [data-radix-portal] > div:first-child:not([class*="printable"]) {
+    display: none !important;
+  }
+
+  /* Reset dialog fixed positioning to flow naturally in print */
+  [role="dialog"] {
+    position: static !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  .printable-badges-grid,
+  .printable-placards-grid,
+  .printable-report {
+    display: grid !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .badge-card,
+  .placard-card,
+  .report-page {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    border-color: #cbd5e1 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 }

@@ -10,7 +10,10 @@ export interface CsvRowError {
   message: string;
 }
 
-const VALID_HEADERS_3 = ["number", "name", "category"];
+const NUMBER_ALIASES = ["number", "no", "no.", "#", "contestant_number", "contestant #", "id"];
+const NAME_ALIASES = ["name", "full_name", "contestant_name", "contestant", "participant"];
+const CATEGORY_ALIASES = ["category", "division", "class", "tier"];
+const GROUP_ALIASES = ["group", "team", "organization", "school", "club"];
 
 interface FileLine {
   content: string;
@@ -25,8 +28,6 @@ function toNonBlankLines(text: string): FileLine[] {
 }
 
 function splitCsvLine(line: string): string[] {
-  // Minimal RFC-4180 splitter: double-quoted fields may contain commas and
-  // escaped quotes (""), because contestant names can contain commas.
   const fields: string[] = [];
   let current = "";
   let inQuotes = false;
@@ -56,17 +57,24 @@ function splitCsvLine(line: string): string[] {
   return fields.map((field) => field.trim());
 }
 
+function findColumnIndex(headers: string[], aliases: string[]): number {
+  return headers.findIndex((h) => aliases.includes(h.toLowerCase().trim()));
+}
+
 export function parseContestantCsv(text: string): { rows: ContestantCsvRow[]; errors: CsvRowError[] } {
   const lines = toNonBlankLines(text);
   if (lines.length === 0) {
     return { rows: [], errors: [{ rowIndex: 0, message: "The file is empty." }] };
   }
 
-  const header = splitCsvLine(lines[0].content).map((h) => h.toLowerCase());
+  const rawHeaders = splitCsvLine(lines[0].content);
   const headerOk =
-    header.length >= 3 &&
-    VALID_HEADERS_3.every((expected, i) => header[i] === expected) &&
-    (header.length === 3 || header[3] === "group");
+    rawHeaders.length >= 3 &&
+    NUMBER_ALIASES.includes(rawHeaders[0].toLowerCase().trim()) &&
+    NAME_ALIASES.includes(rawHeaders[1].toLowerCase().trim()) &&
+    CATEGORY_ALIASES.includes(rawHeaders[2].toLowerCase().trim()) &&
+    (rawHeaders.length === 3 || GROUP_ALIASES.includes(rawHeaders[3].toLowerCase().trim()));
+
   if (!headerOk) {
     return {
       rows: [],
@@ -98,5 +106,10 @@ export function parseContestantCsv(text: string): { rows: ContestantCsvRow[]; er
     }
     rows.push(group ? { number, name, category, group } : { number, name, category });
   }
-  return { rows, errors };
+
+  if (errors.length > 0) {
+    return { rows: [], errors };
+  }
+
+  return { rows, errors: [] };
 }

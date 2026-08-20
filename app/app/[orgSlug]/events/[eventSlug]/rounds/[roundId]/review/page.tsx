@@ -4,10 +4,10 @@ import { Fragment, use, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
-import { ArrowDownRight, ArrowUpRight, CirclePause, Equal, X } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, CirclePause, Equal, ExternalLink, FastForward, Sparkles, X } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { BlackoutNotice } from "@/components/tabulation/BlackoutNotice";
@@ -37,6 +37,7 @@ export default function ReviewPage({
   const ev = useQuery(api.events.get, { orgSlug, eventSlug });
   const categories = useQuery(api.categories.list, { orgSlug, eventSlug });
   const publishRound = useMutation(api.roundAdmin.publishRound);
+  const autoAdvance = useMutation(api.roundAdmin.autoAdvanceNextRound);
   const addTieBreak = useMutation(api.roundAdmin.addTieBreak);
   const removeTieBreak = useMutation(api.roundAdmin.removeTieBreak);
   const addOverride = useMutation(api.roundAdmin.addAdvancementOverride);
@@ -149,16 +150,58 @@ export default function ReviewPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">{review.round.name} — review</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {ev?.eventCode && (
+            <Link
+              href={`/stage/${ev.eventCode}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              <Sparkles className="size-3.5 text-amber-500" />
+              <span>Live Stage Display</span>
+              <ExternalLink className="size-3 text-muted-foreground" />
+            </Link>
+          )}
+
+          {review.round.status === "published" && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  const res = await autoAdvance({
+                    orgSlug,
+                    eventSlug,
+                    roundId: roundId as Id<"rounds">,
+                  });
+                  toast.success(res.message);
+                } catch (err) {
+                  onError(err);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+              className="gap-1.5 font-medium border-primary/30 text-primary hover:bg-primary/10"
+            >
+              <FastForward className="size-3.5" />
+              <span>Auto-Advance to Next Round</span>
+            </Button>
+          )}
+
           {unresolvedCount > 0 && (
             <span className="flex items-center gap-1.5 rounded-lg bg-warning-muted px-2 py-1 text-xs font-medium text-warning">
               <Equal aria-hidden className="size-3.5" />
               <Num value={unresolvedCount} /> unresolved tie{unresolvedCount === 1 ? "" : "s"}
             </span>
           )}
-          <Button onClick={() => setPublishOpen(true)} disabled={busy || unresolvedCount > 0}>
-            Publish results
-          </Button>
+          {review.round.status !== "published" && (
+            <Button onClick={() => setPublishOpen(true)} disabled={busy || unresolvedCount > 0}>
+              Publish results
+            </Button>
+          )}
         </div>
       </div>
 

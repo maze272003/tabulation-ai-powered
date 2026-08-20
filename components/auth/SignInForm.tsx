@@ -85,11 +85,44 @@ export function SignInForm({
   const [ownerPending, setOwnerPending] = useState(false);
 
   // Judge / Staff Form state
-  const [eventCode, setEventCode] = useState(params.get("code") ?? "");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const paramCode = params.get("code") ?? "";
+  const paramUsername = params.get("u") ?? params.get("username") ?? "";
+  const paramPassword = params.get("p") ?? params.get("password") ?? "";
+
+  const [eventCode, setEventCode] = useState(paramCode);
+  const [username, setUsername] = useState(paramUsername);
+  const [password, setPassword] = useState(paramPassword);
   const [judgePending, setJudgePending] = useState(false);
   const [judgeError, setJudgeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (paramCode && paramUsername && paramPassword && !hasEventSession && !isCheckingSessions) {
+      async function autoLogin() {
+        setJudgePending(true);
+        try {
+          const res = await fetch("/api/auth/judge-login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              eventCode: paramCode.trim().toUpperCase(),
+              username: paramUsername.trim(),
+              password: paramPassword,
+            }),
+          });
+          const data = await res.json();
+          if (res.ok && data.ok) {
+            router.push("/enter");
+            router.refresh();
+          }
+        } catch {
+          // Fallback to manual form submit
+        } finally {
+          setJudgePending(false);
+        }
+      }
+      void autoLogin();
+    }
+  }, [paramCode, paramUsername, paramPassword, hasEventSession, isCheckingSessions, router]);
 
   async function handleJudgeLogin(e: React.FormEvent) {
     e.preventDefault();
