@@ -36,6 +36,8 @@ const ZOOM_MAX = 4;
 const ZOOM_STEP_IN = 1.1;
 const ZOOM_STEP_OUT = 0.9;
 const ROTATE_STEP_DEG = 15;
+/** 45° magnet applies when the raw angle is within this distance of a multiple of 45°. */
+const ROTATE_MAGNET_THRESHOLD_DEG = 5;
 
 interface Point {
   x: number;
@@ -318,7 +320,9 @@ export function Canvas({
         moved: false,
       };
       setDragging(true);
-      (event.target as HTMLElement).setPointerCapture?.(event.pointerId);
+      // Capture on the page (not the handle/element, which unmounts while
+      // dragging) so pointerup outside the page still commits the drag.
+      pageRef.current?.setPointerCapture(event.pointerId);
       viewportRef.current?.focus();
     },
     [dispatch, state.selection, state.spec.elements],
@@ -345,7 +349,8 @@ export function Canvas({
         moved: false,
       };
       setDragging(true);
-      (event.target as HTMLElement).setPointerCapture?.(event.pointerId);
+      // The handle unmounts once dragging starts, so capture on the page.
+      pageRef.current?.setPointerCapture(event.pointerId);
     },
     [selected],
   );
@@ -372,7 +377,8 @@ export function Canvas({
         moved: false,
       };
       setDragging(true);
-      (event.target as HTMLElement).setPointerCapture?.(event.pointerId);
+      // The rotate handle unmounts once dragging starts, so capture on the page.
+      pageRef.current?.setPointerCapture(event.pointerId);
     },
     [pagePointMm, selected],
   );
@@ -473,7 +479,7 @@ export function Canvas({
           const raw = drag.rotation0 + (pointerAngle - drag.pointerAngle0);
           const rotationDeg = event.shiftKey
             ? normalizeAngle(Math.round(raw / ROTATE_STEP_DEG) * ROTATE_STEP_DEG)
-            : snapAngle(raw);
+            : snapAngle(raw, ROTATE_MAGNET_THRESHOLD_DEG);
           drag.rotationDeg = rotationDeg;
           drag.moved = true;
           setPreview({
