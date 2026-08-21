@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Circle, ImagePlus, LayoutTemplate, Minus, Square, Type, type LucideIcon } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { DocumentSpec, ImageElement, ShapeElement, TextElement } from "@/convex/documents/spec";
-import { resolvePageSize } from "@/convex/documents/spec";
+import { isDocumentSpec, resolvePageSize } from "@/convex/documents/spec";
 import { ensureEditorFontsLoaded, storageIdFromUploadUrl } from "@/lib/documents/fonts";
 import { newElementId, nextElementName, type EditorAction, type EditorState } from "@/lib/documents/editorState";
 import { Button } from "@/components/ui/button";
@@ -100,6 +100,14 @@ export function Palette({ orgSlug, state, dispatch, imageUrls, uploads, onUpload
   const { widthMm, heightMm } = resolvePageSize(state.spec.page);
   const centerX = widthMm / 2;
   const centerY = heightMm / 2;
+
+  function openApplyTemplateDialog(template: { name: string; spec: unknown }) {
+    if (!isDocumentSpec(template.spec)) {
+      toast.error("This template has an invalid layout.");
+      return;
+    }
+    setPendingTemplate({ name: template.name, spec: template.spec });
+  }
 
   function addText(preset: TextPreset) {
     const config = TEXT_PRESETS[preset];
@@ -238,7 +246,7 @@ export function Palette({ orgSlug, state, dispatch, imageUrls, uploads, onUpload
                   key={template._id}
                   type="button"
                   className="w-full rounded-lg border border-border p-3 text-left text-xs hover:border-primary/60 hover:bg-muted/50"
-                  onClick={() => setPendingTemplate({ name: template.name, spec: template.spec as DocumentSpec })}
+                  onClick={() => openApplyTemplateDialog(template)}
                 >
                   <div className="font-semibold">{template.name}</div>
                   <div className="text-muted-foreground">{template.description}</div>
