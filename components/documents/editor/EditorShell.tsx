@@ -144,8 +144,12 @@ export function EditorShell({ orgSlug, templateId }: EditorShellProps) {
 
   const save = useCallback(
     async (spec: DocumentSpec, nameValue: string) => {
+      // Captured before the request: an overlapping save (Ctrl+S or a name
+      // change) can replace pendingSpecRef with a newer serialization while
+      // this request is in flight, so success must not trust the ref.
+      const serialized = JSON.stringify(spec);
       setSaveState("saving");
-      pendingSpecRef.current = JSON.stringify(spec);
+      pendingSpecRef.current = serialized;
       try {
         const result = await updateTemplate({
           orgSlug,
@@ -153,14 +157,26 @@ export function EditorShell({ orgSlug, templateId }: EditorShellProps) {
           spec,
           ...(nameValue ? { name: nameValue } : {}),
         });
-        lastSavedSpecRef.current = pendingSpecRef.current;
-        pendingSpecRef.current = null;
-        dirtyRef.current = false;
-        setSavedAt(result.updatedAt);
-        setSaveState("saved");
+        lastSavedSpecRef.current = serialized;
+        // Only the latest attempt may clear the echo mask and the dirty
+        // flag; a newer pending save must keep the tab dirty.
+        const isLatestAttempt = pendingSpecRef.current === serialized;
+        if (isLatestAttempt) {
+          pendingSpecRef.current = null;
+          dirtyRef.current = false;
+          setSavedAt(result.updatedAt);
+          setSaveState("saved");
+        }
       } catch (error) {
-        pendingSpecRef.current = null;
-        setSaveState("error");
+        if (pendingSpecRef.current === serialized) {
+          pendingSpecRef.current = null;
+        }
+        // A concurrent save may have already persisted this exact spec, so
+        // recompute dirtiness against the last acknowledged save instead of
+        // unconditionally marking the tab as error-only.
+        const specPersisted = lastSavedSpecRef.current === serialized;
+        dirtyRef.current = !specPersisted;
+        setSaveState(specPersisted ? "saved" : "error");
         toast.error(
           error instanceof Error ? error.message : "Autosave failed. Changes are kept locally.",
         );

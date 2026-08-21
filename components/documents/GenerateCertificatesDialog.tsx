@@ -155,6 +155,9 @@ export function GenerateCertificatesDialog({
   const needsRank = usedTokens.includes("recipient.rank");
   const rankBlocked = needsRank && rankByContestant.size === 0;
   const assetsLoading = imageStorageIds.length > 0 && assetUrlMap === undefined;
+  // Generation must not proceed with a broken asset map: the PDF would render
+  // empty boxes for every image element, and certificates are distributed.
+  const assetsBlocked = imageStorageIds.length > 0 && assetUrlMap instanceof Error;
   const recipientCount = selectedContestants.length;
 
   async function generate() {
@@ -327,6 +330,7 @@ export function GenerateCertificatesDialog({
                 {rankBlocked
                   ? " This template ranks recipients, but the event has no published final results."
                   : ""}
+                {assetsBlocked ? " Image assets could not be loaded — try again." : ""}
               </p>
             </>
           ) : null}
@@ -338,7 +342,9 @@ export function GenerateCertificatesDialog({
           </Button>
           <Button
             onClick={() => void generate()}
-            disabled={generating || !event || recipientCount === 0 || rankBlocked || assetsLoading}
+            disabled={
+              generating || !event || recipientCount === 0 || rankBlocked || assetsLoading || assetsBlocked
+            }
           >
             {generating ? <Loader2 aria-hidden className="animate-spin" /> : <Sparkles aria-hidden />}
             Generate PDF
