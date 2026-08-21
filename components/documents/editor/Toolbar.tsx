@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   Download,
@@ -46,14 +46,29 @@ export interface ToolbarProps {
 
 export function Toolbar(props: ToolbarProps) {
   const [nameDraft, setNameDraft] = useState(props.templateName);
+  const lastSeenTemplateNameRef = useRef(props.templateName);
+  const nameInputFocusedRef = useRef(false);
+  const userEditedNameRef = useRef(false);
+
+  useEffect(() => {
+    const previousTemplateName = lastSeenTemplateNameRef.current;
+    lastSeenTemplateNameRef.current = props.templateName;
+    if (props.templateName === previousTemplateName) return;
+    if (nameInputFocusedRef.current) return;
+    if (nameDraft !== previousTemplateName) return;
+    userEditedNameRef.current = false;
+    setNameDraft(props.templateName);
+  }, [props.templateName, nameDraft]);
 
   const commitName = () => {
+    nameInputFocusedRef.current = false;
     const trimmed = nameDraft.trim();
-    if (trimmed && trimmed !== props.templateName) {
+    if (trimmed && trimmed !== props.templateName && userEditedNameRef.current) {
       props.onNameChange(trimmed);
-    } else {
-      setNameDraft(props.templateName);
+      return;
     }
+    userEditedNameRef.current = false;
+    setNameDraft(props.templateName);
   };
 
   const adjustZoom = (delta: number) =>
@@ -77,7 +92,13 @@ export function Toolbar(props: ToolbarProps) {
         aria-label="Template name"
         className="h-8 w-56 border-transparent bg-transparent text-sm font-semibold hover:border-input focus-visible:border-input"
         value={nameDraft}
-        onChange={(event) => setNameDraft(event.target.value)}
+        onChange={(event) => {
+          userEditedNameRef.current = true;
+          setNameDraft(event.target.value);
+        }}
+        onFocus={() => {
+          nameInputFocusedRef.current = true;
+        }}
         onBlur={commitName}
         onKeyDown={(event) => {
           if (event.key === "Enter") event.currentTarget.blur();
