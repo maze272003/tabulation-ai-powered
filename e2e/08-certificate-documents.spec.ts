@@ -108,4 +108,15 @@ test.describe("8. Documents & certificate studio", () => {
     await page.keyboard.press("Escape");
     await expect(page.locator('iframe[title="PDF preview"]')).toHaveCount(0);
   });
+
+  test("ai design card renders on the documents library", async ({ page }) => {
+    test.skip(!process.env.E2E_ORG_SLUG, "Set E2E_ORG_SLUG to run authenticated tests");
+    const orgSlug = process.env.E2E_ORG_SLUG!;
+    await page.goto(`/app/${orgSlug}/documents`);
+    const prompt = page.getByLabel("Describe your certificate");
+    await expect(prompt).toBeVisible();
+    await expect(page.getByRole("button", { name: /Design my certificate/i })).toBeDisabled();
+    await prompt.fill("elegant navy and gold pageant certificate");
+    await expect(page.getByRole("button", { name: /Design my certificate/i })).toBeEnabled();
+  });
 });
