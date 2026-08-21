@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createInitialEditorState, editorReducer, newElementId, nextElementName } from "./editorState";
 import { validSpec } from "../../convex-test/documentFixtures";
-import type { DocumentElement, TextElement } from "../../convex/documents/spec";
+import type { DocumentElement, DocumentSpec, TextElement } from "../../convex/documents/spec";
 
 const patch = { id: "el-1", patch: { xMm: 42 } };
 
@@ -47,6 +47,26 @@ describe("editorReducer", () => {
 
     s = editorReducer(s, { type: "DELETE_SELECTED" });
     expect(s.spec.elements).toHaveLength(3);
+  });
+
+  it("assigns distinct names when pasting multiple clones that share a base name", () => {
+    const spec: DocumentSpec = {
+      ...validSpec,
+      elements: [
+        ...validSpec.elements,
+        { ...validSpec.elements[0], id: "el-a", name: "Text 1" },
+        { ...validSpec.elements[0], id: "el-b", name: "Text 1" },
+      ],
+    };
+    let s = createInitialEditorState(spec);
+    s = editorReducer(s, { type: "SET_SELECTION", ids: ["el-a", "el-b"] });
+    s = editorReducer(s, { type: "COPY_SELECTED" });
+    expect(s.clipboard).toHaveLength(2);
+    s = editorReducer(s, { type: "PASTE" });
+    const pastedNames = s.spec.elements
+      .filter((e) => s.selection.includes(e.id))
+      .map((e) => e.name);
+    expect(pastedNames).toEqual(["Text 2", "Text 3"]);
   });
 
   it("reorders z-order and refuses to delete locked elements", () => {

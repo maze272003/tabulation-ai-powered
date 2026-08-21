@@ -45,8 +45,11 @@ export function newElementId(): string {
 }
 
 export function nextElementName(spec: DocumentSpec, base: string): string {
+  return uniqueElementName(new Set(spec.elements.map((e) => e.name)), base);
+}
+
+function uniqueElementName(names: ReadonlySet<string>, base: string): string {
   let index = 1;
-  const names = new Set(spec.elements.map((e) => e.name));
   while (names.has(`${base} ${index}`)) index += 1;
   return `${base} ${index}`;
 }
@@ -64,14 +67,35 @@ function withHistory(state: EditorState, spec: DocumentSpec): EditorState {
   };
 }
 
-function cloneElement(element: DocumentElement, spec: DocumentSpec, offset: boolean): DocumentElement {
-  const name = nextElementName(spec, element.name.replace(/ \d+$/, ""));
+function cloneElement(
+  element: DocumentElement,
+  names: ReadonlySet<string>,
+  offset: boolean,
+): DocumentElement {
+  const name = uniqueElementName(names, element.name.replace(/ \d+$/, ""));
   return {
     ...element,
     id: newElementId(),
     name,
     ...(offset ? { xMm: element.xMm + PASTE_OFFSET_MM, yMm: element.yMm + PASTE_OFFSET_MM } : {}),
   };
+}
+
+// Clones are named sequentially against a name-set that grows with each
+// clone, otherwise clipboard items sharing a base name collide.
+function cloneElements(
+  elements: DocumentElement[],
+  spec: DocumentSpec,
+  offset: boolean,
+): DocumentElement[] {
+  const names = new Set(spec.elements.map((e) => e.name));
+  const clones: DocumentElement[] = [];
+  for (const element of elements) {
+    const clone = cloneElement(element, names, offset);
+    names.add(clone.name);
+    clones.push(clone);
+  }
+  return clones;
 }
 
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
@@ -112,7 +136,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       };
     case "PASTE": {
       if (state.clipboard.length === 0) return state;
-      const clones = state.clipboard.map((element) => cloneElement(element, state.spec, true));
+      const clones = cloneElements(state.clipboard, state.spec, true);
       return {
         ...withHistory(state, { ...state.spec, elements: [...state.spec.elements, ...clones] }),
         selection: clones.map((c) => c.id),
@@ -121,7 +145,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case "DUPLICATE_SELECTED": {
       const selected = state.spec.elements.filter((e) => state.selection.includes(e.id) && !e.locked);
       if (selected.length === 0) return state;
-      const clones = selected.map((element) => cloneElement(element, state.spec, true));
+      const clones = cloneElements(selected, state.spec, true);
       return {
         ...withHistory(state, { ...state.spec, elements: [...state.spec.elements, ...clones] }),
         selection: clones.map((c) => c.id),
