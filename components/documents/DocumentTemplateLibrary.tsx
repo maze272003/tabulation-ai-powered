@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery_experimental } from "convex/react";
 import { useRouter } from "next/navigation";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { isDocumentSpec, type DocumentSpec } from "@/convex/documents/spec";
 import { toastMutationError } from "@/lib/convex-errors";
 import { PageHeader } from "@/components/PageHeader";
-import { EmptyState } from "@/components/tabulation/StateBlock";
+import { EmptyState, ErrorState } from "@/components/tabulation/StateBlock";
 import { ConfirmDialog } from "@/components/tabulation/ConfirmDialog";
 import { GenerateCertificatesDialog } from "@/components/documents/GenerateCertificatesDialog";
 import { Badge } from "@/components/ui/badge";
@@ -52,9 +52,34 @@ const BLANK_CERTIFICATE_SPEC: DocumentSpec = {
   ],
 };
 
+const COPY_SUFFIX = " (copy)";
+
+// Duplicating "X (copy)" must yield "X (copy)" again, never "X (copy) (copy)";
+// collisions with loaded templates are resolved with " 2", " 3", …
+function nextDuplicateName(sourceName: string, existingNames: ReadonlySet<string>): string {
+  const baseName = sourceName.endsWith(COPY_SUFFIX)
+    ? sourceName.slice(0, sourceName.length - COPY_SUFFIX.length)
+    : sourceName;
+  const copyName = `${baseName}${COPY_SUFFIX}`;
+  if (!existingNames.has(copyName)) {
+    return copyName;
+  }
+  let counter = 2;
+  while (existingNames.has(`${copyName} ${counter}`)) {
+    counter += 1;
+  }
+  return `${copyName} ${counter}`;
+}
+
 export function DocumentTemplateLibrary({ orgSlug }: { orgSlug: string }) {
   const router = useRouter();
-  const templates = useQuery(api.documents.templates.list, { orgSlug, kind: "certificate" });
+  // Object-form hook surfaces query failures as values (mirrors EditorShell)
+  // so a failed listing renders an error state instead of a skeleton forever.
+  const templatesQuery = useQuery_experimental({
+    query: api.documents.templates.list,
+    args: { orgSlug, kind: "certificate" },
+  });
+  const templates = templatesQuery.status === "success" ? templatesQuery.data : undefined;
   const duplicate = useMutation(api.documents.templates.duplicate);
   const create = useMutation(api.documents.templates.create);
   const remove = useMutation(api.documents.templates.remove);
@@ -67,11 +92,19 @@ export function DocumentTemplateLibrary({ orgSlug }: { orgSlug: string }) {
     name: string;
     spec: DocumentSpec;
   } | null>(null);
+  const existingNames = useMemo(
+    () => new Set((templates ?? []).map((template) => template.name)),
+    [templates],
+  );
 
   async function customize(templateId: Id<"documentTemplates">, name: string) {
     setBusyId(templateId);
     try {
-      const result = await duplicate({ orgSlug, templateId, name: `${name} (copy)` });
+      const result = await duplicate({
+        orgSlug,
+        templateId,
+        name: nextDuplicateName(name, existingNames),
+      });
       router.push(`/studio/${orgSlug}/${result.templateId}`);
     } catch (error) {
       toastMutationError(error, { fallback: "Could not create your copy." });
@@ -129,7 +162,9 @@ export function DocumentTemplateLibrary({ orgSlug }: { orgSlug: string }) {
         }
       />
 
-      {templates === undefined ? (
+      {templatesQuery.status === "error" ? (
+        <ErrorState message="Could not load templates." />
+      ) : templates === undefined ? (
         <Card className="animate-pulse" aria-hidden>
           <CardContent className="space-y-2 py-6">
             <div className="h-5 w-1/3 rounded bg-muted" />
