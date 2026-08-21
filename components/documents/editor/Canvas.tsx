@@ -38,6 +38,9 @@ const ZOOM_STEP_OUT = 0.9;
 const ROTATE_STEP_DEG = 15;
 /** 45° magnet applies when the raw angle is within this distance of a multiple of 45°. */
 const ROTATE_MAGNET_THRESHOLD_DEG = 5;
+const MIDDLE_MOUSE_BUTTON = 1;
+/** Breathing room around the page when computing fit-to-screen zoom. */
+const FIT_PADDING_PX = 80;
 
 interface Point {
   x: number;
@@ -191,6 +194,8 @@ export interface CanvasProps {
   snapEnabled: boolean;
   tokens: TokenMap;
   imageUrls: Record<string, string>;
+  /** Increments each time a fit-to-screen is requested; 0 = initial (skip). */
+  fitRequest: number;
   onZoomChange: (zoom: number) => void;
 }
 
@@ -202,6 +207,7 @@ export function Canvas({
   snapEnabled,
   tokens,
   imageUrls,
+  fitRequest,
   onZoomChange,
 }: CanvasProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -385,10 +391,12 @@ export function Canvas({
 
   const onPagePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (event.button !== 0) return;
+      if (event.button !== 0 && event.button !== MIDDLE_MOUSE_BUTTON) return;
       const viewport = viewportRef.current;
-      if (spaceRef.current) {
+      if (spaceRef.current || event.button === MIDDLE_MOUSE_BUTTON) {
         if (!viewport) return;
+        // Middle button otherwise triggers browser autoscroll and selection.
+        if (event.button === MIDDLE_MOUSE_BUTTON) event.preventDefault();
         dragRef.current = {
           kind: "pan",
           startScroll: { x: viewport.scrollLeft, y: viewport.scrollTop },
@@ -595,6 +603,20 @@ export function Canvas({
     viewport.addEventListener("wheel", onWheel, { passive: false });
     return () => viewport.removeEventListener("wheel", onWheel);
   }, [onZoomChange, zoom]);
+
+  // Each fit request (counter bump from the toolbar) measures the viewport and
+  // scales the page to fit inside it, minus padding; 0 is the mount value.
+  useEffect(() => {
+    if (fitRequest === 0) return;
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const fitZoom = Math.min(
+      (viewport.clientWidth - FIT_PADDING_PX) / mmToPx(widthMm),
+      (viewport.clientHeight - FIT_PADDING_PX) / mmToPx(heightMm),
+    );
+    const next = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, fitZoom));
+    onZoomChange(Math.round(next * 100) / 100);
+  }, [fitRequest, heightMm, onZoomChange, widthMm]);
 
   const pageWidthPx = mmToPx(widthMm);
   const pageHeightPx = mmToPx(heightMm);

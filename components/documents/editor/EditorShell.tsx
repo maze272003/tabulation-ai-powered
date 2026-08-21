@@ -99,6 +99,7 @@ export function EditorShell({ orgSlug, templateId }: EditorShellProps) {
   const { state, dispatch, canUndo, canRedo } = useEditorState(EMPTY_SPEC);
 
   const [zoom, setZoom] = useState(1);
+  const [fitRequest, setFitRequest] = useState(0);
   const [gridEnabled, setGridEnabled] = useState(false);
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -232,8 +233,9 @@ export function EditorShell({ orgSlug, templateId }: EditorShellProps) {
   }, [displayName, save, state.spec]);
 
   const fitToScreen = useCallback(() => {
-    // v1: reset to 100%; true fit-to-viewport needs measurements, deferred.
-    setZoom(1);
+    // Bumping the counter asks Canvas (which owns the viewport element) to
+    // measure it and compute the fitted zoom itself.
+    setFitRequest((count) => count + 1);
   }, []);
 
   const downloadSample = useCallback(async () => {
@@ -304,6 +306,7 @@ export function EditorShell({ orgSlug, templateId }: EditorShellProps) {
           snapEnabled={snapEnabled}
           tokens={sampleTokens}
           imageUrls={imageUrls}
+          fitRequest={fitRequest}
           onZoomChange={setZoom}
         />
         <div className="flex w-72 shrink-0 flex-col border-l border-border/60 bg-background">
