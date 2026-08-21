@@ -18,6 +18,8 @@ export const PAGE_PRESET_SIZES_MM: Record<Exclude<PagePreset, "Custom">, { width
 
 export const MAX_ELEMENTS = 200;
 
+// Stateful global (/g) regex: safe with String.replace/matchAll (they reset/clone lastIndex),
+// but .test()/.exec() on it directly would corrupt the shared lastIndex across calls.
 export const TOKEN_PATTERN = /\{\{([a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)*)\}\}/g;
 
 export interface Margins {

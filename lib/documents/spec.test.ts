@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isDocumentSpec,
   resolvePageSize,
+  MAX_ELEMENTS,
   type DocumentSpec,
   type TextElement,
 } from "../../convex/documents/spec";
@@ -89,6 +90,46 @@ describe("isDocumentSpec", () => {
   it("rejects more than MAX_ELEMENTS elements", () => {
     const many = Array.from({ length: 201 }, (_, i) => ({ ...validText, id: `el-${i}` }));
     expect(isDocumentSpec({ ...validSpec, elements: many })).toBe(false);
+  });
+
+  it("accepts exactly MAX_ELEMENTS elements", () => {
+    const many = Array.from({ length: MAX_ELEMENTS }, (_, i) => ({ ...validText, id: `el-${i}` }));
+    expect(isDocumentSpec({ ...validSpec, elements: many })).toBe(true);
+  });
+
+  it("accepts fontSizePt at both bounds (4, 200)", () => {
+    expect(isDocumentSpec({ ...validSpec, elements: [{ ...validText, fontSizePt: 4 }] })).toBe(true);
+    expect(isDocumentSpec({ ...validSpec, elements: [{ ...validText, fontSizePt: 200 }] })).toBe(true);
+  });
+
+  it("accepts lineHeight at both bounds (0.5, 4)", () => {
+    expect(isDocumentSpec({ ...validSpec, elements: [{ ...validText, lineHeight: 0.5 }] })).toBe(true);
+    expect(isDocumentSpec({ ...validSpec, elements: [{ ...validText, lineHeight: 4 }] })).toBe(true);
+  });
+
+  it("accepts opacity at both bounds (0, 1)", () => {
+    expect(isDocumentSpec({ ...validSpec, elements: [{ ...validText, opacity: 0 }] })).toBe(true);
+    expect(isDocumentSpec({ ...validSpec, elements: [{ ...validText, opacity: 1 }] })).toBe(true);
+  });
+
+  it("accepts custom page size at both bounds (50, 600)", () => {
+    expect(
+      isDocumentSpec({
+        ...validSpec,
+        page: { ...validSpec.page, preset: "Custom", widthMm: 50, heightMm: 600 },
+      }),
+    ).toBe(true);
+    expect(
+      isDocumentSpec({
+        ...validSpec,
+        page: { ...validSpec.page, preset: "Custom", widthMm: 600, heightMm: 50 },
+      }),
+    ).toBe(true);
+  });
+
+  it("accepts margins at both bounds (0, 100)", () => {
+    const margins = { top: 0, right: 100, bottom: 0, left: 100 };
+    expect(isDocumentSpec({ ...validSpec, page: { ...validSpec.page, margins } })).toBe(true);
   });
 });
 
