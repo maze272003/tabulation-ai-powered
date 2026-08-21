@@ -446,6 +446,17 @@ export default defineSchema({
     .index("by_org_id", ["orgId"])
     .index("by_kind", ["kind"]),
 
+  documentAssets: defineTable({
+    orgId: v.id("organizations"),
+    storageId: v.string(),
+    name: v.string(),
+    contentType: v.string(),
+    sizeBytes: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_org_id", ["orgId"])
+    .index("by_org_id_and_storage_id", ["orgId", "storageId"]),
+
   superadminSessions: defineTable({
     token: v.string(),
     label: v.string(),
