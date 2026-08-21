@@ -1,4 +1,6 @@
 import type { MutationCtx } from "../_generated/server";
+import { appError, ErrorCode } from "../lib/errors";
+import { isDocumentSpec } from "./spec";
 import type { DocumentSpec, ShapeElement, TextElement } from "./spec";
 
 function text(partial: Partial<TextElement> & Pick<TextElement, "id" | "name" | "content" | "yMm">): TextElement {
@@ -114,6 +116,14 @@ export const SYSTEM_CERTIFICATE_TEMPLATES: { name: string; description: string; 
 /** Idempotently materializes system certificate templates. Called from seedReferenceDataInternal. */
 export async function seedSystemDocumentTemplates(ctx: MutationCtx): Promise<void> {
   for (const template of SYSTEM_CERTIFICATE_TEMPLATES) {
+    // Fail fast on every seed run, even when the row already exists, so an
+    // invalid constant edit surfaces here instead of reaching the database.
+    if (!isDocumentSpec(template.spec)) {
+      throw appError(
+        ErrorCode.VALIDATION_ERROR,
+        `System certificate template "${template.name}" has an invalid spec; fix it in convex/documents/systemTemplates.ts`,
+      );
+    }
     const existing = await ctx.db
       .query("documentTemplates")
       .withIndex("by_kind", (q) => q.eq("kind", "certificate"))
