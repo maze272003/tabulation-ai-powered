@@ -154,6 +154,10 @@ export function GenerateCertificatesDialog({
 
   const needsRank = usedTokens.includes("recipient.rank");
   const rankBlocked = needsRank && rankByContestant.size === 0;
+  const missingRankCount =
+    needsRank && rankByContestant.size > 0
+      ? selectedContestants.filter((contestant) => !rankByContestant.has(contestant._id)).length
+      : 0;
   const assetsLoading = imageStorageIds.length > 0 && assetUrlMap === undefined;
   // Generation must not proceed with a broken asset map: the PDF would render
   // empty boxes for every image element, and certificates are distributed.
@@ -330,6 +334,13 @@ export function GenerateCertificatesDialog({
                 {rankBlocked
                   ? " This template ranks recipients, but the event has no published final results."
                   : ""}
+                {missingRankCount > 0 ? (
+                  <span className="text-warning">
+                    {" "}
+                    {missingRankCount} recipient{missingRankCount === 1 ? "" : "s"} have no final
+                    rank — their rank field will be blank.
+                  </span>
+                ) : null}
                 {assetsBlocked ? " Image assets could not be loaded — try again." : ""}
               </p>
             </>
