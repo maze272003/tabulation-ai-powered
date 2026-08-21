@@ -6,6 +6,7 @@ import { requireOrgMember, requirePermission } from "../lib/authz";
 import { appError, ErrorCode } from "../lib/errors";
 import { writeAudit } from "../lib/audit";
 import { isDocumentSpec } from "./spec";
+import { deleteUnreferencedOrgAssets } from "./assets";
 
 export const list = query({
   args: {
@@ -153,6 +154,7 @@ export const remove = mutation({
     const { template, orgId, userId } = await requireVisibleTemplate(ctx, args, "documents.manage");
     if (template.isSystem) throw appError(ErrorCode.FORBIDDEN, "System templates cannot be deleted");
     await ctx.db.delete(args.templateId);
+    await deleteUnreferencedOrgAssets(ctx, orgId);
     await writeAudit(ctx, {
       orgId, actorId: userId, action: "documentTemplate.deleted",
       resourceType: "documentTemplate", resourceId: args.templateId, before: { name: template.name },

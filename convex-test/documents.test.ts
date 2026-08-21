@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { api } from "../convex/_generated/api";
 import { aliceIdentity, bobIdentity, addOrgMemberWithoutDocumentsManage, createOrgAndEvent, setupTest } from "./setup";
 import { isDocumentSpec } from "../convex/documents/spec";
+import type { DocumentSpec } from "../convex/documents/spec";
 import { validSpec } from "./documentFixtures";
 
 describe("documents: system templates", () => {
@@ -198,5 +199,64 @@ describe("documents: read-only member and asset url limits", () => {
         storageIds: Array.from({ length: 101 }, (_, i) => `storage-${i}`),
       }),
     ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
+  });
+});
+
+describe("documents: asset garbage collection on template removal", () => {
+  function specWithImage(storageId: string): DocumentSpec {
+    return {
+      ...validSpec,
+      elements: [
+        ...validSpec.elements,
+        {
+          type: "image",
+          id: "el-img",
+          name: "Asset",
+          xMm: 10,
+          yMm: 10,
+          widthMm: 30,
+          heightMm: 30,
+          rotationDeg: 0,
+          opacity: 1,
+          locked: false,
+          showOnAllPages: false,
+          storageId,
+          fit: "contain",
+        },
+      ],
+    };
+  }
+
+  async function registerAsset(
+    t: ReturnType<typeof setupTest>,
+    storageId: string,
+  ): Promise<void> {
+    await t.withIdentity(aliceIdentity).mutation(api.documents.assets.recordUpload, {
+      orgSlug: "acme",
+      storageId,
+      name: `${storageId}.png`,
+      contentType: "image/png",
+      sizeBytes: 1024,
+    });
+  }
+
+  it("removes assets unreferenced by the deleted template and keeps still-referenced ones", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    const alice = t.withIdentity(aliceIdentity);
+
+    const first = await alice.mutation(api.documents.templates.create, {
+      orgSlug: "acme", name: "First", kind: "certificate", spec: specWithImage("asset-gc-1"),
+    });
+    await alice.mutation(api.documents.templates.create, {
+      orgSlug: "acme", name: "Second", kind: "certificate", spec: specWithImage("asset-gc-2"),
+    });
+    await registerAsset(t, "asset-gc-1");
+    await registerAsset(t, "asset-gc-2");
+
+    await alice.mutation(api.documents.templates.remove, { orgSlug: "acme", templateId: first.templateId });
+
+    const remaining = await alice.query(api.documents.assets.listByOrg, { orgSlug: "acme" });
+    expect(remaining.map((asset) => asset.storageId)).toEqual(["asset-gc-2"]);
   });
 });
