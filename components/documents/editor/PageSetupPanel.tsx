@@ -1,6 +1,7 @@
 "use client";
 
 import type { PagePreset } from "@/convex/documents/spec";
+import { parseNumberInput } from "@/lib/documents/numberInput";
 import type { EditorAction, EditorState } from "@/lib/documents/editorState";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,13 +15,6 @@ export interface PageSetupPanelProps {
 const PRESETS: PagePreset[] = ["A4", "Letter", "Legal", "A5", "Custom"];
 const CUSTOM_SIZE_BOUNDS = { min: 50, max: 600 } as const;
 const MARGIN_BOUNDS = { min: 0, max: 100 } as const;
-
-/** Parses a numeric input, returning null for non-finite values (typing "-") so the patch is skipped. */
-function parseNumberInput(raw: string, min: number, max: number): number | null {
-  const value = Number(raw);
-  if (!Number.isFinite(value)) return null;
-  return Math.min(max, Math.max(min, value));
-}
 
 export function PageSetupPanel({ state, dispatch }: PageSetupPanelProps) {
   const page = state.spec.page;

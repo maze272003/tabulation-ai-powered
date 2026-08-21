@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { FontFamily, ImageElement } from "@/convex/documents/spec";
 import { resolvePageSize } from "@/convex/documents/spec";
 import { FONT_META } from "@/lib/documents/fonts";
 import { selectionBounds } from "@/lib/documents/geometry";
+import { parseNumberInput } from "@/lib/documents/numberInput";
 import type { EditorAction, EditorState, ElementPatch } from "@/lib/documents/editorState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,49 @@ import { TokenPicker } from "./TokenPicker";
 
 const inputClass = "h-8 text-xs";
 
+/** A local edit held while the user is still interacting, keyed by element id. */
+interface CoalescedDraft<T> {
+  elementId: string;
+  value: T;
+}
+
+interface CoalescedValue<T> {
+  /** Live value to render: the pending draft while editing, otherwise the element value. */
+  value: T;
+  /** The pending edit for the currently selected element, or null when clean. */
+  pending: CoalescedDraft<T> | null;
+  edit: (next: T) => void;
+  clear: () => void;
+}
+
+/**
+ * Holds high-frequency edits (typing, color picking, slider drags) in local state so
+ * UPDATE_ELEMENTS — and therefore one undo step — is dispatched once per interaction
+ * (blur, Enter, pointer release) instead of per keystroke/tick. Drafts are keyed by
+ * element id, so switching selection falls back to the element value and drops the
+ * stale draft.
+ */
+function useCoalescedValue<T>(elementId: string | null, elementValue: T): CoalescedValue<T> {
+  const [draft, setDraft] = useState<CoalescedDraft<T> | null>(null);
+  const pending = draft !== null && draft.elementId === elementId ? draft : null;
+  return {
+    value: pending !== null ? pending.value : elementValue,
+    pending,
+    edit: (next: T) => {
+      if (elementId !== null) setDraft({ elementId, value: next });
+    },
+    clear: () => setDraft(null),
+  };
+}
+
+/** Applies the pending draft (if any) as a single UPDATE_ELEMENTS dispatch and resets it. */
+function commitCoalescedValue<T>(control: CoalescedValue<T>, apply: (elementId: string, value: T) => void) {
+  const { pending } = control;
+  if (pending === null) return;
+  apply(pending.elementId, pending.value);
+  control.clear();
+}
+
 // Bounds mirror isDocumentSpec in convex/documents/spec.ts so the inspector can
 // never patch an element into a state that fails validation on save.
 const SIZE_BOUNDS = {
@@ -41,13 +85,6 @@ const SIZE_BOUNDS = {
   fontSizePt: { min: 4, max: 200 },
   strokeWidthMm: { min: 0, max: 50 },
 } as const;
-
-/** Parses a numeric input, returning null for non-finite values (typing "-") so the patch is skipped. */
-function parseNumberInput(raw: string, min: number, max: number): number | null {
-  const value = Number(raw);
-  if (!Number.isFinite(value)) return null;
-  return Math.min(max, Math.max(min, value));
-}
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -65,10 +102,50 @@ export interface InspectorProps {
 
 export function Inspector({ state, dispatch }: InspectorProps) {
   const selected = state.spec.elements.filter((e) => state.selection.includes(e.id));
+  const single = selected.length === 1 ? selected[0] : null;
+  const text = single !== null && single.type === "text" ? single : null;
+  const image = single !== null && single.type === "image" ? single : null;
+  const shape = single !== null && single.type !== "text" && single.type !== "image" ? single : null;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const content = useCoalescedValue(text?.id ?? null, text?.content ?? "");
+  const textColor = useCoalescedValue(text?.id ?? null, text?.color ?? "#000000");
+  const lineHeight = useCoalescedValue(text?.id ?? null, text?.lineHeight ?? 1);
+  const letterSpacing = useCoalescedValue(text?.id ?? null, text?.letterSpacingMm ?? 0);
+  const fill = useCoalescedValue(shape?.id ?? null, shape?.fill ?? "#ffffff");
+  const stroke = useCoalescedValue(shape?.id ?? null, shape?.stroke ?? "#ffffff");
+  const opacity = useCoalescedValue(single?.id ?? null, single?.opacity ?? 1);
 
   function patch(id: string, patchValue: ElementPatch) {
     dispatch({ type: "UPDATE_ELEMENTS", updates: [{ id, patch: patchValue }] });
+  }
+
+  function commitContent() {
+    commitCoalescedValue(content, (id, value) => patch(id, { content: value }));
+  }
+
+  function commitTextColor() {
+    commitCoalescedValue(textColor, (id, value) => patch(id, { color: value }));
+  }
+
+  function commitLineHeight() {
+    commitCoalescedValue(lineHeight, (id, value) => patch(id, { lineHeight: value }));
+  }
+
+  function commitLetterSpacing() {
+    commitCoalescedValue(letterSpacing, (id, value) => patch(id, { letterSpacingMm: value }));
+  }
+
+  function commitFill() {
+    commitCoalescedValue(fill, (id, value) => patch(id, { fill: value }));
+  }
+
+  function commitStroke() {
+    commitCoalescedValue(stroke, (id, value) => patch(id, { stroke: value }));
+  }
+
+  function commitOpacity() {
+    commitCoalescedValue(opacity, (id, value) => patch(id, { opacity: value }));
   }
 
   // A single selection aligns against the page; a group aligns each element
@@ -106,14 +183,19 @@ export function Inspector({ state, dispatch }: InspectorProps) {
     const textarea = textareaRef.current;
     const element = selected[0];
     if (!element || element.type !== "text") return;
+    // The textarea may hold an uncommitted draft, so splice the marker into the
+    // live value and commit immediately instead of the element's stored content.
+    const currentContent = content.value;
     const marker = `{{${token}}}`;
     if (!textarea) {
-      patch(element.id, { content: element.content + marker });
+      patch(element.id, { content: currentContent + marker });
+      content.clear();
       return;
     }
-    const start = textarea.selectionStart ?? element.content.length;
+    const start = textarea.selectionStart ?? currentContent.length;
     const end = textarea.selectionEnd ?? start;
-    patch(element.id, { content: element.content.slice(0, start) + marker + element.content.slice(end) });
+    patch(element.id, { content: currentContent.slice(0, start) + marker + currentContent.slice(end) });
+    content.clear();
     requestAnimationFrame(() => {
       textarea.focus();
       textarea.setSelectionRange(start + marker.length, start + marker.length);
@@ -130,11 +212,6 @@ export function Inspector({ state, dispatch }: InspectorProps) {
       </aside>
     );
   }
-
-  const single = selected.length === 1 ? selected[0] : null;
-  const text = single !== null && single.type === "text" ? single : null;
-  const image = single !== null && single.type === "image" ? single : null;
-  const shape = single !== null && single.type !== "text" && single.type !== "image" ? single : null;
 
   return (
     <aside
@@ -199,8 +276,14 @@ export function Inspector({ state, dispatch }: InspectorProps) {
             id="inspector-content"
             ref={textareaRef}
             className="min-h-20 w-full rounded-md border border-input bg-transparent p-2 text-xs"
-            value={text.content}
-            onChange={(event) => patch(text.id, { content: event.target.value })}
+            value={content.value}
+            onChange={(event) => content.edit(event.target.value)}
+            onKeyDown={(event) => {
+              // Enter commits the accumulated typing as one undo step; the newline
+              // itself joins the next draft so multi-line content still works.
+              if (event.key === "Enter") commitContent();
+            }}
+            onBlur={commitContent}
           />
           <Row label="Font">
             <Select
@@ -292,28 +375,33 @@ export function Inspector({ state, dispatch }: InspectorProps) {
             <Input
               type="color"
               className="h-8 w-14 p-0.5"
-              value={text.color}
-              onChange={(event) => patch(text.id, { color: event.target.value })}
+              value={textColor.value}
+              onChange={(event) => textColor.edit(event.target.value)}
+              onBlur={commitTextColor}
             />
           </Row>
-          <Row label={`Line height (${text.lineHeight.toFixed(2)})`}>
+          <Row label={`Line height (${lineHeight.value.toFixed(2)})`}>
             <input
               type="range"
               min={0.5}
               max={4}
               step={0.05}
-              value={text.lineHeight}
-              onChange={(event) => patch(text.id, { lineHeight: Number(event.target.value) })}
+              value={lineHeight.value}
+              onChange={(event) => lineHeight.edit(Number(event.target.value))}
+              onPointerUp={commitLineHeight}
+              onKeyUp={commitLineHeight}
             />
           </Row>
-          <Row label={`Spacing mm (${text.letterSpacingMm.toFixed(1)})`}>
+          <Row label={`Spacing mm (${letterSpacing.value.toFixed(1)})`}>
             <input
               type="range"
               min={-2}
               max={10}
               step={0.1}
-              value={text.letterSpacingMm}
-              onChange={(event) => patch(text.id, { letterSpacingMm: Number(event.target.value) })}
+              value={letterSpacing.value}
+              onChange={(event) => letterSpacing.edit(Number(event.target.value))}
+              onPointerUp={commitLetterSpacing}
+              onKeyUp={commitLetterSpacing}
             />
           </Row>
         </section>
@@ -344,16 +432,18 @@ export function Inspector({ state, dispatch }: InspectorProps) {
             <Input
               type="color"
               className="h-8 w-14 p-0.5"
-              value={shape.fill ?? "#ffffff"}
-              onChange={(event) => patch(shape.id, { fill: event.target.value })}
+              value={fill.value}
+              onChange={(event) => fill.edit(event.target.value)}
+              onBlur={commitFill}
             />
           </Row>
           <Row label="Stroke">
             <Input
               type="color"
               className="h-8 w-14 p-0.5"
-              value={shape.stroke ?? "#ffffff"}
-              onChange={(event) => patch(shape.id, { stroke: event.target.value })}
+              value={stroke.value}
+              onChange={(event) => stroke.edit(event.target.value)}
+              onBlur={commitStroke}
             />
           </Row>
           <Row label="Stroke mm">
@@ -451,14 +541,16 @@ export function Inspector({ state, dispatch }: InspectorProps) {
               </Button>
             </div>
           </Row>
-          <Row label={`Opacity (${Math.round(single.opacity * 100)}%)`}>
+          <Row label={`Opacity (${Math.round(opacity.value * 100)}%)`}>
             <input
               type="range"
               min={0}
               max={1}
               step={0.05}
-              value={single.opacity}
-              onChange={(event) => patch(single.id, { opacity: Number(event.target.value) })}
+              value={opacity.value}
+              onChange={(event) => opacity.edit(Number(event.target.value))}
+              onPointerUp={commitOpacity}
+              onKeyUp={commitOpacity}
             />
           </Row>
           <Row label="Lock">
