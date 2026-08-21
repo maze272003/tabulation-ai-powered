@@ -4,10 +4,12 @@ import { appError, ErrorCode } from "./errors";
 
 export const WIZARD_DAILY_LIMIT = 20;
 export const EXPLANATION_DAILY_LIMIT = 30;
+export const DOCUMENT_DESIGN_DAILY_LIMIT = 20;
 
 export const AI_USAGE_RESOURCES = {
   wizard: "ai_wizard_calls",
   explanations: "ai_explanations",
+  documentDesigns: "ai_document_designs",
 } as const;
 
 export function todayKey(now: number = Date.now()): string {
