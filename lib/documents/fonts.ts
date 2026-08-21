@@ -89,11 +89,3 @@ export async function registerPdfFonts(baseUrl = ""): Promise<void> {
   return pdfFontsPromise;
 }
 
-/** Convex upload URLs end with the storageId. */
-export function storageIdFromUploadUrl(url: string): string {
-  const withoutQuery = url.split("?")[0] ?? "";
-  const segments = withoutQuery.split("/").filter(Boolean);
-  const id = segments[segments.length - 1];
-  if (!id) throw new Error("Upload URL does not contain a storage id");
-  return id;
-}

@@ -124,6 +124,21 @@ describe("documents: org asset registry", () => {
     expect(urls[uploadArgs.storageId]).toBeNull();
   });
 
+  it("handles malformed storage ids gracefully without throwing", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    const alice = t.withIdentity(aliceIdentity);
+    await alice.mutation(api.documents.assets.recordUpload, {
+      ...uploadArgs,
+      storageId: "upload",
+    });
+    const urls = await alice.query(api.documents.assets.assetUrls, {
+      orgSlug: "acme",
+      storageIds: ["upload"],
+    });
+    expect(urls).toEqual({ upload: null });
+  });
+
   it("rejects assetUrls with more than 100 storage ids", async () => {
     const t = setupTest();
     await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });

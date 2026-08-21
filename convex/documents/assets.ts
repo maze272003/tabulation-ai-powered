@@ -120,7 +120,11 @@ export const assetUrls = query({
         urls[storageId] = null;
         continue;
       }
-      urls[storageId] = await ctx.storage.getUrl(storageId);
+      try {
+        urls[storageId] = await ctx.storage.getUrl(storageId);
+      } catch {
+        urls[storageId] = null;
+      }
     }
     return urls;
   },

@@ -7,7 +7,7 @@ import { Circle, ImagePlus, LayoutTemplate, Minus, Square, Type, type LucideIcon
 import { api } from "@/convex/_generated/api";
 import type { DocumentSpec, ImageElement, ShapeElement, TextElement } from "@/convex/documents/spec";
 import { isDocumentSpec, resolvePageSize } from "@/convex/documents/spec";
-import { ensureEditorFontsLoaded, storageIdFromUploadUrl } from "@/lib/documents/fonts";
+import { ensureEditorFontsLoaded } from "@/lib/documents/fonts";
 import { newElementId, nextElementName, type EditorAction, type EditorState } from "@/lib/documents/editorState";
 import { Button } from "@/components/ui/button";
 import {
@@ -207,7 +207,8 @@ export function Palette({ orgSlug, state, dispatch, imageUrls }: PaletteProps) {
         body: file,
       });
       if (!response.ok) throw new Error(`Upload failed (${response.status})`);
-      const storageId = storageIdFromUploadUrl(url);
+      const { storageId } = (await response.json()) as { storageId?: string };
+      if (!storageId) throw new Error("Upload response missing storage id");
       await recordUpload({
         orgSlug,
         storageId,
