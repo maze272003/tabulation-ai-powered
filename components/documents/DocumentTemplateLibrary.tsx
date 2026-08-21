@@ -10,12 +10,15 @@ import { toastMutationError } from "@/lib/convex-errors";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState, ErrorState } from "@/components/tabulation/StateBlock";
 import { ConfirmDialog } from "@/components/tabulation/ConfirmDialog";
+import { AiCertificateCard } from "@/components/documents/AiCertificateCard";
 import { GenerateCertificatesDialog } from "@/components/documents/GenerateCertificatesDialog";
+import { FeaturePaywall, FeaturePaywallDialog } from "@/components/billing/FeaturePaywall";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Award, Copy, FilePlus2, Loader2, Pencil, Sparkles, Trash2 } from "lucide-react";
+import { Award, Copy, FilePlus2, Loader2, Lock, Pencil, Sparkles, Trash2 } from "lucide-react";
+import { useQuery } from "convex/react";
 
 const BLANK_CERTIFICATE_SPEC: DocumentSpec = {
   version: 1,
@@ -73,6 +76,10 @@ function nextDuplicateName(sourceName: string, existingNames: ReadonlySet<string
 
 export function DocumentTemplateLibrary({ orgSlug }: { orgSlug: string }) {
   const router = useRouter();
+  const sub = useQuery(api.subscriptions.getForOrg, { orgSlug });
+  const canUseBranding = sub?.plan?.features?.canUseCustomBranding === true;
+  const [paywallOpen, setPaywallOpen] = useState(false);
+
   // Object-form hook surfaces query failures as values (mirrors EditorShell)
   // so a failed listing renders an error state instead of a skeleton forever.
   const templatesQuery = useQuery_experimental({
@@ -98,6 +105,10 @@ export function DocumentTemplateLibrary({ orgSlug }: { orgSlug: string }) {
   );
 
   async function customize(templateId: Id<"documentTemplates">, name: string) {
+    if (!canUseBranding) {
+      setPaywallOpen(true);
+      return;
+    }
     setBusyId(templateId);
     try {
       const result = await duplicate({
@@ -114,6 +125,10 @@ export function DocumentTemplateLibrary({ orgSlug }: { orgSlug: string }) {
   }
 
   async function createBlank() {
+    if (!canUseBranding) {
+      setPaywallOpen(true);
+      return;
+    }
     setCreatingBlank(true);
     try {
       const result = await create({
@@ -130,6 +145,10 @@ export function DocumentTemplateLibrary({ orgSlug }: { orgSlug: string }) {
   }
 
   function openGenerateDialog(template: Doc<"documentTemplates">) {
+    if (!canUseBranding) {
+      setPaywallOpen(true);
+      return;
+    }
     if (!isDocumentSpec(template.spec)) return;
     setGenerateTarget({ _id: template._id, name: template.name, spec: template.spec });
   }
@@ -155,12 +174,37 @@ export function DocumentTemplateLibrary({ orgSlug }: { orgSlug: string }) {
         title="Documents & Certificates"
         description="Design reusable certificate templates with a drag-and-drop editor, then generate personalized PDFs."
         actions={
-          <Button disabled={creatingBlank} onClick={() => void createBlank()}>
-            {creatingBlank ? <Loader2 aria-hidden className="animate-spin" /> : <FilePlus2 aria-hidden />}
+          <Button disabled={creatingBlank} onClick={() => void createBlank()} className="gap-1.5 font-semibold">
+            {creatingBlank ? (
+              <Loader2 aria-hidden className="animate-spin" />
+            ) : !canUseBranding && sub !== undefined ? (
+              <Lock aria-hidden className="size-4" />
+            ) : (
+              <FilePlus2 aria-hidden />
+            )}
             New blank certificate
           </Button>
         }
       />
+
+      <AiCertificateCard orgSlug={orgSlug} />
+
+      {!canUseBranding && sub !== undefined ? (
+        <FeaturePaywall
+          orgSlug={orgSlug}
+          badgeText="PRO FEATURE"
+          title="Unlock Custom Certificate Studio & Batch Generation"
+          description="Design high-resolution award certificates with our visual drag-and-drop studio, organizational branding, dynamic contestant placeholders, and 1-click batch PDF generator."
+          features={[
+            "Visual drag-and-drop certificate canvas",
+            "High-res logo & seal uploads (PNG, JPEG, SVG)",
+            "Dynamic recipient, rank & score token mapping",
+            "Bulk PDF export ready for printing & awarding",
+          ]}
+          icon={Award}
+          actionText="Upgrade to Pro"
+        />
+      ) : null}
 
       {templatesQuery.status === "error" ? (
         <ErrorState message="Could not load templates." />
@@ -224,7 +268,13 @@ export function DocumentTemplateLibrary({ orgSlug }: { orgSlug: string }) {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => router.push(`/studio/${orgSlug}/${template._id}`)}
+                        onClick={() => {
+                          if (!canUseBranding) {
+                            setPaywallOpen(true);
+                          } else {
+                            router.push(`/studio/${orgSlug}/${template._id}`);
+                          }
+                        }}
                       >
                         <Pencil aria-hidden />
                         Edit
@@ -294,6 +344,23 @@ export function DocumentTemplateLibrary({ orgSlug }: { orgSlug: string }) {
           template={generateTarget}
         />
       ) : null}
+
+      <FeaturePaywallDialog
+        open={paywallOpen}
+        onOpenChange={setPaywallOpen}
+        orgSlug={orgSlug}
+        badgeText="PRO FEATURE"
+        title="Custom Certificate Studio & PDF Generator"
+        description="Upgrade to Pro to customize certificates, upload company logos, map recipient tags, and generate batch award PDFs for your competitions."
+        features={[
+          "Visual drag-and-drop layout canvas",
+          "High-res logo & seal uploads",
+          "Dynamic token mapping (name, category, rank, score)",
+          "1-click batch PDF generator ready for printing",
+        ]}
+        icon={Award}
+        actionText="Upgrade to Pro"
+      />
     </div>
   );
 }
