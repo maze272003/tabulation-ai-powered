@@ -64,6 +64,77 @@ export async function createOrgAndEvent(
   });
 }
 
+const VIEWER_ROLE_NAME = "Viewer";
+const VIEWER_ROLE_PERMISSIONS = ["organization.view", "event.view", "result.view"] as const;
+
+/**
+ * Adds `identity` to the org with a read-only "Viewer" system role that lacks
+ * `documents.manage`, so tests can assert permission-gated rejections for
+ * otherwise valid members. The role mirrors the SYSTEM_ROLES seeding pattern
+ * and is created idempotently via direct DB access (`t.run`).
+ */
+export async function addOrgMemberWithoutDocumentsManage(
+  t: ReturnType<typeof setupTest>,
+  orgSlug: string,
+  identity: Partial<UserIdentity>,
+): Promise<void> {
+  const tokenIdentifier = identity.tokenIdentifier;
+  if (!tokenIdentifier) throw new Error("identity.tokenIdentifier is required");
+  // ensureUserProfile also (re)seeds reference data, so the Viewer permissions exist.
+  await t.withIdentity(identity).mutation(api.auth.ensureUserProfile, {});
+  await t.run(async (ctx) => {
+    const org = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", orgSlug))
+      .unique();
+    if (!org) throw new Error(`Organization not found: ${orgSlug}`);
+    const profile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_token_identifier", (q) => q.eq("tokenIdentifier", tokenIdentifier))
+      .unique();
+    if (!profile) throw new Error(`Profile not provisioned for ${tokenIdentifier}`);
+
+    let roleId = (
+      await ctx.db
+        .query("roles")
+        .withIndex("by_name", (q) => q.eq("name", VIEWER_ROLE_NAME))
+        .unique()
+    )?._id;
+    if (roleId === undefined) {
+      roleId = await ctx.db.insert("roles", {
+        name: VIEWER_ROLE_NAME,
+        scope: "organization",
+        isSystem: true,
+        description: "Read-only access to organization data",
+      });
+      for (const permissionName of VIEWER_ROLE_PERMISSIONS) {
+        const permission = await ctx.db
+          .query("permissions")
+          .withIndex("by_name", (q) => q.eq("name", permissionName))
+          .unique();
+        if (!permission) throw new Error(`Permission not seeded: ${permissionName}`);
+        await ctx.db.insert("rolePermissions", { roleId, permissionId: permission._id });
+      }
+    }
+
+    const existingMembership = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_org_id_and_user_id", (q) => q.eq("orgId", org._id).eq("userId", profile._id))
+      .unique();
+    if (existingMembership) {
+      await ctx.db.patch(existingMembership._id, { roleId });
+      return;
+    }
+    await ctx.db.insert("organizationMembers", {
+      userId: profile._id,
+      orgId: org._id,
+      roleId,
+      status: "active",
+      joinedAt: Date.now(),
+    });
+  });
+}
+
 type ScoredEventOpts = {
   advancement?: { mode: "none" | "top_count" | "top_percent" | "manual"; count?: number; percent?: number; allowOverride: boolean };
   qualifiesToNextRound?: boolean;

@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { describe, expect, it } from "vitest";
 import { api } from "../convex/_generated/api";
-import { aliceIdentity, bobIdentity, createOrgAndEvent, setupTest } from "./setup";
+import { aliceIdentity, bobIdentity, addOrgMemberWithoutDocumentsManage, createOrgAndEvent, setupTest } from "./setup";
 import { isDocumentSpec } from "../convex/documents/spec";
 import { validSpec } from "./documentFixtures";
 
@@ -144,5 +144,59 @@ describe("documents: template CRUD authz and validation", () => {
     const actions = audit.page.map((row: { action: string; resourceType: string }) => `${row.action}:${row.resourceType}`);
     expect(actions).toContain("documentTemplate.created:documentTemplate");
     expect(actions).toContain("documentTemplate.deleted:documentTemplate");
+  });
+});
+
+describe("documents: read-only member and asset url limits", () => {
+  it("lets a member without documents.manage list and get templates", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    const { templateId } = await t.withIdentity(aliceIdentity).mutation(api.documents.templates.create, {
+      orgSlug: "acme", name: "My Certificate", kind: "certificate", spec: validSpec,
+    });
+    await addOrgMemberWithoutDocumentsManage(t, "acme", bobIdentity);
+
+    const list = await t.withIdentity(bobIdentity).query(api.documents.templates.list, {
+      orgSlug: "acme", kind: "certificate",
+    });
+    expect(list.length).toBeGreaterThan(0);
+    const got = await t.withIdentity(bobIdentity).query(api.documents.templates.get, {
+      orgSlug: "acme", templateId,
+    });
+    expect(got._id).toBe(templateId);
+  });
+
+  it("rejects template writes for a member without documents.manage", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    const { templateId } = await t.withIdentity(aliceIdentity).mutation(api.documents.templates.create, {
+      orgSlug: "acme", name: "My Certificate", kind: "certificate", spec: validSpec,
+    });
+    await addOrgMemberWithoutDocumentsManage(t, "acme", bobIdentity);
+    const bob = t.withIdentity(bobIdentity);
+
+    await expect(
+      bob.mutation(api.documents.templates.create, { orgSlug: "acme", name: "Nope", kind: "certificate", spec: validSpec }),
+    ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
+    await expect(
+      bob.mutation(api.documents.templates.update, { orgSlug: "acme", templateId, name: "Nope" }),
+    ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
+    await expect(
+      bob.mutation(api.documents.templates.duplicate, { orgSlug: "acme", templateId, name: "Nope" }),
+    ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
+    await expect(
+      bob.mutation(api.documents.templates.remove, { orgSlug: "acme", templateId }),
+    ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
+  });
+
+  it("rejects assetUrls with more than 100 storage ids", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    await expect(
+      t.withIdentity(aliceIdentity).query(api.documents.assets.assetUrls, {
+        orgSlug: "acme",
+        storageIds: Array.from({ length: 101 }, (_, i) => `storage-${i}`),
+      }),
+    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
   });
 });
