@@ -21,6 +21,7 @@ import {
 
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
 const ALLOWED_UPLOAD_TYPES: readonly string[] = ["image/png", "image/jpeg", "image/svg+xml"];
+const MAX_THUMBNAIL_ASSETS = 20;
 
 type TextPreset = "heading" | "subheading" | "body" | "scriptName";
 
@@ -89,6 +90,16 @@ export function Palette({ orgSlug, state, dispatch, imageUrls }: PaletteProps) {
   const [isUploading, setIsUploading] = useState(false);
   const templates = useQuery(api.documents.templates.list, { orgSlug, kind: "certificate" });
   const orgAssets = useQuery(api.documents.assets.listByOrg, { orgSlug });
+  // EditorShell's imageUrls only covers storageIds placed in the current spec,
+  // so registry assets outside the spec need their own URL lookup to keep
+  // rendering thumbnails.
+  const thumbnailStorageIds = (orgAssets ?? [])
+    .map((asset) => asset.storageId)
+    .slice(0, MAX_THUMBNAIL_ASSETS);
+  const orgAssetUrls = useQuery(
+    api.documents.assets.assetUrls,
+    thumbnailStorageIds.length > 0 ? { orgSlug, storageIds: thumbnailStorageIds } : "skip",
+  );
   const createUploadUrl = useMutation(api.documents.assets.generateUploadUrl);
   const recordUpload = useMutation(api.documents.assets.recordUpload);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -317,23 +328,26 @@ export function Palette({ orgSlug, state, dispatch, imageUrls }: PaletteProps) {
               <p className="text-xs text-muted-foreground">Uploaded images will appear here.</p>
             ) : (
               <div className="space-y-2">
-                {orgAssets.map((asset) => (
-                  <button
-                    key={asset._id}
-                    type="button"
-                    className="flex w-full items-center gap-2 rounded-lg border border-border p-2 text-left text-xs hover:border-primary/60"
-                    onClick={() => addImage(asset.storageId)}
-                  >
-                    {imageUrls[asset.storageId] ? (
-                      <img
-                        src={imageUrls[asset.storageId]}
-                        alt=""
-                        className="size-10 rounded object-contain"
-                      />
-                    ) : null}
-                    <span className="min-w-0 flex-1 truncate">{asset.name}</span>
-                  </button>
-                ))}
+                {orgAssets.map((asset) => {
+                  const thumbnailUrl = orgAssetUrls?.[asset.storageId] ?? imageUrls[asset.storageId];
+                  return (
+                    <button
+                      key={asset._id}
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-lg border border-border p-2 text-left text-xs hover:border-primary/60"
+                      onClick={() => addImage(asset.storageId)}
+                    >
+                      {thumbnailUrl ? (
+                        <img
+                          src={thumbnailUrl}
+                          alt=""
+                          className="size-10 rounded object-contain"
+                        />
+                      ) : null}
+                      <span className="min-w-0 flex-1 truncate">{asset.name}</span>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

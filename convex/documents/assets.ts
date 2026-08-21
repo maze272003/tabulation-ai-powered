@@ -4,6 +4,7 @@ import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { requireOrgMember, requirePermission } from "../lib/authz";
 import { appError, ErrorCode } from "../lib/errors";
+import { writeAudit } from "../lib/audit";
 
 const MAX_ASSET_URLS = 100;
 const MAX_STORAGE_ID_LENGTH = 128;
@@ -57,6 +58,7 @@ export const recordUpload = mutation({
         q.eq("orgId", actx.org._id).eq("storageId", args.storageId),
       )
       .unique();
+    let assetId: Id<"documentAssets">;
     if (existing) {
       await ctx.db.patch(existing._id, {
         name,
@@ -64,15 +66,20 @@ export const recordUpload = mutation({
         sizeBytes: args.sizeBytes,
         createdAt: now,
       });
-      return;
+      assetId = existing._id;
+    } else {
+      assetId = await ctx.db.insert("documentAssets", {
+        orgId: actx.org._id,
+        storageId: args.storageId,
+        name,
+        contentType: args.contentType,
+        sizeBytes: args.sizeBytes,
+        createdAt: now,
+      });
     }
-    await ctx.db.insert("documentAssets", {
-      orgId: actx.org._id,
-      storageId: args.storageId,
-      name,
-      contentType: args.contentType,
-      sizeBytes: args.sizeBytes,
-      createdAt: now,
+    await writeAudit(ctx, {
+      orgId: actx.org._id, actorId: actx.user._id, action: "documentAsset.recorded",
+      resourceType: "documentAsset", resourceId: assetId, after: { name, storageId: args.storageId },
     });
   },
 });
