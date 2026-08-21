@@ -30,11 +30,6 @@ export interface EditorShellProps {
 
 type RightTab = "design" | "layers";
 
-interface SessionUpload {
-  storageId: string;
-  name: string;
-}
-
 // Initial reducer state only; LOAD_SPEC replaces it the first time a valid
 // template resolves, so this content is never displayed (a guard renders first).
 const EMPTY_SPEC: DocumentSpec = {
@@ -107,7 +102,6 @@ export function EditorShell({ orgSlug, templateId }: EditorShellProps) {
   const [name, setName] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [savedAt, setSavedAt] = useState<number | null>(null);
-  const [uploads, setUploads] = useState<SessionUpload[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
   // Serialized spec of the last acknowledged save ("" until first resolution).
@@ -126,9 +120,8 @@ export function EditorShell({ orgSlug, templateId }: EditorShellProps) {
     for (const element of state.spec.elements) {
       if (element.type === "image") ids.add(element.storageId);
     }
-    for (const upload of uploads) ids.add(upload.storageId);
     return [...ids];
-  }, [state.spec.elements, uploads]);
+  }, [state.spec.elements]);
 
   const assetUrls = useQuery(
     api.documents.assets.assetUrls,
@@ -293,10 +286,6 @@ export function EditorShell({ orgSlug, templateId }: EditorShellProps) {
           state={state}
           dispatch={dispatch}
           imageUrls={imageUrls}
-          uploads={uploads}
-          onUploaded={(storageId, fileName) =>
-            setUploads((previous) => [...previous, { storageId, name: fileName }])
-          }
         />
         <Canvas
           state={state}

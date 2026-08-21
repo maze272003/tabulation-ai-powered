@@ -79,18 +79,18 @@ export interface PaletteProps {
   state: EditorState;
   dispatch: Dispatch<EditorAction>;
   imageUrls: Record<string, string>;
-  uploads: { storageId: string; name: string }[];
-  onUploaded: (storageId: string, name: string) => void;
 }
 
 type Tab = "templates" | "elements" | "text" | "uploads";
 
-export function Palette({ orgSlug, state, dispatch, imageUrls, uploads, onUploaded }: PaletteProps) {
+export function Palette({ orgSlug, state, dispatch, imageUrls }: PaletteProps) {
   const [tab, setTab] = useState<Tab>("elements");
   const [pendingTemplate, setPendingTemplate] = useState<{ name: string; spec: DocumentSpec } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const templates = useQuery(api.documents.templates.list, { orgSlug, kind: "certificate" });
+  const orgAssets = useQuery(api.documents.assets.listByOrg, { orgSlug });
   const createUploadUrl = useMutation(api.documents.assets.generateUploadUrl);
+  const recordUpload = useMutation(api.documents.assets.recordUpload);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -197,7 +197,13 @@ export function Palette({ orgSlug, state, dispatch, imageUrls, uploads, onUpload
       });
       if (!response.ok) throw new Error(`Upload failed (${response.status})`);
       const storageId = storageIdFromUploadUrl(url);
-      onUploaded(storageId, file.name);
+      await recordUpload({
+        orgSlug,
+        storageId,
+        name: file.name,
+        contentType: file.type,
+        sizeBytes: file.size,
+      });
       addImage(storageId);
       toast.success("Image uploaded.");
     } catch (error) {
@@ -305,25 +311,27 @@ export function Palette({ orgSlug, state, dispatch, imageUrls, uploads, onUpload
               {isUploading ? "Uploading…" : "Upload image"}
             </Button>
             <p className="text-[11px] text-muted-foreground">PNG, JPEG, or SVG up to 2 MB.</p>
-            {uploads.length === 0 ? (
+            {orgAssets === undefined ? (
+              <p className="text-xs text-muted-foreground">Loading uploads…</p>
+            ) : orgAssets.length === 0 ? (
               <p className="text-xs text-muted-foreground">Uploaded images will appear here.</p>
             ) : (
               <div className="space-y-2">
-                {uploads.map((upload) => (
+                {orgAssets.map((asset) => (
                   <button
-                    key={upload.storageId}
+                    key={asset._id}
                     type="button"
                     className="flex w-full items-center gap-2 rounded-lg border border-border p-2 text-left text-xs hover:border-primary/60"
-                    onClick={() => addImage(upload.storageId)}
+                    onClick={() => addImage(asset.storageId)}
                   >
-                    {imageUrls[upload.storageId] ? (
+                    {imageUrls[asset.storageId] ? (
                       <img
-                        src={imageUrls[upload.storageId]}
+                        src={imageUrls[asset.storageId]}
                         alt=""
                         className="size-10 rounded object-contain"
                       />
                     ) : null}
-                    <span className="min-w-0 flex-1 truncate">{upload.name}</span>
+                    <span className="min-w-0 flex-1 truncate">{asset.name}</span>
                   </button>
                 ))}
               </div>
