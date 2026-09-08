@@ -1,166 +1,54 @@
 import Link from "next/link";
 import {
   ArrowRight,
-  Award,
-  BarChart3,
-  Check,
   CheckCircle2,
   ChevronRight,
-  ClipboardCheck,
-  HelpCircle,
   KeyRound,
-  Layers,
-  LayoutDashboard,
-  Lock,
-  Monitor,
-  Receipt,
+  Play,
   ShieldCheck,
   Sparkles,
   Trophy,
-  Users,
-  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BorderBeamPanel } from "@/components/ui/border-beam-panel";
 import { InteractiveTabulatorDemo } from "@/components/landing/InteractiveTabulatorDemo";
+import { LandingComparisonSection } from "@/components/landing/LandingComparisonSection";
+import { LandingFeatureBento } from "@/components/landing/LandingFeatureBento";
+import { LandingRoiCalculator } from "@/components/landing/LandingRoiCalculator";
+import { LandingTestimonialsSection } from "@/components/landing/LandingTestimonialsSection";
 import { LandingPricingSection } from "@/components/landing/LandingPricingSection";
-
-const FEATURES = [
-  {
-    icon: LayoutDashboard,
-    title: "Event Command Center",
-    description:
-      "Configure accounts, rounds, criteria, and contestants from a unified workspace with automated pre-flight readiness checks.",
-    badge: "Real-Time Sync",
-  },
-  {
-    icon: KeyRound,
-    title: "Secure Judge Passcodes",
-    description:
-      "Issue event-scoped passcodes in seconds. Judges enter the event code and score instantly without needing personal accounts.",
-    badge: "Instant Access",
-  },
-  {
-    icon: Layers,
-    title: "Weighted Scoring Engine",
-    description:
-      "Configure complex decimal weights, drop-lowest rules, and multi-round advancement with 100% mathematical precision.",
-    badge: "Accurate Math",
-  },
-  {
-    icon: Zap,
-    title: "Instant Live Tabulation",
-    description:
-      "Weighted average matrices, point schemes, and custom ranking algorithms calculated synchronously as judges score.",
-    badge: "Sub-Second",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Tamper-Proof Audit Trail",
-    description:
-      "Every score update, judge action, and configuration edit is immutably timestamped with cryptographic integrity hashes.",
-    badge: "Audit Verified",
-  },
-  {
-    icon: Award,
-    title: "Document & Certificate Studio",
-    description:
-      "Visual drag-and-drop designer for custom certificates, trophies, and awards with dynamic recipient tokens and instant PDF batch export.",
-    badge: "Pro Studio",
-  },
-  {
-    icon: Monitor,
-    title: "Public Results & Stage Overlay",
-    description:
-      "Broadcast live podium placements, leaderboards, and category winners to projection screens or live streams in real time.",
-    badge: "Stage Ready",
-  },
-  {
-    icon: Lock,
-    title: "Role-Based Access Control",
-    description:
-      "Discrete permission levels for Administrators, Tabulators, Judges, and Public Viewers ensuring strict data isolation.",
-    badge: "Enterprise Security",
-  },
-];
-
-const STEPS = [
-  {
-    icon: ClipboardCheck,
-    step: "01",
-    title: "Configure Event & Categories",
-    description:
-      "Define scoring rounds, set percentage criteria weights, add contestants, and let AI generate standard competition templates.",
-  },
-  {
-    icon: Users,
-    step: "02",
-    title: "Issue Judge Codes",
-    description:
-      "Generate disposable judge passkeys or QR codes. Judges score on mobile, tablet, or desktop with real-time auto-saving.",
-  },
-  {
-    icon: Trophy,
-    step: "03",
-    title: "Instant Tabulation & Export",
-    description:
-      "Monitor judge submissions live, lock rounds with confidence, and publish verified podium standings and certificates.",
-  },
-];
-
-const FAQS = [
-  {
-    q: "How does the judge scoring interface work?",
-    a: "Judges simply navigate to the Judge Portal, enter the 6-character event code and their assigned passkey. No personal logins or email registrations are required.",
-  },
-  {
-    q: "How do subscription plans work?",
-    a: "Our plans (Free, Starter, Pro) are billed transparently on a monthly basis. You can upgrade, downgrade, or cancel your plan at any time through your organization billing dashboard.",
-  },
-  {
-    q: "Can I try Tabulation for free before upgrading?",
-    a: "Yes! The Free plan includes 1 active competition with up to 5 judges and 20 contestants forever without requiring a credit card.",
-  },
-  {
-    q: "What payment methods are supported in the Philippines?",
-    a: "We support GCash, Maya, GrabPay, Credit/Debit Cards (Visa/Mastercard), and Online Bank Transfers via our integrated PayMongo checkout gateway.",
-  },
-  {
-    q: "Can we review and adjust judge scores before publishing?",
-    a: "Yes. The organizer command center includes a Live Round Review mode where staff can inspect each judge's submission and resolve discrepancies before locking the round.",
-  },
-];
+import { LandingFaqSection } from "@/components/landing/LandingFaqSection";
 
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-background selection:bg-primary/20">
-      {/* Navigation Header */}
-      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
+      {/* Sticky Glassmorphism Header */}
+      <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2.5 group">
             <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm shadow-primary/20 group-hover:scale-105 transition-transform">
-              <Trophy aria-hidden className="size-5" />
+              <Trophy aria-hidden="true" className="size-5" />
             </span>
             <div className="flex flex-col">
               <span className="font-heading text-lg font-bold tracking-tight leading-none">
                 Tabulation
               </span>
-              <span className="text-[10px] text-muted-foreground font-mono">
-                AI-POWERED
+              <span className="text-[10px] text-primary font-mono font-semibold tracking-wider">
+                AI ENGINE
               </span>
             </div>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
+          {/* Desktop Navigation Links */}
+          <nav className="hidden lg:flex items-center gap-6 text-sm font-medium text-muted-foreground">
             <a href="#features" className="hover:text-foreground transition-colors">
               Features
             </a>
             <a href="#demo" className="hover:text-foreground transition-colors">
               Live Demo
             </a>
-            <a href="#how-it-works" className="hover:text-foreground transition-colors">
-              How It Works
+            <a href="#roi-calculator" className="hover:text-foreground transition-colors">
+              Impact Calculator
             </a>
             <a href="#pricing" className="hover:text-foreground transition-colors">
               Pricing
@@ -170,7 +58,19 @@ export default function Home() {
             </a>
           </nav>
 
-          <div className="flex items-center gap-2.5">
+          {/* Header Action CTAs */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Judge Fast-Track Portal Shortcut */}
+            <Button
+              variant="outline"
+              size="sm"
+              render={<Link href="/sign-in?tab=judge" />}
+              className="h-9 px-3 text-xs font-semibold border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 gap-1.5 hidden sm:flex"
+            >
+              <KeyRound className="size-3.5" />
+              <span>Judge Portal</span>
+            </Button>
+
             <Button
               variant="ghost"
               size="sm"
@@ -179,249 +79,212 @@ export default function Home() {
             >
               Sign in
             </Button>
+
             <Button
               size="sm"
               render={<Link href="/sign-in" />}
-              className="h-9 px-4 text-xs font-semibold shadow-sm shadow-primary/20"
+              className="h-9 px-4 text-xs font-bold shadow-md shadow-primary/20"
             >
-              Get started
-              <ArrowRight data-icon="inline-end" aria-hidden className="size-3.5" />
+              <span>Start Free</span>
+              <ArrowRight aria-hidden="true" className="size-3.5 ml-1" />
             </Button>
           </div>
         </div>
       </header>
 
       <main className="flex-1">
-        {/* Hero Section */}
+        {/* Hero Section: High-Stakes Positioning & Immediate Clarity */}
         <section className="relative overflow-hidden border-b border-border/60 py-20 md:py-28">
+          {/* Subtle Ambient Background Lighting */}
           <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_-10%,color-mix(in_oklch,var(--primary)_15%,transparent),transparent)]"
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_-10%,color-mix(in_oklch,var(--primary)_18%,transparent),transparent)]"
           />
           <div
-            aria-hidden
+            aria-hidden="true"
             className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_20%,black_50%,transparent)] opacity-40"
           />
 
           <div className="relative mx-auto flex w-full max-w-5xl flex-col items-center gap-6 px-4 text-center sm:px-6">
+            {/* Live Social Proof Badge */}
             <Badge
               variant="outline"
               className="gap-2 bg-card/80 backdrop-blur-md px-3.5 py-1.5 text-xs font-semibold shadow-xs ring-1 ring-border/80"
             >
               <span className="flex size-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Next-Gen Event Scoring & Live Tabulation</span>
+              <span>Zero-Error Tabulation Engine for High-Stakes Live Events</span>
             </Badge>
 
-            <h1 className="max-w-4xl font-heading text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl text-balance">
-              Fair, tamper-proof scoring for every{" "}
+            {/* Dominant Headline */}
+            <h1 className="max-w-4xl font-heading text-4xl font-black tracking-tight sm:text-5xl md:text-6xl text-balance">
+              Never sweat coronation night again.{" "}
               <span className="bg-gradient-to-r from-primary via-sky-500 to-indigo-500 bg-clip-text text-transparent">
-                live competition
+                Zero spreadsheet errors.
               </span>
             </h1>
 
+            {/* High-Converting Subtitle */}
             <p className="max-w-2xl text-base text-pretty text-muted-foreground sm:text-lg leading-relaxed">
-              Eliminate paper scorecards and spreadsheet errors. Tabulation gives
-              organizers, judges, and auditors a unified platform to configure
-              events, collect weighted scores securely, and publish instant
-              podiums in real time.
+              Eliminate clipboards, manual runners, and awkward 45-minute stage delays.
+              Tabulation gives pageant directors, sports coordinators, and CPA auditors
+              sub-second judge syncing, tamper-proof mathematical precision, and instant stage podium reveals.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center gap-3.5 pt-2">
+            {/* Dual High-Intent CTAs */}
+            <div className="flex flex-col sm:flex-row items-center gap-3.5 pt-2 w-full sm:w-auto">
               <Button
                 size="lg"
                 render={<Link href="/sign-in" />}
-                className="h-11 px-6 font-semibold shadow-md shadow-primary/20"
+                className="w-full sm:w-auto h-12 px-8 font-bold text-sm shadow-lg shadow-primary/25 cursor-pointer"
               >
-                Launch Your Workspace
-                <ArrowRight data-icon="inline-end" aria-hidden className="size-4" />
+                Launch Your Free Workspace
+                <ArrowRight aria-hidden="true" className="size-4 ml-1.5" />
               </Button>
+
               <Button
                 variant="outline"
                 size="lg"
                 render={<Link href="/sign-in?tab=judge" />}
-                className="h-11 px-6 font-semibold bg-background/80 backdrop-blur-sm"
+                className="w-full sm:w-auto h-12 px-6 font-semibold bg-background/80 backdrop-blur-sm border-amber-500/30 text-foreground hover:border-amber-500 cursor-pointer"
               >
-                <KeyRound className="size-4 text-primary" />
-                Judge Portal Access
+                <KeyRound className="size-4 text-amber-500 mr-2" />
+                Enter as Judge with Code
               </Button>
             </div>
 
+            {/* Micro-Reassurance Trust Row */}
             <div className="flex flex-wrap items-center justify-center gap-6 pt-4 text-xs text-muted-foreground font-medium">
               <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="size-4 text-success" /> Zero Monthly Subscription
+                <CheckCircle2 className="size-4 text-emerald-500" /> Free Forever Tier (No Card Required)
               </span>
               <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="size-4 text-success" /> GCash & Maya Direct Checkout
+                <CheckCircle2 className="size-4 text-emerald-500" /> GCash & Maya Instant Checkout
               </span>
               <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="size-4 text-success" /> Audit-Grade Integrity
+                <CheckCircle2 className="size-4 text-emerald-500" /> 100% CPA Cryptographic Audit Trail
               </span>
             </div>
           </div>
 
-          {/* Interactive Simulation Demo */}
-          <div id="demo" className="mt-14 px-4 sm:px-6">
+          {/* Interactive Live Simulation Demo */}
+          <div id="demo" className="mt-16 px-4 sm:px-6">
             <div className="text-center mb-4">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Interactive Tabulation Preview
+                Interactive Tabulation Preview • Click Sliders or Switch Modes
               </span>
             </div>
             <InteractiveTabulatorDemo />
           </div>
         </section>
 
-        {/* Feature Grid */}
-        <section id="features" className="border-b border-border/60 bg-muted/20 py-20">
-          <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
-            <div className="mx-auto mb-14 max-w-2xl text-center">
-              <Badge variant="outline" className="mb-3">
-                Built for High-Stakes Events
-              </Badge>
-              <h2 className="font-heading text-3xl font-bold tracking-tight sm:text-4xl">
-                Everything your tabulation team needs
-              </h2>
-              <p className="mt-2.5 text-sm text-muted-foreground sm:text-base">
-                Engineered for speed, accuracy, and reliability under live-stage
-                pressure.
-              </p>
-            </div>
+        {/* The Contrast: Old Frustrating Way vs Modern Tabulation AI */}
+        <LandingComparisonSection />
 
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {FEATURES.map((feature) => (
-                <div
-                  key={feature.title}
-                  className="group relative rounded-xl border border-border/70 bg-card p-6 shadow-xs hover:shadow-md hover:border-primary/40 transition-all"
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/20 group-hover:scale-105 transition-transform">
-                      <feature.icon aria-hidden className="size-5" />
-                    </span>
-                    <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                      {feature.badge}
-                    </Badge>
-                  </div>
-                  <h3 className="font-heading text-base font-bold">{feature.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                    {feature.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        {/* Persona-Driven Feature Bento Grid */}
+        <LandingFeatureBento />
 
-        {/* How It Works */}
-        <section id="how-it-works" className="border-b border-border/60 py-20">
-          <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
-            <div className="mx-auto mb-14 max-w-2xl text-center">
-              <Badge variant="outline" className="mb-3">
-                Workflow Simplicity
-              </Badge>
-              <h2 className="font-heading text-3xl font-bold tracking-tight sm:text-4xl">
-                From draft to verified results in three steps
-              </h2>
-            </div>
+        {/* Interactive ROI & Time Saved Calculator */}
+        <LandingRoiCalculator />
 
-            <div className="grid gap-8 md:grid-cols-3 relative">
-              {STEPS.map((item, idx) => (
-                <div
-                  key={item.step}
-                  className="relative flex flex-col gap-4 rounded-xl border border-border/60 bg-card/60 p-6 shadow-xs"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
-                      <item.icon aria-hidden className="size-5" />
-                    </span>
-                    <span className="font-mono text-xl font-extrabold text-muted-foreground/40">
-                      {item.step}
-                    </span>
-                  </div>
-                  <h3 className="font-heading text-base font-bold">{item.title}</h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">
-                    {item.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        {/* Social Proof & Verified Testimonials */}
+        <LandingTestimonialsSection />
 
-        {/* Dynamic Pricing & Subscriptions */}
+        {/* Dynamic Pricing Section */}
         <LandingPricingSection />
 
-        {/* FAQs */}
-        <section id="faq" className="border-b border-border/60 py-20">
-          <div className="mx-auto w-full max-w-4xl px-4 sm:px-6">
-            <div className="mx-auto mb-12 text-center">
-              <Badge variant="outline" className="mb-3">
-                Frequently Asked Questions
-              </Badge>
-              <h2 className="font-heading text-3xl font-bold tracking-tight">
-                Everything you need to know
-              </h2>
-            </div>
+        {/* Objection-Busting FAQ Accordion */}
+        <LandingFaqSection />
 
-            <div className="space-y-4">
-              {FAQS.map((faq) => (
-                <div
-                  key={faq.q}
-                  className="rounded-xl border border-border/60 bg-card p-6 shadow-xs"
-                >
-                  <h3 className="font-heading text-base font-semibold flex items-center gap-2.5">
-                    <HelpCircle className="size-4 text-primary shrink-0" />
-                    {faq.q}
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground pl-6.5">
-                    {faq.a}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        {/* Final High-Impact CTA Banner */}
+        <section className="relative overflow-hidden bg-sidebar text-sidebar-foreground py-24 md:py-32">
+          {/* Subtle glowing accent */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-96 w-[700px] rounded-full bg-primary/20 blur-3xl opacity-50"
+          />
 
-        {/* CTA Banner */}
-        <section className="bg-sidebar text-sidebar-foreground py-20">
-          <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-6 px-4 text-center sm:px-6">
-            <span className="flex size-12 items-center justify-center rounded-2xl bg-white/10 text-white ring-1 ring-white/20">
-              <Trophy className="size-6 text-primary" />
+          <div className="relative mx-auto flex w-full max-w-5xl flex-col items-center gap-6 px-4 text-center sm:px-6">
+            <span className="flex size-14 items-center justify-center rounded-2xl bg-white/10 text-white ring-1 ring-white/20 shadow-lg">
+              <Trophy className="size-7 text-primary" />
             </span>
-            <h2 className="max-w-2xl font-heading text-3xl font-extrabold tracking-tight sm:text-4xl text-sidebar-accent-foreground">
-              Ready to automate your next competition?
+
+            <h2 className="max-w-3xl font-heading text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl text-sidebar-accent-foreground text-balance">
+              Your next competition deserves flawless, zero-error scoring.
             </h2>
-            <p className="max-w-xl text-sm text-sidebar-foreground/75 sm:text-base leading-relaxed">
-              Create your organization in seconds, configure rounds, and issue
-              judge credentials immediately.
+
+            <p className="max-w-xl text-base text-sidebar-foreground/80 sm:text-lg leading-relaxed">
+              Create your organization in seconds, set up criteria weights, and issue
+              judge passkeys immediately. No credit card required.
             </p>
-            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+
+            <div className="flex flex-col sm:flex-row items-center gap-4 pt-4">
               <Button
                 size="lg"
                 render={<Link href="/sign-in" />}
-                className="h-11 px-7 font-semibold"
+                className="h-12 px-8 font-bold text-sm shadow-xl shadow-primary/30 cursor-pointer"
               >
-                Get Started Free
-                <ArrowRight data-icon="inline-end" className="size-4" />
+                Create Free Event in 60s
+                <ArrowRight className="size-4 ml-1.5" />
+              </Button>
+
+              <Button
+                variant="outline"
+                size="lg"
+                render={<Link href="/sign-in?tab=judge" />}
+                className="h-12 px-6 font-semibold bg-white/10 hover:bg-white/20 text-white border-white/20 cursor-pointer"
+              >
+                <KeyRound className="size-4 mr-2 text-amber-400" />
+                Access Judge Portal
               </Button>
             </div>
           </div>
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border/60 bg-card">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 text-xs text-muted-foreground sm:flex-row sm:px-6">
-          <div className="flex items-center gap-2">
-            <span className="flex size-2 rounded-full bg-emerald-500" />
-            <span>Tabulation Platform — All Systems Operational</span>
+      {/* Modern Footer */}
+      <footer className="border-t border-border/60 bg-card py-12">
+        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-8 border-b border-border/60">
+            <div className="flex items-center gap-2.5">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <Trophy className="size-4" />
+              </span>
+              <span className="font-heading font-bold text-base tracking-tight">
+                Tabulation AI
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-muted-foreground font-medium">
+              <a href="#features" className="hover:text-foreground transition-colors">
+                Features
+              </a>
+              <a href="#demo" className="hover:text-foreground transition-colors">
+                Simulation Demo
+              </a>
+              <a href="#roi-calculator" className="hover:text-foreground transition-colors">
+                ROI Calculator
+              </a>
+              <a href="#pricing" className="hover:text-foreground transition-colors">
+                Pricing
+              </a>
+              <a href="#faq" className="hover:text-foreground transition-colors">
+                FAQ
+              </a>
+              <Link href="/sign-in?tab=judge" className="text-amber-600 dark:text-amber-400 hover:underline">
+                Judge Portal
+              </Link>
+              <Link href="/sentry/login" className="hover:text-foreground transition-colors">
+                Sentry Ops
+              </Link>
+            </div>
           </div>
-          <div className="flex items-center gap-6">
-            <Link href="/sign-in" className="hover:text-foreground transition-colors">
-              Judge Portal
-            </Link>
-            <Link href="/sentry/login" className="hover:text-foreground transition-colors">
-              Sentry Ops
-            </Link>
-            <span>© 2026 Tabulation Inc.</span>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span className="flex size-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Tabulation Cloud Engine — 100% Operational</span>
+            </div>
+            <p>© 2026 Tabulation Platform Inc. All rights reserved.</p>
           </div>
         </div>
       </footer>

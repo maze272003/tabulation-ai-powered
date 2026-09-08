@@ -9,12 +9,14 @@ import {
   type CSSProperties,
   type Dispatch,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { resolvePageSize, type DocumentElement, type DocumentPage } from "@/convex/documents/spec";
 import {
   PX_PER_MM,
   elementCorners,
+  hitTest,
   normalizeAngle,
   resizeBox,
   snapAngle,
@@ -24,6 +26,25 @@ import {
 import { collectSnapTargets, snapBox, snapToGrid, type SnapGuide } from "@/lib/documents/snap";
 import type { EditorAction, EditorState } from "@/lib/documents/editorState";
 import type { TokenMap } from "@/lib/documents/tokens";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  ArrowDownToLine,
+  ArrowUpToLine,
+  BoxSelect,
+  ClipboardPaste,
+  Copy,
+  CopyPlus,
+  Lock,
+  LockOpen,
+  Trash2,
+} from "lucide-react";
 import { ElementView } from "./ElementView";
 import { SelectionOverlay } from "./SelectionOverlay";
 
@@ -52,6 +73,14 @@ interface MarqueeRect {
   yMm: number;
   widthMm: number;
   heightMm: number;
+}
+
+interface ContextMenuState {
+  /** Viewport coordinates where the menu should open. */
+  x: number;
+  y: number;
+  /** Element under the cursor at right-click, if any. */
+  elementId: string | null;
 }
 
 /**
@@ -192,6 +221,7 @@ export interface CanvasProps {
   zoom: number;
   gridEnabled: boolean;
   snapEnabled: boolean;
+  showMargins?: boolean;
   tokens: TokenMap;
   imageUrls: Record<string, string>;
   /** Increments each time a fit-to-screen is requested; 0 = initial (skip). */
@@ -205,6 +235,7 @@ export function Canvas({
   zoom,
   gridEnabled,
   snapEnabled,
+  showMargins = true,
   tokens,
   imageUrls,
   fitRequest,
@@ -220,6 +251,7 @@ export function Canvas({
   const [preview, setPreview] = useState<GeometryPreview | null>(null);
   const [guides, setGuides] = useState<SnapGuide[]>([]);
   const [marquee, setMarquee] = useState<MarqueeRect | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   const { widthMm, heightMm } = useMemo(() => resolvePageSize(state.spec.page), [state.spec.page]);
 
@@ -257,6 +289,23 @@ export function Canvas({
       };
     },
     [zoom],
+  );
+
+  // Right-click selects the element under the cursor (topmost wins; elements
+  // are stored bottom-to-top) and opens the studio context menu there.
+  const onPageContextMenu = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      const pointMm = pagePointMm(event);
+      const hit = [...state.spec.elements]
+        .reverse()
+        .find((element) => hitTest(element, pointMm));
+      if (hit && !state.selection.includes(hit.id)) {
+        dispatch({ type: "SET_SELECTION", ids: [hit.id] });
+      }
+      setContextMenu({ x: event.clientX, y: event.clientY, elementId: hit?.id ?? null });
+    },
+    [dispatch, pagePointMm, state.selection, state.spec.elements],
   );
 
   // Commits the drag currently on the ref as a single UPDATE_ELEMENTS dispatch,
@@ -601,18 +650,19 @@ export function Canvas({
       onZoomChange(Math.round(next * 100) / 100);
     };
     viewport.addEventListener("wheel", onWheel, { passive: false });
-    return () => viewport.removeEventListener("wheel", onWheel);
+    return () => {
+      viewport.removeEventListener("wheel", onWheel);
+    };
   }, [onZoomChange, zoom]);
 
-  // Each fit request (counter bump from the toolbar) measures the viewport and
-  // scales the page to fit inside it, minus padding; 0 is the mount value.
+  // Responsive fit: scale the page to fit inside the viewport with adaptive padding.
   useEffect(() => {
-    if (fitRequest === 0) return;
     const viewport = viewportRef.current;
     if (!viewport) return;
+    const padding = Math.min(FIT_PADDING_PX, Math.max(16, viewport.clientWidth * 0.05));
     const fitZoom = Math.min(
-      (viewport.clientWidth - FIT_PADDING_PX) / mmToPx(widthMm),
-      (viewport.clientHeight - FIT_PADDING_PX) / mmToPx(heightMm),
+      (viewport.clientWidth - padding * 2) / mmToPx(widthMm),
+      (viewport.clientHeight - padding * 2) / mmToPx(heightMm),
     );
     const next = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, fitZoom));
     onZoomChange(Math.round(next * 100) / 100);
@@ -621,6 +671,10 @@ export function Canvas({
   const pageWidthPx = mmToPx(widthMm);
   const pageHeightPx = mmToPx(heightMm);
   const { margins } = state.spec.page;
+  const contextTarget =
+    contextMenu?.elementId != null
+      ? state.spec.elements.find((element) => element.id === contextMenu.elementId) ?? null
+      : null;
 
   const pageStyle: CSSProperties = {
     position: "absolute",
@@ -629,7 +683,8 @@ export function Canvas({
     width: pageWidthPx,
     height: pageHeightPx,
     background: state.spec.page.background,
-    boxShadow: "0 4px 24px rgba(15, 23, 42, 0.18)",
+    boxShadow: "0 12px 36px -8px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.08)",
+    borderRadius: "2px",
     transform: `scale(${zoom})`,
     transformOrigin: "top left",
     touchAction: "none",
@@ -652,7 +707,7 @@ export function Canvas({
     top: mmToPx(margins.top),
     width: mmToPx(widthMm - margins.left - margins.right),
     height: mmToPx(heightMm - margins.top - margins.bottom),
-    border: "1px dashed rgba(100,116,139,0.45)",
+    border: "1px dashed rgba(220, 38, 38, 0.35)",
     pointerEvents: "none",
   };
 
@@ -663,12 +718,12 @@ export function Canvas({
       role="application"
       aria-label="Certificate canvas"
       onKeyDown={onKeyDown}
-      className="h-full flex-1 overflow-auto bg-muted/40 outline-none"
+      className="h-full flex-1 overflow-auto bg-muted/30 dark:bg-zinc-950/50 outline-none"
       style={{ cursor: spaceHeld ? "grab" : undefined }}
     >
-      <div className="min-h-full min-w-full p-10">
+      <div className="min-h-full min-w-full p-2 sm:p-4 md:p-8 lg:p-10 flex items-center justify-center">
         {/* Reserves the scaled page extent so scrollbars track the zoom. */}
-        <div className="relative" style={{ width: pageWidthPx * zoom, height: pageHeightPx * zoom }}>
+        <div className="relative shrink-0" style={{ width: pageWidthPx * zoom, height: pageHeightPx * zoom }}>
           <div
             ref={pageRef}
             data-canvas-page
@@ -677,9 +732,10 @@ export function Canvas({
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
+            onContextMenu={onPageContextMenu}
           >
             {gridStyle ? <div style={gridStyle} /> : null}
-            <div style={marginStyle} />
+            {showMargins ? <div style={marginStyle} title="Page Margins Safe Boundary" /> : null}
             {previewedElements.map((element) => (
               <ElementView
                 key={element.id}
@@ -704,6 +760,87 @@ export function Canvas({
           </div>
         </div>
       </div>
+
+      {/* Right-click studio context menu, anchored at the pointer position */}
+      {contextMenu ? (
+        <div className="fixed z-50" style={{ left: contextMenu.x, top: contextMenu.y }}>
+          <DropdownMenu
+            open
+            onOpenChange={(open) => {
+              if (!open) setContextMenu(null);
+            }}
+          >
+            <DropdownMenuTrigger className="size-0 outline-none" aria-label="Canvas context menu" />
+            <DropdownMenuContent side="bottom" align="start" className="w-44">
+              <DropdownMenuItem
+                onSelect={() =>
+                  dispatch({ type: "SET_SELECTION", ids: state.spec.elements.map((element) => element.id) })
+                }
+              >
+                <BoxSelect aria-hidden />
+                Select All
+                <DropdownMenuShortcut>Ctrl+A</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={state.clipboard.length === 0} onSelect={() => dispatch({ type: "PASTE" })}>
+                <ClipboardPaste aria-hidden />
+                Paste
+                <DropdownMenuShortcut>Ctrl+V</DropdownMenuShortcut>
+              </DropdownMenuItem>
+
+              {contextTarget ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => dispatch({ type: "DUPLICATE_SELECTED" })}>
+                    <CopyPlus aria-hidden />
+                    Duplicate
+                    <DropdownMenuShortcut>Ctrl+D</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => dispatch({ type: "COPY_SELECTED" })}>
+                    <Copy aria-hidden />
+                    Copy
+                    <DropdownMenuShortcut>Ctrl+C</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      dispatch({
+                        type: "UPDATE_ELEMENTS",
+                        updates: [{ id: contextTarget.id, patch: { locked: !contextTarget.locked } }],
+                      })
+                    }
+                  >
+                    {contextTarget.locked ? <LockOpen aria-hidden /> : <Lock aria-hidden />}
+                    {contextTarget.locked ? "Unlock Element" : "Lock Element"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      dispatch({
+                        type: "REORDER_ELEMENT",
+                        id: contextTarget.id,
+                        toIndex: state.spec.elements.length - 1,
+                      })
+                    }
+                  >
+                    <ArrowUpToLine aria-hidden />
+                    Bring to Front
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => dispatch({ type: "REORDER_ELEMENT", id: contextTarget.id, toIndex: 0 })}
+                  >
+                    <ArrowDownToLine aria-hidden />
+                    Send to Back
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onSelect={() => dispatch({ type: "DELETE_SELECTED" })}>
+                    <Trash2 aria-hidden />
+                    Delete
+                    <DropdownMenuShortcut>Del</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ) : null}
     </div>
   );
 }

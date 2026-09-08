@@ -81,6 +81,51 @@ export function selectionBounds(boxes: RotatedBox[]): SelectionBounds | null {
   return { minXMm, minYMm, maxXMm, maxYMm };
 }
 
+export interface PositionedBox {
+  id: string;
+  xMm: number;
+  yMm: number;
+  widthMm: number;
+  heightMm: number;
+}
+
+/**
+ * Computes even-spacing updates along one axis: the outermost elements keep
+ * their outer edges and the rest are re-spaced with equal gaps. Returns []
+ * when fewer than 3 elements are given or the selection is already even.
+ */
+export function distributeGaps(
+  elements: PositionedBox[],
+  axis: "h" | "v",
+): { id: string; patch: { xMm?: number; yMm?: number } }[] {
+  if (elements.length < 3) return [];
+  const startKey = axis === "h" ? "xMm" : "yMm";
+  const sizeKey = axis === "h" ? "widthMm" : "heightMm";
+  const sorted = [...elements].sort((a, b) => a[startKey] - b[startKey]);
+  const last = sorted[sorted.length - 1];
+  const firstStart = sorted[0][startKey];
+  const lastEnd = last[startKey] + last[sizeKey];
+  const totalSize = sorted.reduce((sum, element) => sum + element[sizeKey], 0);
+  const gap = (lastEnd - firstStart - totalSize) / (sorted.length - 1);
+
+  const updates: { id: string; patch: { xMm?: number; yMm?: number } }[] = [];
+  let cursor = firstStart;
+  for (const element of sorted) {
+    // Rounding to 0.1mm matches the editor's position precision; the rounded
+    // value also feeds the cursor so rounding error cannot accumulate.
+    const position = Math.round(cursor * 10) / 10;
+    if (position !== element[startKey]) {
+      updates.push(
+        axis === "h"
+          ? { id: element.id, patch: { xMm: position } }
+          : { id: element.id, patch: { yMm: position } },
+      );
+    }
+    cursor = position + element[sizeKey] + gap;
+  }
+  return updates;
+}
+
 export function normalizeAngle(deg: number): number {
   let a = deg % 360;
   if (a > 180) a -= 360;

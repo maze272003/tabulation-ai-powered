@@ -324,6 +324,43 @@ export function LandingPricingSection() {
             })}
           </div>
         )}
+
+        {/* Local Payment & Trust Assurance Bar */}
+        <div className="mt-12 rounded-2xl border border-border/70 bg-card/80 p-6 backdrop-blur-sm">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <CheckCircle2 className="size-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-foreground">
+                  Frictionless Checkout for Philippine & Global Organizers
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Instant activation via GCash, Maya, GrabPay, Credit/Debit Cards, and Online Bank Transfers.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+              <span className="rounded-md bg-muted px-2.5 py-1 text-muted-foreground border border-border/60">
+                GCash
+              </span>
+              <span className="rounded-md bg-muted px-2.5 py-1 text-muted-foreground border border-border/60">
+                Maya
+              </span>
+              <span className="rounded-md bg-muted px-2.5 py-1 text-muted-foreground border border-border/60">
+                GrabPay
+              </span>
+              <span className="rounded-md bg-muted px-2.5 py-1 text-muted-foreground border border-border/60">
+                Visa / Mastercard
+              </span>
+              <span className="rounded-md bg-muted px-2.5 py-1 text-muted-foreground border border-border/60">
+                QR Ph
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );

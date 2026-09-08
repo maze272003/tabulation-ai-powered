@@ -1,12 +1,15 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { FontFamily, ImageElement } from "@/convex/documents/spec";
 import { resolvePageSize } from "@/convex/documents/spec";
 import { FONT_META } from "@/lib/documents/fonts";
-import { selectionBounds } from "@/lib/documents/geometry";
+import { distributeGaps, selectionBounds } from "@/lib/documents/geometry";
 import { parseNumberInput } from "@/lib/documents/numberInput";
 import type { EditorAction, EditorState, ElementPatch } from "@/lib/documents/editorState";
+import { BulkStylePanel } from "./BulkStylePanel";
+import { ColorSwatches } from "./ColorSwatches";
+import { PANEL_INPUT_CLASS, PanelRow } from "./PanelRow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,21 +18,28 @@ import { toast } from "sonner";
 import {
   AlignCenter,
   AlignEndVertical,
+  AlignHorizontalDistributeCenter,
+  AlignHorizontalSpaceAround,
   AlignLeft,
   AlignRight,
   AlignStartVertical,
+  AlignVerticalDistributeCenter,
   AlignVerticalJustifyCenter,
+  AlignVerticalSpaceAround,
+  ArrowDownToLine,
+  ArrowUpToLine,
   Bold,
+  ChevronsDown,
+  ChevronsUp,
   Copy,
   Italic,
   Lock,
   LockOpen,
+  MousePointerClick,
   Trash2,
   Underline,
 } from "lucide-react";
 import { TokenPicker } from "./TokenPicker";
-
-const inputClass = "h-8 text-xs";
 
 /** A local edit held while the user is still interacting, keyed by element id. */
 interface CoalescedDraft<T> {
@@ -38,21 +48,12 @@ interface CoalescedDraft<T> {
 }
 
 interface CoalescedValue<T> {
-  /** Live value to render: the pending draft while editing, otherwise the element value. */
   value: T;
-  /** The pending edit for the currently selected element, or null when clean. */
   pending: CoalescedDraft<T> | null;
   edit: (next: T) => void;
   clear: () => void;
 }
 
-/**
- * Holds high-frequency edits (typing, color picking, slider drags) in local state so
- * UPDATE_ELEMENTS — and therefore one undo step — is dispatched once per interaction
- * (blur, Enter, pointer release) instead of per keystroke/tick. Drafts are keyed by
- * element id, so switching selection falls back to the element value and drops the
- * stale draft.
- */
 function useCoalescedValue<T>(elementId: string | null, elementValue: T): CoalescedValue<T> {
   const [draft, setDraft] = useState<CoalescedDraft<T> | null>(null);
   const pending = draft !== null && draft.elementId === elementId ? draft : null;
@@ -66,7 +67,6 @@ function useCoalescedValue<T>(elementId: string | null, elementValue: T): Coales
   };
 }
 
-/** Applies the pending draft (if any) as a single UPDATE_ELEMENTS dispatch and resets it. */
 function commitCoalescedValue<T>(control: CoalescedValue<T>, apply: (elementId: string, value: T) => void) {
   const { pending } = control;
   if (pending === null) return;
@@ -74,8 +74,6 @@ function commitCoalescedValue<T>(control: CoalescedValue<T>, apply: (elementId: 
   control.clear();
 }
 
-// Bounds mirror isDocumentSpec in convex/documents/spec.ts so the inspector can
-// never patch an element into a state that fails validation on save.
 const SIZE_BOUNDS = {
   xMm: { min: -500, max: 1000 },
   yMm: { min: -500, max: 1200 },
@@ -86,22 +84,17 @@ const SIZE_BOUNDS = {
   strokeWidthMm: { min: 0, max: 50 },
 } as const;
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-2 py-1">
-      <span className="w-20 shrink-0 text-[11px] font-medium text-muted-foreground">{label}</span>
-      {children}
-    </div>
-  );
-}
-
 export interface InspectorProps {
   state: EditorState;
   dispatch: React.Dispatch<EditorAction>;
 }
 
 export function Inspector({ state, dispatch }: InspectorProps) {
-  const selected = state.spec.elements.filter((e) => state.selection.includes(e.id));
+  const selected = useMemo(
+    () => state.spec.elements.filter((e) => state.selection.includes(e.id)),
+    [state.spec.elements, state.selection],
+  );
+
   const single = selected.length === 1 ? selected[0] : null;
   const text = single !== null && single.type === "text" ? single : null;
   const image = single !== null && single.type === "image" ? single : null;
@@ -110,11 +103,12 @@ export function Inspector({ state, dispatch }: InspectorProps) {
 
   const content = useCoalescedValue(text?.id ?? null, text?.content ?? "");
   const textColor = useCoalescedValue(text?.id ?? null, text?.color ?? "#000000");
-  const lineHeight = useCoalescedValue(text?.id ?? null, text?.lineHeight ?? 1);
+  const lineHeight = useCoalescedValue(text?.id ?? null, text?.lineHeight ?? 1.3);
   const letterSpacing = useCoalescedValue(text?.id ?? null, text?.letterSpacingMm ?? 0);
   const fill = useCoalescedValue(shape?.id ?? null, shape?.fill ?? "#ffffff");
-  const stroke = useCoalescedValue(shape?.id ?? null, shape?.stroke ?? "#ffffff");
+  const stroke = useCoalescedValue(shape?.id ?? null, shape?.stroke ?? "#000000");
   const opacity = useCoalescedValue(single?.id ?? null, single?.opacity ?? 1);
+  const elementName = useCoalescedValue(single?.id ?? null, single?.name ?? "");
 
   function patch(id: string, patchValue: ElementPatch) {
     dispatch({ type: "UPDATE_ELEMENTS", updates: [{ id, patch: patchValue }] });
@@ -148,8 +142,14 @@ export function Inspector({ state, dispatch }: InspectorProps) {
     commitCoalescedValue(opacity, (id, value) => patch(id, { opacity: value }));
   }
 
-  // A single selection aligns against the page; a group aligns each element
-  // within the group's own bounds. One dispatch keeps it a single undo step.
+  function commitElementName() {
+    commitCoalescedValue(elementName, (id, value) => {
+      const trimmed = value.trim();
+      if (trimmed.length === 0 || trimmed === single?.name) return;
+      patch(id, { name: trimmed });
+    });
+  }
+
   function align(axis: "h" | "v", edge: "start" | "center" | "end") {
     const { widthMm, heightMm } = resolvePageSize(state.spec.page);
     const group = selected.length > 1 ? selectionBounds(selected) : null;
@@ -179,12 +179,63 @@ export function Inspector({ state, dispatch }: InspectorProps) {
     dispatch({ type: "UPDATE_ELEMENTS", updates });
   }
 
+  function centerOnPage(axis: "h" | "v" | "both") {
+    const { widthMm, heightMm } = resolvePageSize(state.spec.page);
+    const updates = selected.map((element) => {
+      const p: ElementPatch = {};
+      if (axis === "h" || axis === "both") {
+        p.xMm = Math.round(((widthMm - element.widthMm) / 2) * 10) / 10;
+      }
+      if (axis === "v" || axis === "both") {
+        p.yMm = Math.round(((heightMm - element.heightMm) / 2) * 10) / 10;
+      }
+      return { id: element.id, patch: p };
+    });
+    dispatch({ type: "UPDATE_ELEMENTS", updates });
+    toast.success("Centered on page");
+  }
+
+  function changeLayerOrder(direction: "front" | "back" | "up" | "down") {
+    if (!single) return;
+    const currentIndex = state.spec.elements.findIndex((e) => e.id === single.id);
+    if (currentIndex === -1) return;
+
+    let toIndex = currentIndex;
+    if (direction === "front") {
+      toIndex = state.spec.elements.length - 1;
+    } else if (direction === "back") {
+      toIndex = 0;
+    } else if (direction === "up") {
+      toIndex = Math.min(state.spec.elements.length - 1, currentIndex + 1);
+    } else if (direction === "down") {
+      toIndex = Math.max(0, currentIndex - 1);
+    }
+
+    if (toIndex !== currentIndex) {
+      dispatch({ type: "REORDER_ELEMENT", id: single.id, toIndex });
+    }
+  }
+
+  function transformCase(mode: "upper" | "lower" | "title") {
+    if (!text) return;
+    const current = content.value;
+    let transformed = current;
+    if (mode === "upper") {
+      transformed = current.toUpperCase();
+    } else if (mode === "lower") {
+      transformed = current.toLowerCase();
+    } else if (mode === "title") {
+      transformed = current.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.substring(1).toLowerCase());
+    }
+    content.edit(transformed);
+    patch(text.id, { content: transformed });
+    content.clear();
+  }
+
   function insertToken(token: string) {
     const textarea = textareaRef.current;
     const element = selected[0];
     if (!element || element.type !== "text") return;
-    // The textarea may hold an uncommitted draft, so splice the marker into the
-    // live value and commit immediately instead of the element's stored content.
     const currentContent = content.value;
     const marker = `{{${token}}}`;
     if (!textarea) {
@@ -204,124 +255,291 @@ export function Inspector({ state, dispatch }: InspectorProps) {
 
   if (selected.length === 0) {
     return (
-      <aside
-        className="w-72 shrink-0 border-l border-border/60 bg-background p-4 text-xs text-muted-foreground"
-        aria-label="Inspector"
-      >
-        Select an element to edit its properties.
-      </aside>
+      <div className="flex flex-col items-center justify-center p-6 text-center text-muted-foreground space-y-3">
+        <div className="flex size-10 items-center justify-center rounded-full bg-muted/60 text-muted-foreground">
+          <MousePointerClick aria-hidden className="size-5" />
+        </div>
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-foreground">No Element Selected</p>
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Click any text, shape, or logo on the canvas to inspect and adjust properties, typography, and alignments.
+          </p>
+        </div>
+      </div>
     );
   }
 
   return (
-    <aside
-      className="w-72 shrink-0 space-y-4 overflow-y-auto border-l border-border/60 bg-background p-4"
-      aria-label="Inspector"
-    >
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold">
-          {selected.length > 1 ? `${selected.length} elements` : single?.name}
-        </span>
-        <div className="flex gap-1">
-          <Button variant="ghost" size="icon" aria-label="Duplicate" onClick={() => dispatch({ type: "DUPLICATE_SELECTED" })}>
+    <div className="space-y-4" aria-label="Inspector">
+      {/* Header & Quick Action Buttons */}
+      <div className="flex items-center justify-between pb-2 border-b border-border/60">
+        <div className="min-w-0 pr-2">
+          <span className="text-xs font-semibold text-foreground truncate block">
+            {selected.length > 1 ? `${selected.length} elements selected` : single?.name}
+          </span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-mono">
+            {selected.length > 1 ? "Multi-Selection" : single?.type}
+          </span>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label="Duplicate"
+            title="Duplicate (Ctrl+D)"
+            onClick={() => dispatch({ type: "DUPLICATE_SELECTED" })}
+          >
             <Copy aria-hidden className="size-3.5" />
           </Button>
           <Button
             variant="ghost"
-            size="icon"
+            size="icon-xs"
             aria-label="Delete"
+            title="Delete element"
             onClick={() => {
               const locked = selected.filter((e) => e.locked).length;
               if (locked > 0) toast.error("Locked elements were skipped.");
               dispatch({ type: "DELETE_SELECTED" });
             }}
           >
-            <Trash2 aria-hidden className="size-3.5" />
+            <Trash2 aria-hidden className="size-3.5 text-destructive" />
           </Button>
         </div>
       </div>
 
-      <section aria-label="Align">
-        <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" aria-label="Align left" onClick={() => align("h", "start")}>
-            <AlignLeft aria-hidden className="size-4" />
+      {/* Element Name (single selection) */}
+      {single ? (
+        <section aria-label="Element name" className="rounded-lg border border-border/60 p-2.5 bg-card">
+          <PanelRow label="Element Name">
+            <Input
+              className={`${PANEL_INPUT_CLASS} w-38`}
+              value={elementName.value}
+              maxLength={80}
+              onChange={(event) => elementName.edit(event.target.value)}
+              onBlur={commitElementName}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.currentTarget.blur();
+              }}
+            />
+          </PanelRow>
+        </section>
+      ) : null}
+
+      {/* Alignment & Page Centering Controls */}
+      <section aria-label="Alignment controls" className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-2.5">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-semibold tracking-wide text-foreground uppercase">Align Selection</span>
+          <span className="text-[10px] text-muted-foreground">Relative</span>
+        </div>
+        <div className="grid grid-cols-6 gap-1">
+          <Button variant="outline" size="icon-xs" aria-label="Align left" title="Align Left" onClick={() => align("h", "start")}>
+            <AlignLeft aria-hidden className="size-3.5" />
           </Button>
-          <Button variant="outline" size="icon" aria-label="Align center" onClick={() => align("h", "center")}>
-            <AlignCenter aria-hidden className="size-4" />
+          <Button variant="outline" size="icon-xs" aria-label="Align center" title="Align Center Horizontally" onClick={() => align("h", "center")}>
+            <AlignCenter aria-hidden className="size-3.5" />
           </Button>
-          <Button variant="outline" size="icon" aria-label="Align right" onClick={() => align("h", "end")}>
-            <AlignRight aria-hidden className="size-4" />
+          <Button variant="outline" size="icon-xs" aria-label="Align right" title="Align Right" onClick={() => align("h", "end")}>
+            <AlignRight aria-hidden className="size-3.5" />
           </Button>
-          <Button variant="outline" size="icon" aria-label="Align top" onClick={() => align("v", "start")}>
-            <AlignStartVertical aria-hidden className="size-4" />
+          <Button variant="outline" size="icon-xs" aria-label="Align top" title="Align Top" onClick={() => align("v", "start")}>
+            <AlignStartVertical aria-hidden className="size-3.5" />
           </Button>
-          <Button variant="outline" size="icon" aria-label="Align middle" onClick={() => align("v", "center")}>
-            <AlignVerticalJustifyCenter aria-hidden className="size-4" />
+          <Button variant="outline" size="icon-xs" aria-label="Align middle" title="Align Middle Vertically" onClick={() => align("v", "center")}>
+            <AlignVerticalJustifyCenter aria-hidden className="size-3.5" />
           </Button>
-          <Button variant="outline" size="icon" aria-label="Align bottom" onClick={() => align("v", "end")}>
-            <AlignEndVertical aria-hidden className="size-4" />
+          <Button variant="outline" size="icon-xs" aria-label="Align bottom" title="Align Bottom" onClick={() => align("v", "end")}>
+            <AlignEndVertical aria-hidden className="size-3.5" />
+          </Button>
+        </div>
+
+        {/* Page Centering Shortcut Buttons */}
+        <div className="pt-1 flex items-center gap-1.5">
+          <Button
+            variant="secondary"
+            size="xs"
+            className="flex-1 text-[10px] gap-1 h-6"
+            onClick={() => centerOnPage("h")}
+            title="Center horizontally across the entire page"
+          >
+            <AlignHorizontalDistributeCenter aria-hidden className="size-3" />
+            Center Page X
+          </Button>
+          <Button
+            variant="secondary"
+            size="xs"
+            className="flex-1 text-[10px] gap-1 h-6"
+            onClick={() => centerOnPage("v")}
+            title="Center vertically across the entire page"
+          >
+            <AlignVerticalDistributeCenter aria-hidden className="size-3" />
+            Center Page Y
           </Button>
         </div>
       </section>
 
+      {/* Even spacing distribution across three or more elements */}
+      {selected.length >= 3 ? (
+        <div className="flex items-center gap-1.5" role="group" aria-label="Distribute evenly">
+          <Button
+            variant="secondary"
+            size="xs"
+            className="flex-1 text-[10px] gap-1 h-6"
+            onClick={() => dispatch({ type: "UPDATE_ELEMENTS", updates: distributeGaps(selected, "h") })}
+            title="Space selected elements evenly between the outermost edges (horizontal)"
+          >
+            <AlignHorizontalSpaceAround aria-hidden className="size-3" />
+            Distribute H
+          </Button>
+          <Button
+            variant="secondary"
+            size="xs"
+            className="flex-1 text-[10px] gap-1 h-6"
+            onClick={() => dispatch({ type: "UPDATE_ELEMENTS", updates: distributeGaps(selected, "v") })}
+            title="Space selected elements evenly between the outermost edges (vertical)"
+          >
+            <AlignVerticalSpaceAround aria-hidden className="size-3" />
+            Distribute V
+          </Button>
+        </div>
+      ) : null}
+
+      {/* Layer Stacking Order */}
+      {single ? (
+        <section aria-label="Layer ordering" className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 p-2">
+          <span className="text-[10px] font-semibold text-foreground uppercase tracking-wide">Layer Order</span>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="icon-xs"
+              onClick={() => changeLayerOrder("front")}
+              title="Bring to Front"
+              aria-label="Bring to Front"
+            >
+              <ArrowUpToLine aria-hidden className="size-3" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon-xs"
+              onClick={() => changeLayerOrder("up")}
+              title="Bring Forward"
+              aria-label="Bring Forward"
+            >
+              <ChevronsUp aria-hidden className="size-3" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon-xs"
+              onClick={() => changeLayerOrder("down")}
+              title="Send Backward"
+              aria-label="Send Backward"
+            >
+              <ChevronsDown aria-hidden className="size-3" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon-xs"
+              onClick={() => changeLayerOrder("back")}
+              title="Send to Back"
+              aria-label="Send to Back"
+            >
+              <ArrowDownToLine aria-hidden className="size-3" />
+            </Button>
+          </div>
+        </section>
+      ) : null}
+
+      {/* Batch styling controls for multi-selection */}
+      {selected.length > 1 ? <BulkStylePanel selected={selected} dispatch={dispatch} /> : null}
+
+      {/* TEXT ELEMENT SPECIFIC PROPERTIES */}
       {text ? (
-        <section aria-label="Text content" className="space-y-2">
+        <section aria-label="Text content" className="space-y-3 rounded-lg border border-border/60 p-3 bg-card">
           <div className="flex items-center justify-between">
-            <Label htmlFor="inspector-content" className="text-[11px]">
-              Content
+            <Label htmlFor="inspector-content" className="text-xs font-semibold text-foreground">
+              Text Content
             </Label>
             <TokenPicker onInsert={insertToken} />
           </div>
+
           <textarea
             id="inspector-content"
             ref={textareaRef}
-            className="min-h-20 w-full rounded-md border border-input bg-transparent p-2 text-xs"
+            className="min-h-18 w-full rounded-md border border-input bg-transparent p-2 text-xs focus:ring-1 focus:ring-primary focus:outline-hidden"
             value={content.value}
             onChange={(event) => content.edit(event.target.value)}
             onKeyDown={(event) => {
-              // Enter commits the accumulated typing as one undo step; the newline
-              // itself joins the next draft so multi-line content still works.
-              if (event.key === "Enter") commitContent();
+              if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+                commitContent();
+              }
             }}
             onBlur={commitContent}
           />
-          <Row label="Font">
+
+          {/* Quick Case Transform buttons */}
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-muted-foreground mr-1">Case:</span>
+            <Button variant="ghost" size="xs" className="text-[10px] h-6 px-1.5" onClick={() => transformCase("upper")}>
+              UPPER
+            </Button>
+            <Button variant="ghost" size="xs" className="text-[10px] h-6 px-1.5" onClick={() => transformCase("lower")}>
+              lower
+            </Button>
+            <Button variant="ghost" size="xs" className="text-[10px] h-6 px-1.5" onClick={() => transformCase("title")}>
+              Title
+            </Button>
+          </div>
+
+          {/* Font Family Selector */}
+          <PanelRow label="Font Family">
             <Select
               value={text.fontFamily}
               onValueChange={(value) => {
                 if (value !== null) patch(text.id, { fontFamily: value as FontFamily });
               }}
             >
-              <SelectTrigger className="h-8 w-36 text-xs">
+              <SelectTrigger className="h-8 w-38 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Object.keys(FONT_META).map((family) => (
-                  <SelectItem key={family} value={family}>
-                    {family}
-                  </SelectItem>
-                ))}
+                {Object.keys(FONT_META).map((family) => {
+                  const meta = FONT_META[family as FontFamily];
+                  return (
+                    <SelectItem key={family} value={family}>
+                      <div className="flex items-center justify-between w-full gap-2">
+                        <span style={{ fontFamily: family }}>{family}</span>
+                        <span className="text-[9px] text-muted-foreground uppercase">{meta.category}</span>
+                      </div>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
-          </Row>
-          <Row label="Size (pt)">
-            <Input
-              type="number"
-              min={SIZE_BOUNDS.fontSizePt.min}
-              max={SIZE_BOUNDS.fontSizePt.max}
-              className={`${inputClass} w-20`}
-              value={text.fontSizePt}
-              onChange={(event) => {
-                const value = parseNumberInput(event.target.value, SIZE_BOUNDS.fontSizePt.min, SIZE_BOUNDS.fontSizePt.max);
-                if (value !== null) patch(text.id, { fontSizePt: value });
-              }}
-            />
-          </Row>
-          <Row label="Style">
+          </PanelRow>
+
+          {/* Font Size */}
+          <PanelRow label="Font Size">
+            <div className="flex items-center gap-1">
+              <Input
+                type="number"
+                min={SIZE_BOUNDS.fontSizePt.min}
+                max={SIZE_BOUNDS.fontSizePt.max}
+                className={`${PANEL_INPUT_CLASS} w-16 text-right`}
+                value={text.fontSizePt}
+                onChange={(event) => {
+                  const value = parseNumberInput(event.target.value, SIZE_BOUNDS.fontSizePt.min, SIZE_BOUNDS.fontSizePt.max);
+                  if (value !== null) patch(text.id, { fontSizePt: value });
+                }}
+              />
+              <span className="text-xs text-muted-foreground">pt</span>
+            </div>
+          </PanelRow>
+
+          {/* Text Style: Bold, Italic, Underline, Alignment */}
+          <PanelRow label="Style & Align">
             <div className="flex gap-1">
               <Button
                 variant={text.bold ? "secondary" : "ghost"}
-                size="icon"
+                size="icon-xs"
                 aria-label="Bold"
                 disabled={!FONT_META[text.fontFamily].hasBold}
                 onClick={() => patch(text.id, { bold: !text.bold })}
@@ -330,7 +548,7 @@ export function Inspector({ state, dispatch }: InspectorProps) {
               </Button>
               <Button
                 variant={text.italic ? "secondary" : "ghost"}
-                size="icon"
+                size="icon-xs"
                 aria-label="Italic"
                 disabled={!FONT_META[text.fontFamily].hasItalic}
                 onClick={() => patch(text.id, { italic: !text.italic })}
@@ -339,15 +557,16 @@ export function Inspector({ state, dispatch }: InspectorProps) {
               </Button>
               <Button
                 variant={text.underline ? "secondary" : "ghost"}
-                size="icon"
+                size="icon-xs"
                 aria-label="Underline"
                 onClick={() => patch(text.id, { underline: !text.underline })}
               >
                 <Underline aria-hidden className="size-3.5" />
               </Button>
+              <span className="h-4 w-px bg-border my-auto mx-0.5" />
               <Button
                 variant={text.align === "left" ? "secondary" : "ghost"}
-                size="icon"
+                size="icon-xs"
                 aria-label="Align text left"
                 onClick={() => patch(text.id, { align: "left" })}
               >
@@ -355,7 +574,7 @@ export function Inspector({ state, dispatch }: InspectorProps) {
               </Button>
               <Button
                 variant={text.align === "center" ? "secondary" : "ghost"}
-                size="icon"
+                size="icon-xs"
                 aria-label="Align text center"
                 onClick={() => patch(text.id, { align: "center" })}
               >
@@ -363,166 +582,258 @@ export function Inspector({ state, dispatch }: InspectorProps) {
               </Button>
               <Button
                 variant={text.align === "right" ? "secondary" : "ghost"}
-                size="icon"
+                size="icon-xs"
                 aria-label="Align text right"
                 onClick={() => patch(text.id, { align: "right" })}
               >
                 <AlignRight aria-hidden className="size-3.5" />
               </Button>
             </div>
-          </Row>
-          <Row label="Color">
-            <Input
-              type="color"
-              className="h-8 w-14 p-0.5"
+          </PanelRow>
+
+          {/* Color with Quick Swatches */}
+          <div className="space-y-1.5 pt-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-muted-foreground">Text Color</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-mono text-muted-foreground">{textColor.value}</span>
+                <Input
+                  type="color"
+                  className="size-6 p-0.5 rounded border border-border cursor-pointer"
+                  value={textColor.value}
+                  onChange={(event) => textColor.edit(event.target.value)}
+                  onBlur={commitTextColor}
+                />
+              </div>
+            </div>
+            <ColorSwatches
               value={textColor.value}
-              onChange={(event) => textColor.edit(event.target.value)}
-              onBlur={commitTextColor}
+              onSelect={(hex) => {
+                textColor.edit(hex);
+                patch(text.id, { color: hex });
+              }}
             />
-          </Row>
-          <Row label={`Line height (${lineHeight.value.toFixed(2)})`}>
+          </div>
+
+          {/* Spacing & Line Height */}
+          <PanelRow label={`Line Height (${lineHeight.value.toFixed(2)})`}>
             <input
               type="range"
               min={0.5}
-              max={4}
+              max={3}
               step={0.05}
+              className="w-28 accent-primary"
               value={lineHeight.value}
               onChange={(event) => lineHeight.edit(Number(event.target.value))}
               onPointerUp={commitLineHeight}
               onKeyUp={commitLineHeight}
             />
-          </Row>
-          <Row label={`Spacing mm (${letterSpacing.value.toFixed(1)})`}>
+          </PanelRow>
+
+          <PanelRow label={`Letter Space (${letterSpacing.value.toFixed(1)}mm)`}>
             <input
               type="range"
               min={-2}
-              max={10}
-              step={0.1}
+              max={8}
+              step={0.2}
+              className="w-28 accent-primary"
               value={letterSpacing.value}
               onChange={(event) => letterSpacing.edit(Number(event.target.value))}
               onPointerUp={commitLetterSpacing}
               onKeyUp={commitLetterSpacing}
             />
-          </Row>
+          </PanelRow>
         </section>
       ) : null}
 
-      {image ? (
-        <Row label="Fit">
-          <Select
-            value={image.fit}
-            onValueChange={(value) => {
-              if (value !== null) patch(image.id, { fit: value as ImageElement["fit"] });
-            }}
-          >
-            <SelectTrigger className="h-8 w-28 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="contain">Contain</SelectItem>
-              <SelectItem value="cover">Cover</SelectItem>
-            </SelectContent>
-          </Select>
-        </Row>
-      ) : null}
-
+      {/* SHAPE SPECIFIC PROPERTIES */}
       {shape ? (
-        <section aria-label="Shape style" className="space-y-1">
-          <Row label="Fill">
-            <Input
-              type="color"
-              className="h-8 w-14 p-0.5"
+        <section aria-label="Shape styling" className="space-y-3 rounded-lg border border-border/60 p-3 bg-card">
+          <span className="text-xs font-semibold text-foreground block">Shape & Border Styling</span>
+
+          {/* Fill Color */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-muted-foreground">Fill Color</span>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant={shape.fill === null ? "secondary" : "ghost"}
+                  size="xs"
+                  className="text-[10px] h-6 px-1.5"
+                  onClick={() => patch(shape.id, { fill: null })}
+                >
+                  None
+                </Button>
+                <Input
+                  type="color"
+                  className="size-6 p-0.5 rounded border border-border cursor-pointer"
+                  value={fill.value}
+                  onChange={(event) => fill.edit(event.target.value)}
+                  onBlur={commitFill}
+                />
+              </div>
+            </div>
+            <ColorSwatches
               value={fill.value}
-              onChange={(event) => fill.edit(event.target.value)}
-              onBlur={commitFill}
-            />
-          </Row>
-          <Row label="Stroke">
-            <Input
-              type="color"
-              className="h-8 w-14 p-0.5"
-              value={stroke.value}
-              onChange={(event) => stroke.edit(event.target.value)}
-              onBlur={commitStroke}
-            />
-          </Row>
-          <Row label="Stroke mm">
-            <Input
-              type="number"
-              min={SIZE_BOUNDS.strokeWidthMm.min}
-              max={SIZE_BOUNDS.strokeWidthMm.max}
-              step={0.1}
-              className={`${inputClass} w-20`}
-              value={shape.strokeWidthMm}
-              onChange={(event) => {
-                const value = parseNumberInput(
-                  event.target.value,
-                  SIZE_BOUNDS.strokeWidthMm.min,
-                  SIZE_BOUNDS.strokeWidthMm.max,
-                );
-                if (value !== null) patch(shape.id, { strokeWidthMm: value });
+              onSelect={(hex) => {
+                fill.edit(hex);
+                patch(shape.id, { fill: hex });
               }}
             />
-          </Row>
+          </div>
+
+          {/* Stroke Color */}
+          <div className="space-y-1.5 pt-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-muted-foreground">Stroke Color</span>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant={shape.stroke === null ? "secondary" : "ghost"}
+                  size="xs"
+                  className="text-[10px] h-6 px-1.5"
+                  onClick={() => patch(shape.id, { stroke: null })}
+                >
+                  None
+                </Button>
+                <Input
+                  type="color"
+                  className="size-6 p-0.5 rounded border border-border cursor-pointer"
+                  value={stroke.value}
+                  onChange={(event) => stroke.edit(event.target.value)}
+                  onBlur={commitStroke}
+                />
+              </div>
+            </div>
+            <ColorSwatches
+              value={stroke.value}
+              onSelect={(hex) => {
+                stroke.edit(hex);
+                patch(shape.id, { stroke: hex });
+              }}
+            />
+          </div>
+
+          {/* Stroke Width */}
+          <PanelRow label="Stroke Thickness">
+            <div className="flex items-center gap-1">
+              <Input
+                type="number"
+                min={SIZE_BOUNDS.strokeWidthMm.min}
+                max={SIZE_BOUNDS.strokeWidthMm.max}
+                step={0.2}
+                className={`${PANEL_INPUT_CLASS} w-16 text-right`}
+                value={shape.strokeWidthMm}
+                onChange={(event) => {
+                  const value = parseNumberInput(
+                    event.target.value,
+                    SIZE_BOUNDS.strokeWidthMm.min,
+                    SIZE_BOUNDS.strokeWidthMm.max,
+                  );
+                  if (value !== null) patch(shape.id, { strokeWidthMm: value });
+                }}
+              />
+              <span className="text-xs text-muted-foreground">mm</span>
+            </div>
+          </PanelRow>
         </section>
       ) : null}
 
+      {/* IMAGE ELEMENT PROPERTIES */}
+      {image ? (
+        <section aria-label="Image styling" className="space-y-3 rounded-lg border border-border/60 p-3 bg-card">
+          <span className="text-xs font-semibold text-foreground block">Image Properties</span>
+          <PanelRow label="Display Fit">
+            <Select
+              value={image.fit}
+              onValueChange={(value) => {
+                if (value !== null) patch(image.id, { fit: value as ImageElement["fit"] });
+              }}
+            >
+              <SelectTrigger className="h-8 w-28 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="contain">Contain (Fit)</SelectItem>
+                <SelectItem value="cover">Cover (Fill)</SelectItem>
+              </SelectContent>
+            </Select>
+          </PanelRow>
+        </section>
+      ) : null}
+
+      {/* TRANSFORM & POSITIONING (ALL SINGLE ELEMENTS) */}
       {single ? (
-        <section aria-label="Transform" className="space-y-1">
-          <Row label="X / Y mm">
-            <div className="flex gap-1">
-              <Input
-                type="number"
-                step={0.1}
-                className={`${inputClass} w-20`}
-                value={Math.round(single.xMm * 10) / 10}
-                onChange={(event) => {
-                  const value = parseNumberInput(event.target.value, SIZE_BOUNDS.xMm.min, SIZE_BOUNDS.xMm.max);
-                  if (value !== null) patch(single.id, { xMm: value });
-                }}
-              />
-              <Input
-                type="number"
-                step={0.1}
-                className={`${inputClass} w-20`}
-                value={Math.round(single.yMm * 10) / 10}
-                onChange={(event) => {
-                  const value = parseNumberInput(event.target.value, SIZE_BOUNDS.yMm.min, SIZE_BOUNDS.yMm.max);
-                  if (value !== null) patch(single.id, { yMm: value });
-                }}
-              />
+        <section aria-label="Transform" className="space-y-3 rounded-lg border border-border/60 p-3 bg-card">
+          <span className="text-xs font-semibold text-foreground block">Position & Dimensions</span>
+
+          <PanelRow label="X / Y (mm)">
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-muted-foreground">X:</span>
+                <Input
+                  type="number"
+                  step={0.5}
+                  className={`${PANEL_INPUT_CLASS} w-16`}
+                  value={Math.round(single.xMm * 10) / 10}
+                  onChange={(event) => {
+                    const value = parseNumberInput(event.target.value, SIZE_BOUNDS.xMm.min, SIZE_BOUNDS.xMm.max);
+                    if (value !== null) patch(single.id, { xMm: value });
+                  }}
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-muted-foreground">Y:</span>
+                <Input
+                  type="number"
+                  step={0.5}
+                  className={`${PANEL_INPUT_CLASS} w-16`}
+                  value={Math.round(single.yMm * 10) / 10}
+                  onChange={(event) => {
+                    const value = parseNumberInput(event.target.value, SIZE_BOUNDS.yMm.min, SIZE_BOUNDS.yMm.max);
+                    if (value !== null) patch(single.id, { yMm: value });
+                  }}
+                />
+              </div>
             </div>
-          </Row>
-          <Row label="W / H mm">
-            <div className="flex gap-1">
-              <Input
-                type="number"
-                step={0.1}
-                className={`${inputClass} w-20`}
-                value={Math.round(single.widthMm * 10) / 10}
-                onChange={(event) => {
-                  const value = parseNumberInput(event.target.value, SIZE_BOUNDS.widthMm.min, SIZE_BOUNDS.widthMm.max);
-                  if (value !== null) patch(single.id, { widthMm: value });
-                }}
-              />
-              <Input
-                type="number"
-                step={0.1}
-                className={`${inputClass} w-20`}
-                value={Math.round(single.heightMm * 10) / 10}
-                onChange={(event) => {
-                  const value = parseNumberInput(event.target.value, SIZE_BOUNDS.heightMm.min, SIZE_BOUNDS.heightMm.max);
-                  if (value !== null) patch(single.id, { heightMm: value });
-                }}
-              />
+          </PanelRow>
+
+          <PanelRow label="W / H (mm)">
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-muted-foreground">W:</span>
+                <Input
+                  type="number"
+                  step={0.5}
+                  className={`${PANEL_INPUT_CLASS} w-16`}
+                  value={Math.round(single.widthMm * 10) / 10}
+                  onChange={(event) => {
+                    const value = parseNumberInput(event.target.value, SIZE_BOUNDS.widthMm.min, SIZE_BOUNDS.widthMm.max);
+                    if (value !== null) patch(single.id, { widthMm: value });
+                  }}
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-muted-foreground">H:</span>
+                <Input
+                  type="number"
+                  step={0.5}
+                  className={`${PANEL_INPUT_CLASS} w-16`}
+                  value={Math.round(single.heightMm * 10) / 10}
+                  onChange={(event) => {
+                    const value = parseNumberInput(event.target.value, SIZE_BOUNDS.heightMm.min, SIZE_BOUNDS.heightMm.max);
+                    if (value !== null) patch(single.id, { heightMm: value });
+                  }}
+                />
+              </div>
             </div>
-          </Row>
-          <Row label="Rotation°">
+          </PanelRow>
+
+          <PanelRow label="Rotation">
             <div className="flex items-center gap-1">
               <Input
                 type="number"
                 step={1}
-                className={`${inputClass} w-16`}
+                className={`${PANEL_INPUT_CLASS} w-14`}
                 value={Math.round(single.rotationDeg)}
                 onChange={(event) => {
                   const value = parseNumberInput(
@@ -533,39 +844,46 @@ export function Inspector({ state, dispatch }: InspectorProps) {
                   if (value !== null) patch(single.id, { rotationDeg: value });
                 }}
               />
-              <Button variant="ghost" size="sm" onClick={() => patch(single.id, { rotationDeg: 0 })}>
+              <Button variant="ghost" size="xs" className="text-[10px] h-6 px-1" onClick={() => patch(single.id, { rotationDeg: 0 })}>
                 0°
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => patch(single.id, { rotationDeg: 90 })}>
+              <Button variant="ghost" size="xs" className="text-[10px] h-6 px-1" onClick={() => patch(single.id, { rotationDeg: 90 })}>
                 90°
               </Button>
+              <Button variant="ghost" size="xs" className="text-[10px] h-6 px-1" onClick={() => patch(single.id, { rotationDeg: 180 })}>
+                180°
+              </Button>
             </div>
-          </Row>
-          <Row label={`Opacity (${Math.round(opacity.value * 100)}%)`}>
+          </PanelRow>
+
+          <PanelRow label={`Opacity (${Math.round(opacity.value * 100)}%)`}>
             <input
               type="range"
               min={0}
               max={1}
               step={0.05}
+              className="w-28 accent-primary"
               value={opacity.value}
               onChange={(event) => opacity.edit(Number(event.target.value))}
               onPointerUp={commitOpacity}
               onKeyUp={commitOpacity}
             />
-          </Row>
-          <Row label="Lock">
+          </PanelRow>
+
+          <PanelRow label="Element Lock">
             <Button
-              variant="outline"
-              size="sm"
+              variant={single.locked ? "secondary" : "outline"}
+              size="xs"
+              className="gap-1.5"
               onClick={() => patch(single.id, { locked: !single.locked })}
               aria-pressed={single.locked}
             >
-              {single.locked ? <Lock aria-hidden className="size-3.5" /> : <LockOpen aria-hidden className="size-3.5" />}
-              {single.locked ? "Locked" : "Unlocked"}
+              {single.locked ? <Lock aria-hidden className="size-3 text-amber-500" /> : <LockOpen aria-hidden className="size-3 text-muted-foreground" />}
+              <span>{single.locked ? "Locked" : "Unlocked"}</span>
             </Button>
-          </Row>
+          </PanelRow>
         </section>
       ) : null}
-    </aside>
+    </div>
   );
 }

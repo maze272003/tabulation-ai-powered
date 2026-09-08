@@ -47,6 +47,12 @@ describe("editorReducer", () => {
 
     s = editorReducer(s, { type: "DELETE_SELECTED" });
     expect(s.spec.elements).toHaveLength(3);
+
+    const elA: DocumentElement = { ...validSpec.elements[0], id: "multi-1", name: "Border 1" };
+    const elB: DocumentElement = { ...validSpec.elements[0], id: "multi-2", name: "Border 2" };
+    s = editorReducer(s, { type: "ADD_ELEMENTS", elements: [elA, elB] });
+    expect(s.spec.elements).toHaveLength(5);
+    expect(s.selection).toEqual(["multi-1", "multi-2"]);
   });
 
   it("assigns distinct names when pasting multiple clones that share a base name", () => {

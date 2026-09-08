@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   PX_PER_MM,
+  distributeGaps,
   elementCorners,
   hitTest,
   mmToPt,
@@ -119,5 +120,51 @@ describe("resizeBox", () => {
     const next = resizeBox(box, "se", -100, -100, { aspectRatio: false });
     expect(next.widthMm).toBeGreaterThanOrEqual(2);
     expect(next.heightMm).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("distributeGaps", () => {
+  const row = (id: string, xMm: number, widthMm = 10) => ({
+    id,
+    xMm,
+    yMm: 0,
+    widthMm,
+    heightMm: 10,
+  });
+
+  it("returns no updates for fewer than three elements", () => {
+    expect(distributeGaps([], "h")).toEqual([]);
+    expect(distributeGaps([row("a", 0)], "h")).toEqual([]);
+    expect(distributeGaps([row("a", 0), row("b", 50)], "h")).toEqual([]);
+  });
+
+  it("spaces elements evenly on the horizontal axis", () => {
+    const updates = distributeGaps([row("a", 0), row("b", 20), row("c", 100)], "h");
+    const b = updates.find((u) => u.id === "b");
+    expect(updates.find((u) => u.id === "a")).toBeUndefined();
+    expect(updates.find((u) => u.id === "c")).toBeUndefined();
+    // Span 0..110 with three 10mm-wide elements leaves a 40mm gap, so the
+    // middle element belongs at x = 50.
+    expect(b?.patch.xMm).toBeCloseTo(50, 6);
+    expect(b?.patch.yMm).toBeUndefined();
+  });
+
+  it("spaces elements evenly on the vertical axis", () => {
+    const column = (id: string, yMm: number) => ({ ...row(id, 0), yMm });
+    const updates = distributeGaps([column("a", 0), column("b", 60), column("c", 100)], "v");
+    const b = updates.find((u) => u.id === "b");
+    expect(b?.patch.yMm).toBeCloseTo(50, 6);
+    expect(b?.patch.xMm).toBeUndefined();
+  });
+
+  it("returns no updates when spacing is already even", () => {
+    const updates = distributeGaps([row("a", 0), row("b", 50), row("c", 100)], "h");
+    expect(updates).toEqual([]);
+  });
+
+  it("keeps the outermost edges fixed regardless of input order", () => {
+    const updates = distributeGaps([row("c", 100), row("a", 0), row("b", 35)], "h");
+    const b = updates.find((u) => u.id === "b");
+    expect(b?.patch.xMm).toBeCloseTo(50, 6);
   });
 });

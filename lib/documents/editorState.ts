@@ -24,6 +24,7 @@ export interface EditorState {
 export type EditorAction =
   | { type: "LOAD_SPEC"; spec: DocumentSpec }
   | { type: "ADD_ELEMENT"; element: DocumentElement }
+  | { type: "ADD_ELEMENTS"; elements: DocumentElement[] }
   | { type: "UPDATE_ELEMENTS"; updates: { id: string; patch: ElementPatch }[] }
   | { type: "DELETE_SELECTED" }
   | { type: "DUPLICATE_SELECTED" }
@@ -106,6 +107,11 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       return {
         ...withHistory(state, { ...state.spec, elements: [...state.spec.elements, action.element] }),
         selection: [action.element.id],
+      };
+    case "ADD_ELEMENTS":
+      return {
+        ...withHistory(state, { ...state.spec, elements: [...state.spec.elements, ...action.elements] }),
+        selection: action.elements.map((e) => e.id),
       };
     case "UPDATE_ELEMENTS": {
       if (action.updates.length === 0) return state;
