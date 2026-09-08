@@ -73,13 +73,12 @@ describe("round lifecycle", () => {
     ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
   });
 
-  it("closing twice conflicts; reopening an open round conflicts", async () => {
+  it("redundant closes are idempotent; reopening an open round conflicts", async () => {
     const t = setupTest();
     const ids = await prepareScoredEvent(t);
     await t.withIdentity(aliceIdentity).mutation(api.roundAdmin.closeRound, { orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId });
-    await expect(
-      t.withIdentity(aliceIdentity).mutation(api.roundAdmin.closeRound, { orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId }),
-    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
+    // A close racing the final-submission auto-close is already satisfied, not an error.
+    await t.withIdentity(aliceIdentity).mutation(api.roundAdmin.closeRound, { orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId });
     await t.withIdentity(aliceIdentity).mutation(api.roundAdmin.reopenRound, { orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId });
     await expect(
       t.withIdentity(aliceIdentity).mutation(api.roundAdmin.reopenRound, { orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId }),

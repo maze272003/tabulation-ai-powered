@@ -11,11 +11,13 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/tabulation/StateBlock";
+import { FeaturePaywall } from "@/components/billing/FeaturePaywall";
 import { toast } from "sonner";
-import { LayoutTemplate, Loader2, Save, Trash2 } from "lucide-react";
+import { LayoutTemplate, Loader2, Lock, Save, Sparkles, Trash2 } from "lucide-react";
 
 export default function TemplatesPage({ params }: { params: Promise<{ orgSlug: string }> }) {
   const { orgSlug } = use(params);
+  const sub = useQuery(api.subscriptions.getForOrg, { orgSlug });
   const templates = useQuery(api.templates.list, { orgSlug });
   const events = useQuery(api.events.listByOrg, { orgSlug });
   const createFromEvent = useMutation(api.templates.createFromEvent);
@@ -24,6 +26,7 @@ export default function TemplatesPage({ params }: { params: Promise<{ orgSlug: s
   const [eventSlug, setEventSlug] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const canCreateTemplates = sub?.plan?.features?.canCreateTemplates === true;
   const drafts = events?.filter((e) => e.status === "draft") ?? [];
 
   return (
@@ -34,9 +37,34 @@ export default function TemplatesPage({ params }: { params: Promise<{ orgSlug: s
         description="Reusable event blueprints. Save a configured draft as a template to fast-track future events."
       />
 
-      <Card>
+      {!canCreateTemplates && sub !== undefined ? (
+        <FeaturePaywall
+          orgSlug={orgSlug}
+          badgeText="PRO FEATURE"
+          title="Unlock Custom Competition Templates"
+          description="Save your configured rounds, criteria weights, and scoring rules into 1-click reusable blueprints for all future pageants, singing contests, and sports events."
+          features={[
+            "Save unlimited custom event blueprints",
+            "1-click event setup & round cloning",
+            "Standardize scoring rules across competitions",
+            "Full access to custom criteria matrices",
+          ]}
+          icon={Sparkles}
+          actionText="Upgrade to Pro"
+        />
+      ) : null}
+
+      <Card className={!canCreateTemplates && sub !== undefined ? "opacity-75 border-dashed" : ""}>
         <CardHeader>
-          <CardTitle>Save a draft event as a template</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Save a draft event as a template</CardTitle>
+            {!canCreateTemplates && sub !== undefined ? (
+              <Badge variant="outline" className="gap-1 border-primary/30 text-primary text-[10px] font-bold">
+                <Lock className="size-3" aria-hidden="true" />
+                Pro Feature
+              </Badge>
+            ) : null}
+          </div>
           <CardDescription>
             Rounds, criteria, and categories from the selected draft are copied into the template.
           </CardDescription>
@@ -66,17 +94,21 @@ export default function TemplatesPage({ params }: { params: Promise<{ orgSlug: s
               <Label htmlFor="template-name">Template name</Label>
               <Input
                 id="template-name"
-                placeholder="e.g. Standard Pageant Setup"
+                placeholder={!canCreateTemplates ? "Upgrade to Pro to save templates" : "e.g. Standard Pageant Setup"}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                disabled={saving}
+                disabled={saving || !canCreateTemplates}
               />
             </div>
             <div className="w-full space-y-1.5 lg:w-64">
               <Label htmlFor="template-source">Source draft event</Label>
-              <Select value={eventSlug} onValueChange={(val) => setEventSlug(val ?? "")}>
-                <SelectTrigger id="template-source" className="w-full">
-                  <SelectValue placeholder="Choose a draft…" />
+              <Select
+                value={eventSlug}
+                onValueChange={(val) => setEventSlug(val ?? "")}
+                disabled={!canCreateTemplates || drafts.length === 0}
+              >
+                <SelectTrigger id="template-source" className="w-full" disabled={!canCreateTemplates}>
+                  <SelectValue placeholder={!canCreateTemplates ? "Pro plan required" : "Choose a draft…"} />
                 </SelectTrigger>
                 <SelectContent>
                   {drafts.map((e) => (
@@ -89,11 +121,17 @@ export default function TemplatesPage({ params }: { params: Promise<{ orgSlug: s
             </div>
             <Button
               type="submit"
-              disabled={saving || !name.trim() || !eventSlug}
+              disabled={saving || !name.trim() || !eventSlug || !canCreateTemplates}
               className="lg:w-auto"
             >
-              {saving ? <Loader2 aria-hidden className="animate-spin" /> : <Save aria-hidden />}
-              Save template
+              {saving ? (
+                <Loader2 aria-hidden className="animate-spin" />
+              ) : !canCreateTemplates ? (
+                <Lock aria-hidden className="size-4" />
+              ) : (
+                <Save aria-hidden />
+              )}
+              {!canCreateTemplates ? "Upgrade to Save" : "Save template"}
             </Button>
           </form>
         </CardContent>

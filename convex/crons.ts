@@ -21,12 +21,39 @@ export const cleanupExpiredSuperadminSessions = internalMutation({
   },
 });
 
+/**
+ * Removes event (judge/staff) sessions past their expiry. Sessions are only
+ * invalidated lazily at read time, so without this sweep every judge login
+ * leaves an immortal row behind. Bounded batch, same policy as the
+ * superadmin session cleanup above.
+ */
+export const cleanupExpiredEventSessions = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const expired = await ctx.db
+      .query("eventSessions")
+      .withIndex("by_expires_at", (q) => q.lt("expiresAt", now))
+      .take(500);
+    for (const session of expired) {
+      await ctx.db.delete("eventSessions", session._id);
+    }
+  },
+});
+
 const crons = cronJobs();
 
 crons.interval(
   "cleanup expired superadmin sessions",
   { hours: 24 },
   internal.crons.cleanupExpiredSuperadminSessions,
+  {},
+);
+
+crons.interval(
+  "cleanup expired event sessions",
+  { hours: 1 },
+  internal.crons.cleanupExpiredEventSessions,
   {},
 );
 

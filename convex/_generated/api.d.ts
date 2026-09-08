@@ -50,6 +50,7 @@ import type * as lib_gemini from "../lib/gemini.js";
 import type * as lib_judgeIntegrity from "../lib/judgeIntegrity.js";
 import type * as lib_password from "../lib/password.js";
 import type * as lib_paymongo from "../lib/paymongo.js";
+import type * as lib_roundAutomation from "../lib/roundAutomation.js";
 import type * as lib_roundCompute from "../lib/roundCompute.js";
 import type * as lib_serializers from "../lib/serializers.js";
 import type * as lib_sheetValidation from "../lib/sheetValidation.js";
@@ -136,6 +137,7 @@ declare const fullApi: ApiFromModules<{
   "lib/judgeIntegrity": typeof lib_judgeIntegrity;
   "lib/password": typeof lib_password;
   "lib/paymongo": typeof lib_paymongo;
+  "lib/roundAutomation": typeof lib_roundAutomation;
   "lib/roundCompute": typeof lib_roundCompute;
   "lib/serializers": typeof lib_serializers;
   "lib/sheetValidation": typeof lib_sheetValidation;

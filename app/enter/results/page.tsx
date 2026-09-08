@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -61,18 +61,32 @@ export default function EnterResultsPage() {
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [finalizeConfirmOpen, setFinalizeConfirmOpen] = useState(false);
 
+  const { rounds, final } = (resultsData as { rounds: RoundResultTab[]; final: FinalStandingRow[] }) ?? {
+    rounds: [],
+    final: [],
+  };
+
+  // Sort final standings with highest score strictly at the top
+  const sortedFinal = useMemo(() => {
+    return [...final].sort((a, b) => {
+      // Highest score strictly goes to the top (descending totalScore)
+      if (b.totalScore !== a.totalScore) {
+        return b.totalScore - a.totalScore;
+      }
+      return a.rank - b.rank;
+    });
+  }, [final]);
+  const isFinalized = event.status === "finalized";
+  const allRoundsPublished = rounds.length > 0 && !rounds.some((r) => r.version === undefined);
+
   if (resultsData === undefined) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3">
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground animate-pulse">Calculating official standings...</p>
+        <p className="text-sm text-muted-foreground animate-pulse">Calculating event results & standings...</p>
       </div>
     );
   }
-
-  const { rounds, final } = resultsData as { rounds: RoundResultTab[]; final: FinalStandingRow[] };
-  const isFinalized = event.status === "finalized";
-  const allRoundsPublished = rounds.length > 0 && !rounds.some((r) => r.version === undefined);
 
   async function handleFinalize() {
     setIsFinalizing(true);
@@ -146,7 +160,7 @@ export default function EnterResultsPage() {
                   Top Contestant
                 </span>
                 <span className="font-bold text-sm text-foreground">
-                  {final.length > 0 ? final[0].contestantName : "TBD"}
+                  {sortedFinal.length > 0 ? sortedFinal[0].contestantName : "TBD"}
                 </span>
               </div>
             </div>
@@ -210,7 +224,7 @@ export default function EnterResultsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
-                {final.map((row) => (
+                {sortedFinal.map((row) => (
                   <tr key={row.contestantId} className="hover:bg-muted/20 transition-colors">
                     <td className="text-center py-3 px-3 font-mono font-bold text-foreground">
                       <span
@@ -254,6 +268,16 @@ export default function EnterResultsPage() {
       {rounds.map((round) => {
         if (activeTab !== round.roundId) return null;
 
+        const sortedRoundStandings = [...round.standings].sort((a, b) => {
+          const scoreA = a.roundScore ?? -Infinity;
+          const scoreB = b.roundScore ?? -Infinity;
+          // Highest score strictly goes to the top
+          if (scoreB !== scoreA) {
+            return scoreB - scoreA;
+          }
+          return (a.rank ?? 999) - (b.rank ?? 999);
+        });
+
         return (
           <Card key={round.roundId} className="border-border/60 shadow-sm overflow-hidden">
             <CardHeader className="py-4 px-6 border-b border-border/40 bg-muted/20">
@@ -280,7 +304,7 @@ export default function EnterResultsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/40">
-                  {round.standings.map((row) => (
+                  {sortedRoundStandings.map((row) => (
                     <tr key={row.contestantId} className="hover:bg-muted/20 transition-colors">
                       <td className="text-center py-3 px-3 font-mono font-bold text-foreground">
                         {row.rank ?? "-"}

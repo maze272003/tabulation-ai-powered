@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -32,6 +32,8 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 
+import { BondPaperScoreSheet } from "@/components/enter/BondPaperScoreSheet";
+
 interface SheetDetailData {
   sheet: Doc<"scoreSheets">;
   round: Doc<"rounds">;
@@ -51,9 +53,28 @@ export default function ScoreSheetPage({
   const sheetId = resolvedParams.sheetId as Id<"scoreSheets">;
   const { sessionToken } = useEnterSession();
 
-  const data = useQuery(api.enter.scoring.sheetDetail, { sessionToken, sheetId });
+  const sheetData = useQuery(api.enter.scoring.sheetDetail, { sessionToken, sheetId });
+  const roundId = sheetData?.round?._id;
+  const roundData = useQuery(
+    api.enter.scoring.roundScoringSheet,
+    roundId ? { sessionToken, roundId } : "skip",
+  );
 
-  if (data === undefined) {
+  const [viewMode, setViewMode] = useState<"bond_paper" | "focus">("bond_paper");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("judge_scoring_view_preference");
+    if (saved === "bond_paper" || saved === "classic" || saved === "focus") {
+      setViewMode(saved === "classic" ? "focus" : (saved as "bond_paper" | "focus"));
+    }
+  }, []);
+
+  const handleToggleView = (mode: "bond_paper" | "focus") => {
+    setViewMode(mode);
+    localStorage.setItem("judge_scoring_view_preference", mode === "focus" ? "classic" : "bond_paper");
+  };
+
+  if (sheetData === undefined || (roundId && roundData === undefined)) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -62,7 +83,7 @@ export default function ScoreSheetPage({
     );
   }
 
-  if (data === null || !data.sheet || !data.round) {
+  if (sheetData === null || !sheetData.sheet || !sheetData.round) {
     return (
       <div className="text-center py-16 space-y-4">
         <div className="w-12 h-12 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mx-auto">
@@ -78,12 +99,62 @@ export default function ScoreSheetPage({
   }
 
   return (
-    <ScoreSheetForm
-      key={sheetId}
-      sessionToken={sessionToken}
-      sheetId={sheetId}
-      data={data as SheetDetailData}
-    />
+    <div className="space-y-4">
+      {/* View Mode Selector (Hidden in Print) */}
+      <div className="print:hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg bg-card/70 border border-border/50">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="font-semibold text-foreground">Scoring Mode:</span>
+          <span>
+            {viewMode === "bond_paper"
+              ? "Official Bond Paper Tabulation Sheet (All contestants listed)"
+              : `Single Contestant Card (#${sheetData.contestant?.number} - ${sheetData.contestant?.name})`}
+          </span>
+        </div>
+        <div className="flex items-center rounded-md border border-border/60 bg-muted/30 p-0.5 text-xs self-end sm:self-auto">
+          <button
+            type="button"
+            onClick={() => handleToggleView("bond_paper")}
+            className={cn(
+              "px-3 py-1 rounded font-medium transition-colors",
+              viewMode === "bond_paper"
+                ? "bg-background shadow-2xs text-foreground font-bold"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Bond Paper Sheet (All Contestants)
+          </button>
+          <button
+            type="button"
+            onClick={() => handleToggleView("focus")}
+            className={cn(
+              "px-3 py-1 rounded font-medium transition-colors",
+              viewMode === "focus"
+                ? "bg-background shadow-2xs text-foreground font-bold"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Contestant Focus Card
+          </button>
+        </div>
+      </div>
+
+      {viewMode === "bond_paper" && roundData ? (
+        <BondPaperScoreSheet
+          sessionToken={sessionToken}
+          roundId={roundId!}
+          focusedSheetId={sheetId}
+          onSwitchToClassic={() => handleToggleView("focus")}
+          data={roundData}
+        />
+      ) : (
+        <ScoreSheetForm
+          key={sheetId}
+          sessionToken={sessionToken}
+          sheetId={sheetId}
+          data={sheetData as SheetDetailData}
+        />
+      )}
+    </div>
   );
 }
 

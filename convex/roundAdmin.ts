@@ -46,6 +46,9 @@ export const closeRound = mutation({
       orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "score.manage",
     });
     const round = await loadRound(ctx, eactx, args.roundId);
+    // Idempotent: auto-close fires on the final sheet submission, so a staff
+    // close arriving afterwards is already satisfied, not an error.
+    if (round.status === "closed") return;
     if (round.status !== "open") {
       throw appError(ErrorCode.CONFLICT, "Only open rounds can be closed");
     }

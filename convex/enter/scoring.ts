@@ -5,6 +5,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { appError, ErrorCode } from "../lib/errors";
 import { requireEventSession, touchSession } from "../lib/eventSession";
 import { checkValue } from "../lib/sheetValidation";
+import { maybeAutoCloseRound } from "../lib/roundAutomation";
 import { writeAudit } from "../lib/audit";
 
 async function loadOwnSheet(
@@ -230,6 +231,7 @@ export const submitSheet = mutation({
       });
     }
     await ctx.db.patch(sheet._id, { status: "submitted", draftValues: undefined });
+    await maybeAutoCloseRound(ctx, { roundId: round._id });
     await touchSession(ctx, sctx.session._id);
     await writeAudit(ctx, {
       orgId: sctx.event.orgId, actorId: null, action: "score.submitted",
@@ -241,3 +243,268 @@ export const submitSheet = mutation({
     });
   },
 });
+
+export const roundScoringSheet = query({
+  args: {
+    sessionToken: v.string(),
+    roundId: v.id("rounds"),
+  },
+  handler: async (ctx, args) => {
+    const sctx = await requireEventSession(ctx, {
+      sessionToken: args.sessionToken,
+      kind: "judge",
+    });
+
+    const round = await ctx.db.get(args.roundId);
+    if (!round || round.eventId !== sctx.event._id) {
+      throw appError(ErrorCode.NOT_FOUND, "Round not found");
+    }
+
+    const criteria = await ctx.db
+      .query("criteria")
+      .withIndex("by_round_id", (q) => q.eq("roundId", round._id))
+      .collect();
+
+    const effectiveCriteria = criteria
+      .map((c) => ({
+        ...c,
+        decimalPrecision: Math.max(c.decimalPrecision ?? 0, sctx.event.decimalPrecision ?? 0),
+      }))
+      .sort((a, b) => a.order - b.order);
+
+    const sheets = await ctx.db
+      .query("scoreSheets")
+      .withIndex("by_judge_id_and_round_id", (q) =>
+        q.eq("judgeId", sctx.account._id).eq("roundId", round._id),
+      )
+      .collect();
+
+    const isRoundClosed =
+      round.status === "closed" ||
+      round.status === "published" ||
+      sctx.event.status === "finalized" ||
+      sctx.event.status === "archived";
+
+    const contestantsList: Array<{
+      sheet: Doc<"scoreSheets">;
+      contestant: Doc<"contestants">;
+      category: Doc<"categories"> | null;
+      scores?: Doc<"scores">[];
+      isImmutable: boolean;
+    }> = [];
+
+    for (const sheet of sheets) {
+      const contestant = await ctx.db.get(sheet.contestantId);
+      if (!contestant || contestant.eventId !== sctx.event._id) continue;
+
+      const category = contestant.categoryId ? await ctx.db.get(contestant.categoryId) : null;
+
+      const isImmutable =
+        sheet.status === "submitted" ||
+        sheet.status === "locked" ||
+        isRoundClosed;
+
+      const scores =
+        sheet.status === "submitted" || sheet.status === "locked"
+          ? await ctx.db
+              .query("scores")
+              .withIndex("by_sheet_id", (q) => q.eq("sheetId", sheet._id))
+              .collect()
+          : undefined;
+
+      contestantsList.push({
+        sheet,
+        contestant,
+        category,
+        scores,
+        isImmutable,
+      });
+    }
+
+    contestantsList.sort((a, b) => a.contestant.number - b.contestant.number);
+
+    return {
+      event: {
+        _id: sctx.event._id,
+        name: sctx.event.name,
+        eventCode: sctx.event.eventCode,
+        logoUrl: sctx.event.logoUrl,
+        venue: sctx.event.venue,
+        startDate: sctx.event.startDate,
+        decimalPrecision: sctx.event.decimalPrecision ?? 0,
+      },
+      judge: {
+        _id: sctx.account._id,
+        displayName: sctx.account.displayName,
+        username: sctx.account.username,
+      },
+      round,
+      criteria: effectiveCriteria,
+      contestants: contestantsList,
+      isRoundClosed,
+    };
+  },
+});
+
+export const saveRoundDraftsBatch = mutation({
+  args: {
+    sessionToken: v.string(),
+    roundId: v.id("rounds"),
+    drafts: v.array(
+      v.object({
+        sheetId: v.id("scoreSheets"),
+        draftValues: v.record(v.string(), v.number()),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const sctx = await requireEventSession(ctx, {
+      sessionToken: args.sessionToken,
+      kind: "judge",
+      requireReadyEvent: true,
+    });
+
+    const round = await ctx.db.get(args.roundId);
+    if (!round || round.eventId !== sctx.event._id) {
+      throw appError(ErrorCode.NOT_FOUND, "Round not found");
+    }
+    if (round.status !== "open") {
+      throw appError(ErrorCode.CONFLICT, "Round is not open for scoring");
+    }
+
+    const criteria = await ctx.db
+      .query("criteria")
+      .withIndex("by_round_id", (q) => q.eq("roundId", round._id))
+      .collect();
+
+    for (const item of args.drafts) {
+      const sheet = await ctx.db.get(item.sheetId);
+      if (!sheet || sheet.judgeId !== sctx.account._id || sheet.roundId !== round._id) {
+        continue;
+      }
+      if (sheet.status === "submitted" || sheet.status === "locked") {
+        continue;
+      }
+
+      for (const [criterionId, value] of Object.entries(item.draftValues)) {
+        const criterion = criteria.find((c) => c._id === criterionId);
+        if (!criterion) continue;
+        const problem = checkValue(criterion, value, sctx.event.decimalPrecision);
+        if (problem) throw appError(ErrorCode.VALIDATION_ERROR, problem);
+      }
+
+      await ctx.db.patch(sheet._id, {
+        status: "in_progress",
+        draftValues: item.draftValues,
+      });
+    }
+
+    await touchSession(ctx, sctx.session._id);
+  },
+});
+
+export const submitRoundSheetsBatch = mutation({
+  args: {
+    sessionToken: v.string(),
+    roundId: v.id("rounds"),
+    submissions: v.array(
+      v.object({
+        sheetId: v.id("scoreSheets"),
+        values: v.record(v.string(), v.number()),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const sctx = await requireEventSession(ctx, {
+      sessionToken: args.sessionToken,
+      kind: "judge",
+      requireReadyEvent: true,
+    });
+
+    const round = await ctx.db.get(args.roundId);
+    if (!round || round.eventId !== sctx.event._id) {
+      throw appError(ErrorCode.NOT_FOUND, "Round not found");
+    }
+    if (round.status !== "open") {
+      throw appError(ErrorCode.CONFLICT, "Round is not open for scoring");
+    }
+
+    const criteria = await ctx.db
+      .query("criteria")
+      .withIndex("by_round_id", (q) => q.eq("roundId", round._id))
+      .collect();
+
+    const assignments = await ctx.db
+      .query("judgeAssignments")
+      .withIndex("by_judge_id", (q) => q.eq("judgeId", sctx.account._id))
+      .collect();
+
+    const scoped = assignments.filter((a) => a.roundId === undefined || a.roundId === round._id);
+    const scopedCriterionIds = scoped
+      .filter((a) => a.criterionId !== undefined)
+      .map((a) => a.criterionId!);
+    const required = scopedCriterionIds.length > 0
+      ? criteria.filter((c) => scopedCriterionIds.includes(c._id))
+      : criteria;
+
+    const now = Date.now();
+    let submittedCount = 0;
+
+    for (const sub of args.submissions) {
+      const sheet = await ctx.db.get(sub.sheetId);
+      if (!sheet || sheet.judgeId !== sctx.account._id || sheet.roundId !== round._id) {
+        continue;
+      }
+      if (sheet.status === "submitted" || sheet.status === "locked") {
+        continue;
+      }
+
+      for (const criterion of required) {
+        const value = sub.values[criterion._id];
+        if (value === undefined) {
+          throw appError(ErrorCode.VALIDATION_ERROR, `Missing score for ${criterion.name}`);
+        }
+        const problem = checkValue(criterion, value, sctx.event.decimalPrecision);
+        if (problem) throw appError(ErrorCode.VALIDATION_ERROR, problem);
+      }
+
+      for (const criterion of required) {
+        await ctx.db.insert("scores", {
+          sheetId: sheet._id,
+          eventId: sctx.event._id,
+          roundId: round._id,
+          judgeId: sctx.account._id,
+          contestantId: sheet.contestantId,
+          criterionId: criterion._id,
+          value: sub.values[criterion._id],
+          submittedAt: now,
+          submittedByAccountId: sctx.account._id,
+        });
+      }
+
+      await ctx.db.patch(sheet._id, { status: "submitted", draftValues: undefined });
+      submittedCount++;
+    }
+
+    if (submittedCount > 0) {
+      await maybeAutoCloseRound(ctx, { roundId: round._id });
+      await touchSession(ctx, sctx.session._id);
+      await writeAudit(ctx, {
+        orgId: sctx.event.orgId,
+        actorId: null,
+        action: "score.submitted",
+        resourceType: "scoreSheet",
+        resourceId: args.roundId,
+        after: {
+          roundId: round._id,
+          sheetsCount: submittedCount,
+          accountKind: sctx.account.kind,
+          accountName: sctx.account.displayName,
+        },
+      });
+    }
+
+    return { submittedCount };
+  },
+});
+

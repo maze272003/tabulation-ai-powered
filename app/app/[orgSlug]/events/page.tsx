@@ -10,7 +10,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/PageHeader";
-import { CalendarDays, Loader2, Plus } from "lucide-react";
+import { FeaturePaywall } from "@/components/billing/FeaturePaywall";
+import { CalendarDays, Loader2, Lock, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -24,14 +25,23 @@ const STATUS_TONE: Record<string, string> = {
 export default function EventsPage({ params }: { params: Promise<{ orgSlug: string }> }) {
   const { orgSlug } = use(params);
   const events = useQuery(api.events.listByOrg, { orgSlug });
+  const sub = useQuery(api.subscriptions.getForOrg, { orgSlug });
   const create = useMutation(api.events.create);
   const router = useRouter();
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
 
+  const maxEvents = sub?.plan?.limits?.maxEvents ?? 1;
+  const eventCount = events?.length ?? 0;
+  const isLimitReached = sub !== undefined && events !== undefined && eventCount >= maxEvents;
+
   async function handleQuickCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
+    if (isLimitReached) {
+      toast.error(`Event limit reached (${maxEvents} max on ${sub?.plan?.name ?? "Free"}). Upgrade your plan.`);
+      return;
+    }
     setCreating(true);
     try {
       const slug = await create({ orgSlug, name });
@@ -52,24 +62,61 @@ export default function EventsPage({ params }: { params: Promise<{ orgSlug: stri
         title="Events"
         description="Create and manage competitions. Each event has its own accounts, rounds, and results."
         actions={
-          <Button onClick={() => router.push(`/app/${orgSlug}/events/new`)}>
-            <Plus aria-hidden />
-            New event
+          <Button
+            onClick={() => {
+              if (isLimitReached) {
+                router.push(`/app/${orgSlug}/billing`);
+              } else {
+                router.push(`/app/${orgSlug}/events/new`);
+              }
+            }}
+            className="gap-1.5 font-semibold"
+          >
+            {isLimitReached ? <Lock className="size-4" aria-hidden="true" /> : <Plus aria-hidden />}
+            {isLimitReached ? "Upgrade to Add Event" : "New event"}
           </Button>
         }
       />
 
+      {isLimitReached ? (
+        <FeaturePaywall
+          compact
+          orgSlug={orgSlug}
+          badgeText={`${(sub?.plan?.name ?? "FREE").toUpperCase()} LIMIT REACHED`}
+          title={`Active Event Limit Reached (${eventCount}/${maxEvents})`}
+          description={`Your organization has reached the ${maxEvents} event limit included in the ${sub?.plan?.name ?? "Free"} tier. Upgrade to host up to 25 concurrent competitions.`}
+          features={[]}
+          icon={CalendarDays}
+          actionText="Upgrade Plan"
+        />
+      ) : null}
+
       <form onSubmit={handleQuickCreate} className="flex flex-col gap-2 sm:flex-row">
         <Input
           className="flex-1"
-          placeholder="Quick create a blank event by name…"
+          placeholder={
+            isLimitReached
+              ? `Event limit reached (${eventCount}/${maxEvents}) — Upgrade to create more`
+              : "Quick create a blank event by name…"
+          }
           aria-label="Quick create event name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          disabled={creating}
+          disabled={creating || isLimitReached}
         />
-        <Button type="submit" variant="outline" disabled={creating || !name.trim()} className="sm:w-auto">
-          {creating ? <Loader2 aria-hidden className="animate-spin" /> : <Plus aria-hidden />}
+        <Button
+          type="submit"
+          variant="outline"
+          disabled={creating || !name.trim() || isLimitReached}
+          className="sm:w-auto"
+        >
+          {creating ? (
+            <Loader2 aria-hidden className="animate-spin" />
+          ) : isLimitReached ? (
+            <Lock className="size-4" aria-hidden="true" />
+          ) : (
+            <Plus aria-hidden />
+          )}
           Create
         </Button>
       </form>

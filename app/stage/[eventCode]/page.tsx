@@ -161,7 +161,15 @@ export default function StagePresentationPage({
             categoryName: catName,
           }));
         })
-        .sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999))
+        .sort((a, b) => {
+          const rankA = a.rank ?? 999;
+          const rankB = b.rank ?? 999;
+          if (rankA !== rankB) return rankA - rankB;
+          const scoreA = a.roundScore ?? -Infinity;
+          const scoreB = b.roundScore ?? -Infinity;
+          if (scoreB !== scoreA) return scoreB - scoreA;
+          return a.number - b.number;
+        })
     : [];
 
   const handleRevealNext = useCallback(() => {

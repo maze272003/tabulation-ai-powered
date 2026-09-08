@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BorderBeamPanel } from "@/components/ui/border-beam-panel";
 import { InteractiveTabulatorDemo } from "@/components/landing/InteractiveTabulatorDemo";
+import { LandingPricingSection } from "@/components/landing/LandingPricingSection";
 
 const FEATURES = [
   {
@@ -48,24 +49,38 @@ const FEATURES = [
     badge: "Accurate Math",
   },
   {
-    icon: Monitor,
-    title: "Live Round Telemetry",
+    icon: Zap,
+    title: "Instant Live Tabulation",
     description:
-      "Track submission progress in real-time. Identify lagging sheets, spot outlier scores, and review before locking results.",
-    badge: "Live Telemetry",
-  },
-  {
-    icon: Trophy,
-    title: "Instant Tabulation & Podium",
-    description:
-      "Ranked results computed instantly the moment sheets lock. Publish interactive leaderboards and printable scorecards.",
-    badge: "Zero Latency",
+      "Weighted average matrices, point schemes, and custom ranking algorithms calculated synchronously as judges score.",
+    badge: "Sub-Second",
   },
   {
     icon: ShieldCheck,
     title: "Tamper-Proof Audit Trail",
     description:
-      "Every single score submission, adjustment, and configuration change is immutably logged with actor timestamps.",
+      "Every score update, judge action, and configuration edit is immutably timestamped with cryptographic integrity hashes.",
+    badge: "Audit Verified",
+  },
+  {
+    icon: Award,
+    title: "Document & Certificate Studio",
+    description:
+      "Visual drag-and-drop designer for custom certificates, trophies, and awards with dynamic recipient tokens and instant PDF batch export.",
+    badge: "Pro Studio",
+  },
+  {
+    icon: Monitor,
+    title: "Public Results & Stage Overlay",
+    description:
+      "Broadcast live podium placements, leaderboards, and category winners to projection screens or live streams in real time.",
+    badge: "Stage Ready",
+  },
+  {
+    icon: Lock,
+    title: "Role-Based Access Control",
+    description:
+      "Discrete permission levels for Administrators, Tabulators, Judges, and Public Viewers ensuring strict data isolation.",
     badge: "Enterprise Security",
   },
 ];
@@ -94,66 +109,18 @@ const STEPS = [
   },
 ];
 
-const PRICING_TIERS = [
-  {
-    name: "Starter Pack",
-    units: 50,
-    price: "₱999",
-    description: "Ideal for single-category contests and school pageants.",
-    features: [
-      "50 Tabulation Units",
-      "Up to 3 Active Rounds",
-      "Unlimited Judges & Staff",
-      "Standard Real-time Sync",
-      "Printable PDF Summaries",
-    ],
-    featured: false,
-    cta: "Purchase Pack",
-  },
-  {
-    name: "Growth Organizer",
-    units: 250,
-    price: "₱3,999",
-    savings: "Save 20%",
-    description: "Most popular for multi-day festivals, pageants, and regional championships.",
-    features: [
-      "250 Tabulation Units",
-      "Unlimited Rounds & Categories",
-      "AI Criteria & Template Wizard",
-      "Live Outlier Detection",
-      "Public Live Results Hub",
-      "Priority Support Desk",
-    ],
-    featured: true,
-    cta: "Get Growth Pack",
-  },
-  {
-    name: "Scale Enterprise",
-    units: 1000,
-    price: "₱12,999",
-    savings: "Save 35%",
-    description: "Built for production agencies, universities, and high-volume competition organizers.",
-    features: [
-      "1,000 Tabulation Units",
-      "Dedicated Sentry Support SLA",
-      "Custom Branding & Watermarks",
-      "Multi-Organization Switcher",
-      "Audit Trail CSV Exports",
-      "Direct PayMongo Invoicing",
-    ],
-    featured: false,
-    cta: "Contact Sales",
-  },
-];
-
 const FAQS = [
   {
     q: "How does the judge scoring interface work?",
     a: "Judges simply navigate to the Judge Portal, enter the 6-character event code and their assigned passkey. No personal logins or email registrations are required.",
   },
   {
-    q: "How are Tabulation Units consumed?",
-    a: "Units are consumed based on event scale (rounds and scoring sheets created). You only pay for what you use with zero recurring monthly subscription fees.",
+    q: "How do subscription plans work?",
+    a: "Our plans (Free, Starter, Pro) are billed transparently on a monthly basis. You can upgrade, downgrade, or cancel your plan at any time through your organization billing dashboard.",
+  },
+  {
+    q: "Can I try Tabulation for free before upgrading?",
+    a: "Yes! The Free plan includes 1 active competition with up to 5 judges and 20 contestants forever without requiring a credit card.",
   },
   {
     q: "What payment methods are supported in the Philippines?",
@@ -379,115 +346,8 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Pricing & Units Packs */}
-        <section id="pricing" className="border-b border-border/60 bg-muted/20 py-20">
-          <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
-            <div className="mx-auto mb-14 max-w-2xl text-center">
-              <Badge variant="outline" className="mb-3">
-                Pay-Per-Event Units
-              </Badge>
-              <h2 className="font-heading text-3xl font-bold tracking-tight sm:text-4xl">
-                Transparent pricing with zero lock-in
-              </h2>
-              <p className="mt-2.5 text-sm text-muted-foreground sm:text-base">
-                Purchase unit packages when you need them. Units never expire.
-              </p>
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-3 items-stretch">
-              {PRICING_TIERS.map((tier) => {
-                if (tier.featured) {
-                  return (
-                    <BorderBeamPanel
-                      key={tier.name}
-                      glow
-                      className="p-7 flex flex-col justify-between h-full bg-card"
-                      containerClassName="h-full"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-heading font-bold text-lg">{tier.name}</h3>
-                          <Badge className="bg-primary text-primary-foreground text-[10px] font-bold">
-                            Most Popular
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground mb-4">{tier.description}</p>
-                        <div className="flex items-baseline gap-2 mb-6">
-                          <span className="font-heading text-4xl font-extrabold">{tier.price}</span>
-                          <span className="text-xs text-muted-foreground">/ {tier.units} units</span>
-                          {tier.savings && (
-                            <Badge className="bg-success-muted text-success border-success/30 text-[10px]">
-                              {tier.savings}
-                            </Badge>
-                          )}
-                        </div>
-
-                        <div className="space-y-2.5 mb-8">
-                          {tier.features.map((feat) => (
-                            <div key={feat} className="flex items-center gap-2 text-xs font-medium">
-                              <CheckCircle2 className="size-4 text-primary shrink-0" />
-                              <span>{feat}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <Button
-                        size="lg"
-                        render={<Link href="/sign-in" />}
-                        className="w-full font-semibold shadow-md shadow-primary/20"
-                      >
-                        {tier.cta}
-                        <ArrowRight className="size-4" />
-                      </Button>
-                    </BorderBeamPanel>
-                  );
-                }
-
-                return (
-                  <div
-                    key={tier.name}
-                    className="rounded-xl border border-border/70 bg-card p-7 flex flex-col justify-between shadow-xs"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-heading font-bold text-lg">{tier.name}</h3>
-                      </div>
-                      <p className="text-xs text-muted-foreground mb-4">{tier.description}</p>
-                      <div className="flex items-baseline gap-2 mb-6">
-                        <span className="font-heading text-4xl font-extrabold">{tier.price}</span>
-                        <span className="text-xs text-muted-foreground">/ {tier.units} units</span>
-                        {tier.savings && (
-                          <Badge className="bg-success-muted text-success border-success/30 text-[10px]">
-                            {tier.savings}
-                          </Badge>
-                        )}
-                      </div>
-
-                      <div className="space-y-2.5 mb-8">
-                        {tier.features.map((feat) => (
-                          <div key={feat} className="flex items-center gap-2 text-xs font-medium">
-                            <Check className="size-4 text-muted-foreground shrink-0" />
-                            <span>{feat}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      render={<Link href="/sign-in" />}
-                      className="w-full font-semibold"
-                    >
-                      {tier.cta}
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
+        {/* Dynamic Pricing & Subscriptions */}
+        <LandingPricingSection />
 
         {/* FAQs */}
         <section id="faq" className="border-b border-border/60 py-20">

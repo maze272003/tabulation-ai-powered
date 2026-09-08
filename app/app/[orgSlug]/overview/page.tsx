@@ -5,7 +5,8 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/PageHeader";
-import { CalendarDays, CreditCard, LayoutDashboard, Users } from "lucide-react";
+import { FeaturePaywall } from "@/components/billing/FeaturePaywall";
+import { CalendarDays, CreditCard, LayoutDashboard, Sparkles, Users } from "lucide-react";
 import Link from "next/link";
 
 export default function OverviewPage({ params }: { params: Promise<{ orgSlug: string }> }) {
@@ -38,6 +39,20 @@ export default function OverviewPage({ params }: { params: Promise<{ orgSlug: st
         title="Overview"
         description={`Welcome${org?.name ? ` to ${org.name}` : ""}. Here is the state of your organization.`}
       />
+
+      {sub?.plan?.name === "Free" ? (
+        <FeaturePaywall
+          compact
+          orgSlug={orgSlug}
+          badgeText="PRO TIER"
+          title="Upgrade your Organization to Pro"
+          description="Unlock up to 25 events, 100 judges, 500 contestants, custom certificate studio, and reusable competition blueprints."
+          features={[]}
+          icon={Sparkles}
+          actionText="View Plans"
+        />
+      ) : null}
+
       <div className="stagger-fade grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {stats.map((stat) => (
           <Link key={stat.label} href={stat.href} className="group">

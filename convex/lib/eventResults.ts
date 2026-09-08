@@ -56,23 +56,42 @@ export async function computeEventResults(
       standings, advancement, name: round.name, version: version.version,
     });
   }
-  const final = computeEventFinal(summaries, event.decimalPrecision).map((f) => ({
-    contestantId: f.contestantId,
-    contestantName: contestants.find((k) => k._id === f.contestantId)?.name ?? "",
-    categoryId: f.categoryId,
-    totalScore: f.totalScore,
-    eliminatedInRoundOrder: f.eliminatedInRoundOrder,
-    rank: f.rank,
-  }));
+  const final = computeEventFinal(summaries, event.decimalPrecision)
+    .sort((a, b) => {
+      if (a.rank !== b.rank) return a.rank - b.rank;
+      return b.totalScore - a.totalScore;
+    })
+    .map((f) => ({
+      contestantId: f.contestantId,
+      contestantName: contestants.find((k) => k._id === f.contestantId)?.name ?? "",
+      categoryId: f.categoryId,
+      totalScore: f.totalScore,
+      eliminatedInRoundOrder: f.eliminatedInRoundOrder,
+      rank: f.rank,
+    }));
   return {
     rounds: summaries.map(({ name, version, ...s }) => ({
       roundId: s.roundId, name, order: s.order, weight: s.weight, version,
-      standings: s.standings.map((row) => ({
-        contestantId: row.contestantId,
-        categoryId: row.categoryId,
-        contestantName: contestants.find((k) => k._id === row.contestantId)?.name ?? "",
-        rank: row.rank, roundScore: row.roundScore,
-      })),
+      standings: [...s.standings]
+        .sort((a, b) => {
+          if (a.rank !== null && b.rank !== null && a.rank !== b.rank) {
+            return a.rank - b.rank;
+          }
+          if (a.rank !== null && b.rank === null) return -1;
+          if (a.rank === null && b.rank !== null) return 1;
+          const scoreA = a.roundScore ?? -Infinity;
+          const scoreB = b.roundScore ?? -Infinity;
+          if (scoreB !== scoreA) {
+            return scoreB - scoreA;
+          }
+          return 0;
+        })
+        .map((row) => ({
+          contestantId: row.contestantId,
+          categoryId: row.categoryId,
+          contestantName: contestants.find((k) => k._id === row.contestantId)?.name ?? "",
+          rank: row.rank, roundScore: row.roundScore,
+        })),
     })),
     final,
   };

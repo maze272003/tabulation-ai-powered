@@ -46,6 +46,7 @@ import {
   Loader2,
   RefreshCw,
   ShieldAlert,
+  Sparkles,
   XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -258,9 +259,40 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
   const pendingCheckoutUrl = activeCheckout?.checkoutUrl ?? null;
   const currentPlan = plans.find((p) => p._id === currentPlanId);
   const isPaidPlan = (currentPlan?.priceCents ?? 0) > 0;
+  const requestedPlanName = searchParams.get("plan");
+  const targetPlan = requestedPlanName
+    ? plans.find((p) => p.name.toLowerCase() === requestedPlanName.toLowerCase())
+    : undefined;
 
   return (
     <div className="space-y-6">
+      {targetPlan && targetPlan._id !== currentPlanId ? (
+        <div className="p-4 bg-primary/10 border border-primary/25 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm">
+          <div className="flex items-start gap-2.5">
+            <Sparkles className="size-5 text-primary shrink-0 mt-0.5" />
+            <div>
+              <span className="font-semibold text-foreground">Selected from Landing Page: {targetPlan.name} Plan</span>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                You selected the {targetPlan.name} plan ({formatPeso(targetPlan.priceCents ?? 0)}/month). Complete checkout below to activate your subscription.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            className="font-semibold shrink-0 gap-1.5 shadow-xs"
+            disabled={busyPlan === targetPlan.name || activeCheckout !== null}
+            onClick={() => void handleCheckout(targetPlan.name)}
+          >
+            {busyPlan === targetPlan.name ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <CreditCard className="size-3.5" />
+            )}
+            Upgrade to {targetPlan.name}
+          </Button>
+        </div>
+      ) : null}
+
       {billingResult === "success" ? (
         <div className="flex items-center justify-between gap-3 rounded-lg border border-success/30 bg-success-muted px-4 py-3 text-sm text-success">
           <span>
@@ -390,7 +422,12 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
           const isCurrent = plan._id === currentPlanId;
           const isFree = (plan.priceCents ?? 0) === 0;
           const busy = busyPlan === plan.name;
-          const isFeatured = plan.name.toLowerCase().includes("pro") || plan.name.toLowerCase().includes("growth");
+          const isSelectedFromLanding = Boolean(
+            requestedPlanName &&
+            plan.name.toLowerCase() === requestedPlanName.toLowerCase() &&
+            !isCurrent
+          );
+          const isFeatured = plan.name.toLowerCase().includes("pro") || plan.name.toLowerCase().includes("growth") || isSelectedFromLanding;
 
           const cardContent = (
             <div className="flex flex-col h-full justify-between p-6">
@@ -400,6 +437,11 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
                   {isCurrent ? (
                     <Badge className="bg-primary text-primary-foreground text-[10px] font-bold">
                       Current Plan
+                    </Badge>
+                  ) : isSelectedFromLanding ? (
+                    <Badge className="bg-primary text-primary-foreground text-[10px] font-bold gap-1 shadow-xs">
+                      <Sparkles className="size-3" />
+                      Selected Plan
                     </Badge>
                   ) : isFeatured ? (
                     <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] font-bold">
@@ -450,8 +492,11 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
                   </Button>
                 ) : !isCurrent && !isFree ? (
                   <Button
-                    className={cn("w-full font-semibold shadow-xs", isFeatured ? "shadow-md shadow-primary/20" : "")}
-                    variant={isFeatured ? "default" : "outline"}
+                    className={cn(
+                      "w-full font-semibold shadow-xs",
+                      (isFeatured || isSelectedFromLanding) ? "shadow-md shadow-primary/20" : ""
+                    )}
+                    variant={isFeatured || isSelectedFromLanding ? "default" : "outline"}
                     disabled={busy || activeCheckout !== null}
                     onClick={() => void handleCheckout(plan.name)}
                   >
@@ -466,7 +511,7 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
             </div>
           );
 
-          if (isFeatured && !isCurrent) {
+          if ((isFeatured || isSelectedFromLanding) && !isCurrent) {
             return (
               <BorderBeamPanel
                 key={plan._id}

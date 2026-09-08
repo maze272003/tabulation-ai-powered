@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/tabulation/StatusBadge";
 import { cn } from "@/lib/utils";
-import { Sparkles, Trophy, ClipboardList, Eye, CheckCircle2, Lock, ArrowRight, Loader2, Calendar, Layers, Activity, Award } from "lucide-react";
+import { Sparkles, Trophy, ClipboardList, Eye, CheckCircle2, Lock, ArrowRight, Loader2, Calendar, Layers, Activity, Award, FileText, LayoutGrid } from "lucide-react";
 import Link from "next/link";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -173,7 +173,41 @@ function JudgeDashboard({
                         {roundSubmitted} of {roundTotal} sheets submitted
                       </CardDescription>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`/enter/round/${round.roundId}`}
+                        onClick={() => {
+                          if (typeof window !== "undefined") {
+                            localStorage.setItem("judge_scoring_view_preference", "bond_paper");
+                          }
+                        }}
+                        className={cn(
+                          buttonVariants({ variant: isRoundClosed ? "outline" : "default", size: "sm" }),
+                          "gap-1.5 h-8 text-xs font-bold shadow-2xs",
+                        )}
+                        title="Open full printable Bond Paper Score Sheet with all contestants"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>Score (Bond Paper)</span>
+                      </Link>
+
+                      <Link
+                        href={`/enter/round/${round.roundId}`}
+                        onClick={() => {
+                          if (typeof window !== "undefined") {
+                            localStorage.setItem("judge_scoring_view_preference", "classic");
+                          }
+                        }}
+                        className={cn(
+                          buttonVariants({ variant: "outline", size: "sm" }),
+                          "gap-1.5 h-8 text-xs font-medium text-muted-foreground hover:text-foreground",
+                        )}
+                        title="Score contestant-by-contestant using classic card layout"
+                      >
+                        <LayoutGrid className="w-3.5 h-3.5" />
+                        <span>Classic Cards</span>
+                      </Link>
+
                       {isRoundClosed && (
                         <Badge variant="outline" className="text-xs text-muted-foreground gap-1">
                           <Lock className="w-3 h-3" />

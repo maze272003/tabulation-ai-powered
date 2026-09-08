@@ -2,7 +2,7 @@
 
 import { use, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { Download, EyeOff, FileCheck2, Flag, History, Printer } from "lucide-react";
+import { Download, EyeOff, FileCheck2, Flag, History, Lock, Printer } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { ConfirmDialog } from "@/components/tabulation/ConfirmDialog";
 import { Num } from "@/components/tabulation/Num";
 import { RoundResultsCard } from "@/components/tabulation/RoundResultsCard";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/tabulation/StateBlock";
+import { FeaturePaywallDialog } from "@/components/billing/FeaturePaywall";
 import { downloadTextFile, toCsv } from "@/lib/download";
 import { cn } from "@/lib/utils";
 import { CertifiedTabulationReport } from "@/components/tabulation/CertifiedTabulationReport";
@@ -46,6 +47,7 @@ export default function ResultsPage({
   const [reason, setReason] = useState("");
   const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [certifiedReportOpen, setCertifiedReportOpen] = useState(false);
+  const [exportPaywallOpen, setExportPaywallOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const canExport = planAllowsExport && !(exportData instanceof Error);
@@ -169,7 +171,17 @@ export default function ResultsPage({
             <Printer aria-hidden className="size-4" />
             Print view
           </a>
-          {canExport && (
+          {!planAllowsExport ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setExportPaywallOpen(true)}
+              className="gap-1.5 text-muted-foreground border-dashed hover:border-primary/40 hover:text-foreground"
+            >
+              <Lock aria-hidden className="size-3.5 text-primary" />
+              Export CSV (Starter/Pro)
+            </Button>
+          ) : (
             <>
               <Button
                 variant="outline"
@@ -355,6 +367,23 @@ export default function ResultsPage({
         roundName={results?.rounds[0]?.name}
         decimalPrecision={ev?.decimalPrecision ?? 2}
         standings={reportStandings}
+      />
+
+      <FeaturePaywallDialog
+        open={exportPaywallOpen}
+        onOpenChange={setExportPaywallOpen}
+        orgSlug={orgSlug}
+        badgeText="STARTER & PRO"
+        title="Unlock Standings & Scorecard CSV Exports"
+        description="Upgrade your subscription to export raw tournament standings, judge scorecards, category rankings, and point breakdowns into CSV/Excel spreadsheets."
+        features={[
+          "Export full event & category standings (CSV)",
+          "Export per-judge scorecard breakdowns & deductions",
+          "Raw score spreadsheet archiving for compliance",
+          "Compatible with Excel, Google Sheets, & SPSS",
+        ]}
+        icon={Download}
+        actionText="Upgrade to Export"
       />
     </div>
   );

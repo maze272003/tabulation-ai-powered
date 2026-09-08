@@ -60,7 +60,15 @@ export const get = query({
                 advanced: standing.advanced,
               };
             })
-            .sort((a, b) => (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER)),
+            .sort((a, b) => {
+              const rankA = a.rank ?? Number.MAX_SAFE_INTEGER;
+              const rankB = b.rank ?? Number.MAX_SAFE_INTEGER;
+              if (rankA !== rankB) return rankA - rankB;
+              const scoreA = a.roundScore ?? -Infinity;
+              const scoreB = b.roundScore ?? -Infinity;
+              if (scoreB !== scoreA) return scoreB - scoreA;
+              return a.number - b.number;
+            }),
         })),
       });
     }

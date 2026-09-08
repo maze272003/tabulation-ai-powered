@@ -29,12 +29,12 @@ describe("review & decisions", () => {
     const t = setupTest();
     const ids = await prepareScoredEvent(t);
     await submitJudgeScores(t, ids.judgeSessions.bob, ids, [[8, 6], [5, 5]]);
-    await submitJudgeScores(t, ids.judgeSessions.carol, ids, [[9, 7], [5, 5]]);
     const openReview = await t.withIdentity(aliceIdentity).query(api.roundAdmin.roundReview, {
       orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId,
     });
     expect(openReview).toBeNull();
-    await closeRound(t, ids.roundId);
+    // Final submission completes judging and auto-closes the round.
+    await submitJudgeScores(t, ids.judgeSessions.carol, ids, [[9, 7], [5, 5]]);
     const review = (await t.withIdentity(aliceIdentity).query(api.roundAdmin.roundReview, {
       orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId,
     }))!;

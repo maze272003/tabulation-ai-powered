@@ -334,7 +334,21 @@ export default function StaffRoundReviewPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-border/40">
-              {standings.map((row: { contestantId: Id<"contestants">; contestantName: string; rank: number | null; roundScore: number | null; tieResolvedBy: string; advancement: boolean | null }) => (
+              {[...standings]
+                .sort((a, b) => {
+                  if (a.rank !== null && b.rank !== null && a.rank !== b.rank) {
+                    return a.rank - b.rank;
+                  }
+                  if (a.rank !== null && b.rank === null) return -1;
+                  if (a.rank === null && b.rank !== null) return 1;
+                  const scoreA = a.roundScore ?? -Infinity;
+                  const scoreB = b.roundScore ?? -Infinity;
+                  if (scoreB !== scoreA) {
+                    return scoreB - scoreA;
+                  }
+                  return 0;
+                })
+                .map((row: { contestantId: Id<"contestants">; contestantName: string; rank: number | null; roundScore: number | null; tieResolvedBy: string; advancement: boolean | null }) => (
                 <tr key={row.contestantId} className="hover:bg-muted/20 transition-colors">
                   <td className="text-center py-3 px-3 font-mono font-bold text-foreground">
                     {row.rank ? (

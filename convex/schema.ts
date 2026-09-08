@@ -281,7 +281,8 @@ export default defineSchema({
     lastSeenAt: v.number(),
   })
     .index("by_token", ["token"])
-    .index("by_account_id", ["accountId"]),
+    .index("by_account_id", ["accountId"])
+    .index("by_expires_at", ["expiresAt"]),
 
   scoreSheets: defineTable({
     eventId: v.id("events"),

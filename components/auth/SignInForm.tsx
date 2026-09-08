@@ -28,6 +28,7 @@ import {
   Lock,
   Shield,
   ShieldCheck,
+  Sparkles,
   Trophy,
   UserCheck,
 } from "lucide-react";
@@ -41,11 +42,16 @@ import { cn } from "@/lib/utils";
 const ALLOWED_NEXT_PREFIXES = ["/app", "/platform"];
 const DEFAULT_NEXT = "/app";
 
-function resolveNextParam(rawNext: string | null): string {
-  if (!rawNext) return DEFAULT_NEXT;
-  return ALLOWED_NEXT_PREFIXES.some((prefix) => rawNext.startsWith(prefix))
-    ? rawNext
-    : DEFAULT_NEXT;
+function resolveNextParam(rawNext: string | null, planParam?: string | null): string {
+  let destination = DEFAULT_NEXT;
+  if (rawNext && ALLOWED_NEXT_PREFIXES.some((prefix) => rawNext.startsWith(prefix))) {
+    destination = rawNext;
+  }
+  if (planParam && !destination.includes("plan=")) {
+    const separator = destination.includes("?") ? "&" : "?";
+    destination = `${destination}${separator}plan=${encodeURIComponent(planParam)}`;
+  }
+  return destination;
 }
 
 export function SignInForm({
@@ -56,8 +62,9 @@ export function SignInForm({
   const router = useRouter();
   const params = useSearchParams();
   const rawNext = params.get("next");
+  const chosenPlan = params.get("plan");
   const initialTab = params.get("tab") === "judge" ? "judge" : "owner";
-  const next = resolveNextParam(rawNext);
+  const next = resolveNextParam(rawNext, chosenPlan);
 
   const { data: session, isPending: isSessionPending } = useSession();
   const eventSession = useQuery(
@@ -235,12 +242,34 @@ export function SignInForm({
         {activeTab === "owner" && (
           <Card className="border-border/70 shadow-lg bg-card/95 backdrop-blur-md">
             <CardHeader className="space-y-1 pb-4">
-              <CardTitle className="text-base font-bold">Organization Sign In</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-bold">Organization Sign In</CardTitle>
+                {chosenPlan ? (
+                  <Badge className="bg-primary/15 text-primary border-primary/30 text-[10px] uppercase font-bold gap-1">
+                    <Sparkles className="size-3" />
+                    {chosenPlan} Plan
+                  </Badge>
+                ) : null}
+              </div>
               <CardDescription className="text-xs leading-relaxed">
-                Sign in with your organization account to create competitions, manage judges, templates, and billing.
+                {chosenPlan
+                  ? `Sign in with Google to configure your organization and activate the ${chosenPlan} subscription.`
+                  : "Sign in with your organization account to create competitions, manage judges, templates, and billing."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {chosenPlan ? (
+                <div className="p-3 bg-primary/10 border border-primary/25 rounded-lg text-xs flex items-start gap-2.5 text-foreground">
+                  <Sparkles className="size-4 shrink-0 text-primary mt-0.5" />
+                  <div>
+                    <span className="font-semibold block capitalize">Selected: {chosenPlan} Plan</span>
+                    <span className="text-muted-foreground">
+                      After Google sign-in, you will be redirected directly to your organization with this plan pre-selected for checkout.
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+
               <Button
                 id="btn-google-signin"
                 variant="outline"

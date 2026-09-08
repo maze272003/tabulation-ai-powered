@@ -185,6 +185,9 @@ export const closeRound = mutation({
       sessionToken: args.sessionToken, kind: "staff", requireReadyEvent: true,
     });
     const round = await loadRound(ctx, sctx, args.roundId);
+    // Idempotent: auto-close fires on the final sheet submission, so a staff
+    // close arriving afterwards is already satisfied, not an error.
+    if (round.status === "closed") return;
     if (round.status !== "open") throw appError(ErrorCode.CONFLICT, "Only open rounds can be closed");
     await ctx.db.patch(round._id, { status: "closed" });
     await touchSession(ctx, sctx.session._id);

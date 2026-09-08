@@ -347,11 +347,16 @@ export function computeEventFinal(rounds: RoundStandingSummary[], decimalPrecisi
       index = end + 1;
     }
   }
-  return rows.map((r) => ({
-    contestantId: r.contestantId,
-    categoryId: r.category,
-    totalScore: r.total,
-    eliminatedInRoundOrder: r.eliminated,
-    rank: r.rank,
-  }));
+  return [...rows]
+    .sort((a, b) => {
+      if (a.rank !== b.rank) return a.rank - b.rank;
+      return b.total - a.total;
+    })
+    .map((r) => ({
+      contestantId: r.contestantId,
+      categoryId: r.category,
+      totalScore: r.total,
+      eliminatedInRoundOrder: r.eliminated,
+      rank: r.rank,
+    }));
 }
