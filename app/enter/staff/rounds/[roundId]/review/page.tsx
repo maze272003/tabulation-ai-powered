@@ -29,9 +29,12 @@ import {
   TrendingUp,
   XCircle,
   Trash2,
+  FileText,
+  Printer,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { ScrutineerSignOffCard } from "@/components/signatures/ScrutineerSignOffCard";
 
 export default function StaffRoundReviewPage({
   params,
@@ -52,6 +55,7 @@ export default function StaffRoundReviewPage({
 
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
+  const [canPublishSignatures, setCanPublishSignatures] = useState(false);
 
   // Tie break modal state
   const [tieBreakModalOpen, setTieBreakModalOpen] = useState(false);
@@ -207,13 +211,27 @@ export default function StaffRoundReviewPage({
         </Link>
 
         <div className="flex items-center gap-3">
+          <Link
+            href={`/enter/round/${roundId}/audit-sheet`}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-2 h-9")}
+            title="View printable official tabulation audit sheet"
+          >
+            <FileText className="w-4 h-4 text-primary" />
+            <span>Audit Sheet</span>
+          </Link>
+
           {!isPublished && (
             <Button
               variant="default"
               size="sm"
-              disabled={hasUnresolvedTies || isPublishing}
+              disabled={hasUnresolvedTies || isPublishing || !canPublishSignatures}
               onClick={() => setPublishConfirmOpen(true)}
               className="gap-2 h-9 font-semibold shadow-xs"
+              title={
+                !canPublishSignatures
+                  ? "All judges must certify scorecards and Scrutineer must countersign before publishing."
+                  : undefined
+              }
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>Publish Round Results</span>
@@ -304,6 +322,14 @@ export default function StaffRoundReviewPage({
           </div>
         </CardContent>
       </Card>
+
+      {/* Scrutineer Digital Certification Matrix */}
+      <ScrutineerSignOffCard
+        sessionToken={sessionToken}
+        roundId={roundId}
+        roundName={round.name}
+        onCanPublishChange={setCanPublishSignatures}
+      />
 
       {/* Standings Table */}
       <Card className="border-border/60 shadow-sm overflow-hidden">

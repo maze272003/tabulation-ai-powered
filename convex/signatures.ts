@@ -594,3 +594,31 @@ export const getPublicVerificationRecord = query({
     };
   },
 });
+
+export const generateAttachmentUploadUrl = mutation({
+  args: {
+    sessionToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireEventSession(ctx, {
+      sessionToken: args.sessionToken,
+      kind: "staff",
+      requireReadyEvent: true,
+    });
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const getAttachmentUrl = query({
+  args: {
+    sessionToken: v.string(),
+    storageId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireEventSession(ctx, {
+      sessionToken: args.sessionToken,
+    });
+    return await ctx.storage.getUrl(args.storageId);
+  },
+});
+
