@@ -351,6 +351,7 @@ export const roundScoringSheet = query({
         _id: sctx.account._id,
         displayName: sctx.account.displayName,
         username: sctx.account.username,
+        signatureSpecimen: sctx.account.signatureSpecimen,
       },
       round,
       criteria: effectiveCriteria,

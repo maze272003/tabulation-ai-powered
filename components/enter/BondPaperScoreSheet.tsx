@@ -32,7 +32,9 @@ import {
   EyeOff,
   LayoutGrid,
   AlertTriangle,
+  PenTool,
 } from "lucide-react";
+import { JudgeRoundSummaryModal } from "@/components/signatures/JudgeRoundSummaryModal";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -63,6 +65,7 @@ export interface BondPaperScoreSheetProps {
       _id: Id<"eventAccounts">;
       displayName: string;
       username: string;
+      signatureSpecimen?: string;
     };
     round: Doc<"rounds">;
     criteria: Doc<"criteria">[];
@@ -95,6 +98,9 @@ export function BondPaperScoreSheet({
   // Auto-save state
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
+
+  // Scorecard Summary & Sign-off modal state
+  const [summaryModalOpen, setSummaryModalOpen] = useState(false);
 
   // Grid scores state: Map sheetId -> criterionId -> number | ""
   const [gridValues, setGridValues] = useState<Record<string, Record<string, number | "">>>(() => {
@@ -678,6 +684,18 @@ export function BondPaperScoreSheet({
             </Button>
           )}
 
+          {/* Official Round Review & Sign-Off Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSummaryModalOpen(true)}
+            className="h-8 gap-1.5 text-xs font-semibold border-primary/40 text-primary hover:bg-primary/5"
+            title="Review Scorecard Standings & Sign Off"
+          >
+            <PenTool className="w-3.5 h-3.5 text-primary" />
+            <span>Scorecard Sign-Off</span>
+          </Button>
+
           {/* Print Button */}
           <Button
             variant="outline"
@@ -1065,8 +1083,23 @@ export function BondPaperScoreSheet({
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 pt-4">
               {/* Judge Signature */}
               <div className="text-center space-y-2">
-                <div className="border-b-2 border-slate-900 h-14 flex items-end justify-center pb-1 font-serif text-lg italic text-slate-800">
-                  {totalCompletedSheets === contestants.length ? judge.displayName : ""}
+                <div className="border-b-2 border-slate-900 h-14 flex items-center justify-center pb-1">
+                  {totalCompletedSheets === contestants.length && judge.signatureSpecimen ? (
+                    <svg viewBox="0 0 500 180" className="h-12 w-auto max-w-[180px] text-slate-900">
+                      <path
+                        d={judge.signatureSpecimen}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={3}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  ) : (
+                    <span className="font-serif text-lg italic text-slate-800">
+                      {totalCompletedSheets === contestants.length ? judge.displayName : ""}
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs font-black text-slate-900 font-serif">
                   {judge.displayName}
@@ -1221,6 +1254,35 @@ export function BondPaperScoreSheet({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Official Judge Scorecard Review & Certification Modal */}
+      <JudgeRoundSummaryModal
+        isOpen={summaryModalOpen}
+        onClose={() => setSummaryModalOpen(false)}
+        sessionToken={sessionToken}
+        roundId={roundId}
+        roundName={round.name}
+        criteria={criteria}
+        judgeName={judge.displayName}
+        registeredSignature={judge.signatureSpecimen}
+        decimalPrecision={event.decimalPrecision}
+        contestants={contestants.map((item) => ({
+          contestantId: item.contestant._id,
+          number: item.contestant.number,
+          name: item.contestant.name,
+          categoryName: item.category?.name,
+          totalScore: contestantStats[item.sheet._id]?.totalScore ?? 0,
+          scoresByCriterion: Object.fromEntries(
+            criteria.map((crit) => [
+              crit._id,
+              typeof gridValues[item.sheet._id]?.[crit._id] === "number"
+                ? (gridValues[item.sheet._id][crit._id] as number)
+                : 0,
+            ]),
+          ),
+          status: item.sheet.status,
+        }))}
+      />
     </div>
   );
 }
