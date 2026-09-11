@@ -73,6 +73,7 @@ import type * as roles from "../roles.js";
 import type * as roundAdmin from "../roundAdmin.js";
 import type * as rounds from "../rounds.js";
 import type * as seed from "../seed.js";
+import type * as signatures from "../signatures.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as superadmin_announcements from "../superadmin/announcements.js";
 import type * as superadmin_audit from "../superadmin/audit.js";
@@ -160,6 +161,7 @@ declare const fullApi: ApiFromModules<{
   roundAdmin: typeof roundAdmin;
   rounds: typeof rounds;
   seed: typeof seed;
+  signatures: typeof signatures;
   subscriptions: typeof subscriptions;
   "superadmin/announcements": typeof superadmin_announcements;
   "superadmin/audit": typeof superadmin_audit;

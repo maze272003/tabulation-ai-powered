@@ -5,7 +5,7 @@ describe("Signatures Schema Definition", () => {
   it("defines roundSignatures table with required indexes", () => {
     const tables = schema.tables;
     expect(tables).toHaveProperty("roundSignatures");
-    const roundSignatures = tables.roundSignatures;
+    const roundSignatures = tables.roundSignatures as any;
     expect(roundSignatures.indexes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ indexDescriptor: "by_round_id", fields: ["roundId"] }),
