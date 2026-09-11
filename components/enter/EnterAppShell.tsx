@@ -11,6 +11,7 @@ import { PageTransition } from "@/components/PageTransition";
 import { Shield, KeyRound, LogOut, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { JudgeSignatureGate } from "@/components/signatures/JudgeSignatureGate";
 
 export type EventSessionData = NonNullable<FunctionReturnType<typeof api.eventAuth.sessionInfo>>;
 
@@ -153,6 +154,13 @@ export function EnterAppShell({
         <main className="flex-1 container max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
           <PageTransition>{children}</PageTransition>
         </main>
+
+        {/* First-Login Judge Signature Onboarding Gate & Live Nudge Listener */}
+        <JudgeSignatureGate
+          sessionToken={sessionToken}
+          account={account}
+          eventName={event.name}
+        />
       </div>
     </EnterContext.Provider>
   );

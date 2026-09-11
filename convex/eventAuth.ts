@@ -6,7 +6,19 @@ import { appError, ErrorCode } from "./lib/errors";
 import { timingSafeDummyVerify, verifyPassword } from "./lib/password";
 
 export type SessionInfoPayload = {
-  account: Pick<Doc<"eventAccounts">, "_id" | "kind" | "displayName" | "username">;
+  account: Pick<
+    Doc<"eventAccounts">,
+    | "_id"
+    | "kind"
+    | "displayName"
+    | "username"
+    | "signatureSpecimen"
+    | "signatureType"
+    | "signatureRegisteredAt"
+    | "titleOrAffiliation"
+    | "lastNudgeAt"
+    | "lastNudgeMessage"
+  >;
   event: Pick<
     Doc<"events">,
     "_id" | "name" | "slug" | "eventCode" | "status" | "resultVisibility" | "eliminationEnabled"
@@ -123,6 +135,12 @@ export const sessionInfo = query({
         kind: account.kind,
         displayName: account.displayName,
         username: account.username,
+        signatureSpecimen: account.signatureSpecimen,
+        signatureType: account.signatureType,
+        signatureRegisteredAt: account.signatureRegisteredAt,
+        titleOrAffiliation: account.titleOrAffiliation,
+        lastNudgeAt: account.lastNudgeAt,
+        lastNudgeMessage: account.lastNudgeMessage,
       },
       event: {
         _id: event._id,
