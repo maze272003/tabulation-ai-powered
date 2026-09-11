@@ -17,6 +17,30 @@ async function setupStaffAndJudges(t: ReturnType<typeof setupTest>, opts = {}) {
   };
 }
 
+async function certifyRoundForTesting(
+  t: ReturnType<typeof setupTest>,
+  env: Awaited<ReturnType<typeof setupStaffAndJudges>>,
+) {
+  await t.mutation(api.signatures.authorizeRound, {
+    sessionToken: env.judgeSessions.bob,
+    roundId: env.roundId,
+    svgPath: "M10 10 L20 20",
+    signatureType: "drawn",
+  });
+  await t.mutation(api.signatures.authorizeRound, {
+    sessionToken: env.judgeSessions.carol,
+    roundId: env.roundId,
+    svgPath: "M30 30 L40 40",
+    signatureType: "drawn",
+  });
+  await t.mutation(api.signatures.scrutineerCountersign, {
+    sessionToken: env.staffSession,
+    roundId: env.roundId,
+    svgPath: "M50 50 L60 60",
+    signatureType: "drawn",
+  });
+}
+
 describe("staff enter round and result operations", () => {
   it("staff lists rounds and monitors sheets", async () => {
     const t = setupTest();
@@ -76,6 +100,7 @@ describe("staff enter round and result operations", () => {
     });
 
     // Staff publishes
+    await certifyRoundForTesting(t, env);
     await t.mutation(api.enter.rounds.publishRound, { sessionToken: env.staffSession, roundId: env.roundId });
 
     // Staff checks published results
@@ -142,6 +167,7 @@ describe("staff enter round and result operations", () => {
       values: { [env.criterionIds[0]]: 6, [env.criterionIds[1]]: 4 },
     });
     await t.mutation(api.enter.rounds.closeRound, { sessionToken: env.staffSession, roundId: env.roundId });
+    await certifyRoundForTesting(t, env);
     await t.mutation(api.enter.rounds.publishRound, { sessionToken: env.staffSession, roundId: env.roundId });
 
     // Judge cannot view private results
@@ -172,6 +198,7 @@ describe("staff enter round and result operations", () => {
       values: { [env2.criterionIds[0]]: 6, [env2.criterionIds[1]]: 4 },
     });
     await t2.mutation(api.enter.rounds.closeRound, { sessionToken: env2.staffSession, roundId: env2.roundId });
+    await certifyRoundForTesting(t2, env2);
     await t2.mutation(api.enter.rounds.publishRound, { sessionToken: env2.staffSession, roundId: env2.roundId });
 
     // Now judge can view results in organization-visible event

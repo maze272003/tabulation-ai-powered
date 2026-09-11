@@ -442,8 +442,119 @@ export const publishRound = mutation({
     if (existing) {
       throw appError(ErrorCode.CONFLICT, "Round results already published; use correctResults to amend");
     }
+
+    // Verify digital signatures and certification
+    const judges = await ctx.db
+      .query("eventAccounts")
+      .withIndex("by_event_id_and_kind", (q) =>
+        q.eq("eventId", sctx.event._id).eq("kind", "judge"),
+      )
+      .collect();
+
+    const sheets = await ctx.db
+      .query("scoreSheets")
+      .withIndex("by_event_id_and_round_id", (q) =>
+        q.eq("eventId", sctx.event._id).eq("roundId", result.round._id),
+      )
+      .collect();
+
+    const signatures = await ctx.db
+      .query("roundSignatures")
+      .withIndex("by_round_id", (q) => q.eq("roundId", result.round._id))
+      .collect();
+
+    const assignedJudges = judges.filter((j) =>
+      sheets.some((s) => s.judgeId === j._id),
+    );
+
+    const certifications: Array<{
+      actorId: string;
+      displayName: string;
+      titleOrAffiliation?: string;
+      role: "judge" | "head_judge" | "scrutineer";
+      svgPath: string;
+      signatureType: "drawn" | "typed" | "uploaded";
+      signedAt: number;
+      scoresHash: string;
+      judgeNotes?: string;
+      isOverride: boolean;
+      overrideReason?: string;
+      overrideAttachmentStorageId?: string;
+    }> = [];
+
+    for (const judge of assignedJudges) {
+      const activeSig = signatures
+        .filter((s) => s.actorId === judge._id && s.status !== "superseded")
+        .sort((a, b) => b.signedAt - a.signedAt)[0];
+
+      if (!activeSig) {
+        throw appError(
+          ErrorCode.CONFLICT,
+          `Cannot publish round: Judge "${judge.displayName}" has not certified their scorecard.`,
+        );
+      }
+
+      if (activeSig.status === "stale") {
+        throw appError(
+          ErrorCode.CONFLICT,
+          `Cannot publish round: Judge "${judge.displayName}" has a stale signature due to score updates. Please re-authorize.`,
+        );
+      }
+
+      certifications.push({
+        actorId: judge._id,
+        displayName: judge.displayName,
+        titleOrAffiliation: judge.titleOrAffiliation,
+        role: activeSig.role,
+        svgPath: activeSig.svgPath,
+        signatureType: activeSig.signatureType,
+        signedAt: activeSig.signedAt,
+        scoresHash: activeSig.scoresHash,
+        judgeNotes: activeSig.judgeNotes,
+        isOverride: activeSig.status === "overridden",
+        overrideReason: activeSig.overrideReason,
+        overrideAttachmentStorageId: activeSig.overrideAttachmentStorageId,
+      });
+    }
+
+    const scrutineerSig = signatures
+      .filter((s) => s.role === "scrutineer" && s.status === "valid")
+      .sort((a, b) => b.signedAt - a.signedAt)[0];
+
+    if (!scrutineerSig) {
+      throw appError(
+        ErrorCode.CONFLICT,
+        "Cannot publish round: Scrutineer countersignature is required before publishing.",
+      );
+    }
+
+    certifications.push({
+      actorId: scrutineerSig.actorId,
+      displayName: scrutineerSig.displayName,
+      titleOrAffiliation: scrutineerSig.titleOrAffiliation,
+      role: "scrutineer",
+      svgPath: scrutineerSig.svgPath,
+      signatureType: scrutineerSig.signatureType,
+      signedAt: scrutineerSig.signedAt,
+      scoresHash: scrutineerSig.scoresHash,
+      isOverride: false,
+    });
+
     const now = Date.now();
-    const snapshot = buildSnapshot(result, now, sctx.event.decimalPrecision);
+    const canonicalPayload = `${result.round._id}|${now}|${JSON.stringify(result.standings)}|${certifications.map((c) => `${c.actorId}:${c.scoresHash}`).join(";")}`;
+    const buffer = new TextEncoder().encode(canonicalPayload);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+    const verificationHash = Array.from(new Uint8Array(hashBuffer))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
+    const baseSnapshot = buildSnapshot(result, now, sctx.event.decimalPrecision);
+    const snapshot = {
+      ...baseSnapshot,
+      certifications,
+      verificationHash,
+    };
+
     const versionId = await ctx.db.insert("resultVersions", {
       eventId: sctx.event._id,
       roundId: result.round._id,

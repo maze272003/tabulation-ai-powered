@@ -231,6 +231,20 @@ export const submitSheet = mutation({
       });
     }
     await ctx.db.patch(sheet._id, { status: "submitted", draftValues: undefined });
+
+    // Invalidate any existing signature for this judge and round
+    const existingSignatures = await ctx.db
+      .query("roundSignatures")
+      .withIndex("by_round_and_actor", (q) =>
+        q.eq("roundId", round._id).eq("actorId", sctx.account._id),
+      )
+      .collect();
+    for (const sig of existingSignatures) {
+      if (sig.status === "valid") {
+        await ctx.db.patch(sig._id, { status: "stale" });
+      }
+    }
+
     await maybeAutoCloseRound(ctx, { roundId: round._id });
     await touchSession(ctx, sctx.session._id);
     await writeAudit(ctx, {
@@ -487,6 +501,19 @@ export const submitRoundSheetsBatch = mutation({
     }
 
     if (submittedCount > 0) {
+      // Invalidate any existing signature for this judge and round
+      const existingSignatures = await ctx.db
+        .query("roundSignatures")
+        .withIndex("by_round_and_actor", (q) =>
+          q.eq("roundId", round._id).eq("actorId", sctx.account._id),
+        )
+        .collect();
+      for (const sig of existingSignatures) {
+        if (sig.status === "valid") {
+          await ctx.db.patch(sig._id, { status: "stale" });
+        }
+      }
+
       await maybeAutoCloseRound(ctx, { roundId: round._id });
       await touchSession(ctx, sctx.session._id);
       await writeAudit(ctx, {
