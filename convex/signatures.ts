@@ -622,3 +622,142 @@ export const getAttachmentUrl = query({
   },
 });
 
+export const getRoundAuditSheetData = query({
+  args: {
+    sessionToken: v.string(),
+    roundId: v.id("rounds"),
+  },
+  handler: async (ctx, args) => {
+    const sctx = await requireEventSession(ctx, {
+      sessionToken: args.sessionToken,
+    });
+
+    const round = await ctx.db.get(args.roundId);
+    if (!round || round.eventId !== sctx.event._id) {
+      throw appError(ErrorCode.NOT_FOUND, "Round not found");
+    }
+
+    const org = await ctx.db.get(sctx.event.orgId);
+
+    // Latest result version if published
+    const versions = await ctx.db
+      .query("resultVersions")
+      .withIndex("by_round_id", (q) => q.eq("roundId", round._id))
+      .collect();
+    const latestVersion = versions.sort((a, b) => b.version - a.version)[0];
+
+    // Contestants map
+    const contestants = await ctx.db
+      .query("contestants")
+      .withIndex("by_event_id", (q) => q.eq("eventId", sctx.event._id))
+      .collect();
+    const contestantMap = new Map(contestants.map((c) => [c._id, c]));
+
+    // Round criteria
+    const criteria = await ctx.db
+      .query("criteria")
+      .withIndex("by_round_id", (q) => q.eq("roundId", round._id))
+      .collect();
+
+    // Signatures
+    const signatures = await ctx.db
+      .query("roundSignatures")
+      .withIndex("by_round_id", (q) => q.eq("roundId", round._id))
+      .collect();
+
+    const judges = await ctx.db
+      .query("eventAccounts")
+      .withIndex("by_event_id_and_kind", (q) =>
+        q.eq("eventId", sctx.event._id).eq("kind", "judge"),
+      )
+      .collect();
+
+    // Map judge signatures
+    const judgeSignatures = judges.map((judge) => {
+      const activeSig = signatures
+        .filter((s) => s.actorId === judge._id && s.status !== "superseded")
+        .sort((a, b) => b.signedAt - a.signedAt)[0];
+
+      return {
+        judgeId: judge._id,
+        name: judge.displayName,
+        titleOrAffiliation: judge.titleOrAffiliation ?? null,
+        status: activeSig?.status ?? "pending",
+        signedAt: activeSig?.signedAt ?? null,
+        svgPath: activeSig?.svgPath ?? null,
+        isOverride: activeSig?.status === "overridden",
+        overrideReason: activeSig?.overrideReason ?? null,
+        scoresHash: activeSig?.scoresHash ?? null,
+      };
+    });
+
+    const scrutineerSig = signatures
+      .filter((s) => s.role === "scrutineer" && s.status === "valid")
+      .sort((a, b) => b.signedAt - a.signedAt)[0];
+
+    const categories = await ctx.db
+      .query("categories")
+      .withIndex("by_event_id", (q) => q.eq("eventId", sctx.event._id))
+      .collect();
+    const categoryMap = new Map(categories.map((c) => [c._id, c.name]));
+
+    // Standings from published snapshot or fallback
+    let standings: Array<{
+      rank: number;
+      contestantNumber: number;
+      contestantName: string;
+      categoryName?: string;
+      roundScore: number;
+    }> = [];
+
+    if (latestVersion?.snapshot) {
+      standings = latestVersion.snapshot.categories.flatMap((cat) =>
+        cat.standings.map((s) => {
+          const c = contestantMap.get(s.contestantId);
+          return {
+            rank: s.rank ?? 0,
+            contestantNumber: c?.number ?? 0,
+            contestantName: c?.name ?? "Unknown",
+            categoryName: categoryMap.get(cat.categoryId),
+            roundScore: s.roundScore ?? 0,
+          };
+        }),
+      );
+    } else {
+      standings = contestants.map((c, idx) => ({
+        rank: idx + 1,
+        contestantNumber: c.number,
+        contestantName: c.name,
+        roundScore: 0,
+      }));
+    }
+
+    return {
+      eventName: sctx.event.name,
+      orgName: org?.name ?? "Official Tabulation Committee",
+      roundName: round.name,
+      roundStatus: round.status,
+      decimalPrecision: sctx.event.decimalPrecision,
+      publishedAt: latestVersion?.createdAt ?? null,
+      verificationHash: latestVersion?.snapshot.verificationHash ?? null,
+      standings,
+      criteria: criteria.map((crit) => ({
+        id: crit._id,
+        name: crit.name,
+        weight: crit.weight,
+        maxScore: crit.maxScore,
+      })),
+      judges: judgeSignatures,
+      scrutineer: scrutineerSig
+        ? {
+            name: scrutineerSig.displayName,
+            titleOrAffiliation: scrutineerSig.titleOrAffiliation ?? "Chief Scrutineer",
+            signedAt: scrutineerSig.signedAt,
+            svgPath: scrutineerSig.svgPath,
+          }
+        : null,
+    };
+  },
+});
+
+
