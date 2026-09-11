@@ -10,6 +10,10 @@ export default defineSchema({
     platformRole: v.union(v.null(), v.literal("platform_owner")),
     status: v.union(v.literal("active"), v.literal("inactive"), v.literal("suspended")),
     lastLoginAt: v.number(),
+    signatureSpecimen: v.optional(v.string()),
+    signatureType: v.optional(v.union(v.literal("drawn"), v.literal("typed"), v.literal("uploaded"))),
+    signatureRegisteredAt: v.optional(v.number()),
+    titleOrAffiliation: v.optional(v.string()),
   })
     .index("by_token_identifier", ["tokenIdentifier"])
     .index("by_email", ["email"])
@@ -268,6 +272,12 @@ export default defineSchema({
     failedAttempts: v.number(),
     lockedUntil: v.union(v.null(), v.number()),
     createdById: v.id("userProfiles"),
+    signatureSpecimen: v.optional(v.string()),
+    signatureType: v.optional(v.union(v.literal("drawn"), v.literal("typed"), v.literal("uploaded"))),
+    signatureRegisteredAt: v.optional(v.number()),
+    titleOrAffiliation: v.optional(v.string()),
+    lastNudgeAt: v.optional(v.number()),
+    lastNudgeMessage: v.optional(v.string()),
   })
     .index("by_event_id", ["eventId"])
     .index("by_event_id_and_username", ["eventId", "username"])
@@ -358,6 +368,21 @@ export default defineSchema({
           source: v.optional(v.union(v.literal("persisted"), v.literal("correction"))),
         })),
       }),
+      certifications: v.optional(v.array(v.object({
+        actorId: v.string(),
+        displayName: v.string(),
+        titleOrAffiliation: v.optional(v.string()),
+        role: v.union(v.literal("judge"), v.literal("head_judge"), v.literal("scrutineer")),
+        svgPath: v.string(),
+        signatureType: v.union(v.literal("drawn"), v.literal("typed"), v.literal("uploaded")),
+        signedAt: v.number(),
+        scoresHash: v.string(),
+        judgeNotes: v.optional(v.string()),
+        isOverride: v.boolean(),
+        overrideReason: v.optional(v.string()),
+        overrideAttachmentStorageId: v.optional(v.string()),
+      }))),
+      verificationHash: v.optional(v.string()),
     }),
     createdById: v.union(v.null(), v.id("userProfiles")),
     createdByAccountId: v.optional(v.id("eventAccounts")),
@@ -629,4 +654,28 @@ export default defineSchema({
     .index("by_user_id_and_read", ["userId", "isRead"])
     .index("by_user_id_and_created_at", ["userId", "createdAt"])
     .index("by_org_id", ["orgId"]),
+
+  roundSignatures: defineTable({
+    eventId: v.id("events"),
+    scope: v.union(v.literal("round"), v.literal("event_final")),
+    roundId: v.optional(v.id("rounds")),
+    actorType: v.union(v.literal("eventAccount"), v.literal("userProfile")),
+    actorId: v.string(),
+    displayName: v.string(),
+    titleOrAffiliation: v.optional(v.string()),
+    role: v.union(v.literal("judge"), v.literal("head_judge"), v.literal("scrutineer")),
+    svgPath: v.string(),
+    signatureType: v.union(v.literal("drawn"), v.literal("typed"), v.literal("uploaded")),
+    signedAt: v.number(),
+    scoresHash: v.string(),
+    judgeNotes: v.optional(v.string()),
+    status: v.union(v.literal("valid"), v.literal("stale"), v.literal("superseded"), v.literal("overridden")),
+    overrideReason: v.optional(v.string()),
+    overrideAttachmentStorageId: v.optional(v.string()),
+    overriddenBy: v.optional(v.string()),
+  })
+    .index("by_round_id", ["roundId"])
+    .index("by_event_id_and_round_id", ["eventId", "roundId"])
+    .index("by_event_id_and_scope", ["eventId", "scope"])
+    .index("by_round_and_actor", ["roundId", "actorId"]),
 });
