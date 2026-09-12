@@ -11,8 +11,6 @@ import { PlatformBadge } from "@/components/platform/PlatformBadge";
 import { platformErrorMessage } from "@/components/platform/errors";
 import { formatDateTime } from "@/components/platform/format";
 import {
-  orgStatusLabel,
-  orgStatusTone,
   subscriptionStatusLabel,
   subscriptionStatusTone,
 } from "@/components/platform/status";
@@ -53,9 +51,9 @@ export default function PlatformSubscriptionsPage() {
     { initialNumItems: 20 },
   );
 
-  const [overrideOrg, setOverrideOrg] = useState<{
-    orgId: Id<"organizations">;
-    orgName: string;
+  const [overrideUser, setOverrideUser] = useState<{
+    userId: Id<"userProfiles">;
+    ownerLabel: string;
     planId: string;
   } | null>(null);
   const [reason, setReason] = useState("");
@@ -63,27 +61,27 @@ export default function PlatformSubscriptionsPage() {
   const setPlan = useMutation(api.platform.subscriptions.setPlan);
 
   const openOverride = (row: (typeof results)[number]) => {
-    if (!row.orgId) return;
-    setOverrideOrg({
-      orgId: row.orgId,
-      orgName: row.orgName ?? row.orgSlug ?? "Unknown organization",
+    if (!row.userId) return;
+    setOverrideUser({
+      userId: row.userId,
+      ownerLabel: row.ownerEmail ?? row.ownerName ?? "Account",
       planId: row.subscription.planId,
     });
     setReason("");
   };
 
   const runSetPlan = async () => {
-    if (!overrideOrg) return;
+    if (!overrideUser) return;
     const trimmed = reason.trim();
     if (!trimmed) return;
     setBusy(true);
     try {
       await setPlan({
-        orgId: overrideOrg.orgId,
-        planId: overrideOrg.planId as Id<"plans">,
+        userId: overrideUser.userId,
+        planId: overrideUser.planId as Id<"plans">,
         reason: trimmed,
       });
-      setOverrideOrg(null);
+      setOverrideUser(null);
       toast.success("Plan updated");
     } catch (error) {
       toast.error(platformErrorMessage(error, "Could not change the plan."));
@@ -97,7 +95,7 @@ export default function PlatformSubscriptionsPage() {
       <PageHeader
         icon={CreditCard}
         title="Subscriptions"
-        description="Plan assignment for every organization. Stripe-managed billing arrives in Phase 6 — overrides here are administrative and audited."
+        description="Plan assignment for every account. One subscription covers all organizations its owner creates. Overrides here are administrative and audited."
       />
 
       {status === "LoadingFirstPage" ? (
@@ -106,17 +104,17 @@ export default function PlatformSubscriptionsPage() {
         <EmptyState
           icon={CreditCard}
           title="No subscriptions yet"
-          hint="Subscriptions are created with each new organization."
+          hint="Subscriptions are created with each user's first organization."
         />
       ) : (
         <>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Organization</TableHead>
+                <TableHead>Account</TableHead>
                 <TableHead>Plan</TableHead>
                 <TableHead>Subscription</TableHead>
-                <TableHead>Org status</TableHead>
+                <TableHead>Covered orgs</TableHead>
                 <TableHead className="text-right">Period ends</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -125,13 +123,19 @@ export default function PlatformSubscriptionsPage() {
               {results.map((row) => (
                 <TableRow key={row.subscription._id}>
                   <TableCell>
-                    <Link
-                      href={`/platform/organizations/${row.orgId}`}
-                      className="font-medium underline-offset-4 hover:underline"
-                    >
-                      {row.orgName ?? "—"}
-                    </Link>
-                    <p className="text-xs text-muted-foreground">{row.orgSlug}</p>
+                    {row.userId ? (
+                      <Link
+                        href={`/platform/users/${row.userId}`}
+                        className="font-medium underline-offset-4 hover:underline"
+                      >
+                        {row.ownerEmail ?? "—"}
+                      </Link>
+                    ) : (
+                      <span className="font-medium">{row.ownerEmail ?? "—"}</span>
+                    )}
+                    {row.ownerName ? (
+                      <p className="text-xs text-muted-foreground">{row.ownerName}</p>
+                    ) : null}
                   </TableCell>
                   <TableCell className="font-medium">{row.planName ?? "—"}</TableCell>
                   <TableCell>
@@ -141,14 +145,12 @@ export default function PlatformSubscriptionsPage() {
                     />
                   </TableCell>
                   <TableCell>
-                    {row.orgStatus ? (
-                      <PlatformBadge
-                        label={orgStatusLabel[row.orgStatus]}
-                        tone={orgStatusTone[row.orgStatus]}
-                      />
-                    ) : (
-                      "—"
-                    )}
+                    <span className="font-medium">{row.coveredOrgCount}</span>
+                    {row.coveredOrgNames.length > 0 ? (
+                      <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                        {row.coveredOrgNames.join(", ")}
+                      </p>
+                    ) : null}
                   </TableCell>
                   <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
                     {row.subscription.currentPeriodEndAt
@@ -156,7 +158,7 @@ export default function PlatformSubscriptionsPage() {
                       : "—"}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="outline" size="sm" disabled={!row.orgId} onClick={() => openOverride(row)}>
+                    <Button variant="outline" size="sm" disabled={!row.userId} onClick={() => openOverride(row)}>
                       Change plan
                     </Button>
                   </TableCell>
@@ -178,12 +180,12 @@ export default function PlatformSubscriptionsPage() {
         </>
       )}
 
-      <Dialog open={overrideOrg !== null} onOpenChange={(open) => !open && setOverrideOrg(null)}>
+      <Dialog open={overrideUser !== null} onOpenChange={(open) => !open && setOverrideUser(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Change plan</DialogTitle>
             <DialogDescription>
-              Override {overrideOrg?.orgName}&apos;s subscription. Applied immediately and
+              Override {overrideUser?.ownerLabel}&apos;s subscription. Applied immediately and
               recorded in the audit log.
             </DialogDescription>
           </DialogHeader>
@@ -191,9 +193,9 @@ export default function PlatformSubscriptionsPage() {
             <div className="space-y-2">
               <Label htmlFor="plan-select">Plan</Label>
               <Select
-                value={overrideOrg?.planId ?? ""}
+                value={overrideUser?.planId ?? ""}
                 onValueChange={(value) =>
-                  setOverrideOrg((prev) => (prev ? { ...prev, planId: value ?? "" } : prev))
+                  setOverrideUser((prev) => (prev ? { ...prev, planId: value ?? "" } : prev))
                 }
               >
                 <SelectTrigger id="plan-select" className="w-full">
@@ -219,11 +221,11 @@ export default function PlatformSubscriptionsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" disabled={busy} onClick={() => setOverrideOrg(null)}>
+            <Button variant="outline" disabled={busy} onClick={() => setOverrideUser(null)}>
               Cancel
             </Button>
             <Button
-              disabled={busy || !overrideOrg?.planId || !reason.trim()}
+              disabled={busy || !overrideUser?.planId || !reason.trim()}
               onClick={runSetPlan}
             >
               {busy ? "Working…" : "Change plan"}

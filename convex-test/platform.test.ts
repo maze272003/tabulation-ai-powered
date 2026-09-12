@@ -260,8 +260,10 @@ describe("platform admin — subscriptions", () => {
     const subs = await t.withIdentity(aliceIdentity).query(api.platform.subscriptions.list, {
       paginationOpts,
     });
-    const row = subs.page.find((r) => r.orgSlug === "acme");
+    const row = subs.page.find((r) => r.userId === aliceId);
     expect(row?.planName).toBe("Free");
+    expect(row?.coveredOrgNames).toContain("Acme");
+    expect(row?.coveredOrgCount).toBe(1);
 
     const proPlan = await t.run(async (q) => {
       const plans = await q.db.query("plans").collect();
@@ -269,13 +271,13 @@ describe("platform admin — subscriptions", () => {
     });
 
     await t.withIdentity(aliceIdentity).mutation(api.platform.subscriptions.setPlan, {
-      orgId,
+      userId: aliceId,
       planId: proPlan,
       reason: "Enterprise deal",
     });
     await expect(
       t.withIdentity(aliceIdentity).mutation(api.platform.subscriptions.setPlan, {
-        orgId,
+        userId: aliceId,
         planId: proPlan,
         reason: "same plan",
       }),
@@ -286,7 +288,6 @@ describe("platform admin — subscriptions", () => {
 
     const audit = await t.withIdentity(aliceIdentity).query(api.platform.audit.list, {
       paginationOpts,
-      orgId,
     });
     const override = audit.page.find((e) => e.action === "platform.subscription.plan_overridden");
     expect(override?.reason).toBe("Enterprise deal");
