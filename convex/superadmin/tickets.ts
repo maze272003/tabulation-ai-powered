@@ -81,7 +81,7 @@ export const getDetail = query({
     const subscription = org
       ? await ctx.db
           .query("subscriptions")
-          .withIndex("by_org_id", (q) => q.eq("orgId", org._id))
+          .withIndex("by_user_id", (q) => q.eq("userId", org.createdById))
           .unique()
       : null;
 
@@ -227,9 +227,10 @@ export const updateStatus = mutation({
           .first();
 
         if (freePlan && org) {
+          // Per-user billing: this downgrades every org the subscriber created.
           const subscription = await ctx.db
             .query("subscriptions")
-            .withIndex("by_org_id", (q) => q.eq("orgId", org._id))
+            .withIndex("by_user_id", (q) => q.eq("userId", org.createdById))
             .unique();
 
           if (subscription) {

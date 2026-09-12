@@ -101,10 +101,11 @@ export default function PlatformOrgDetailPage({
 
   const runSetPlan = async () => {
     const reason = planReason.trim();
-    if (!selectedPlanId || !reason) return;
+    const targetUserId = subscription.userId ?? org.createdById;
+    if (!selectedPlanId || !reason || !targetUserId) return;
     setBusy(true);
     try {
-      await setPlan({ orgId: org._id, planId: selectedPlanId as Id<"plans">, reason });
+      await setPlan({ userId: targetUserId, planId: selectedPlanId as Id<"plans">, reason });
       setPlanDialogOpen(false);
       setPlanReason("");
       toast.success("Plan updated");

@@ -129,13 +129,15 @@ export default function SentryOrgDetailPage({
     }
   };
 
+  const targetUserId = subscription?.userId ?? org.createdById;
+
   const runChangePlan = async (r: string) => {
-    if (!token || !selectedPlanId) return;
+    if (!token || !selectedPlanId || !targetUserId) return;
     setBusy(true);
     try {
       await setPlan({
         token,
-        orgId: org._id,
+        userId: targetUserId,
         planId: selectedPlanId as Id<"plans">,
         reason: r,
       });
@@ -150,12 +152,12 @@ export default function SentryOrgDetailPage({
   };
 
   const runChangeSubscriptionStatus = async () => {
-    if (!token) return;
+    if (!token || !targetUserId) return;
     setBusy(true);
     try {
       await setSubscriptionStatus({
         token,
-        orgId: org._id,
+        userId: targetUserId,
         status: nextStatus as (typeof SUBSCRIPTION_STATUSES)[number],
         reason,
       });
@@ -170,11 +172,11 @@ export default function SentryOrgDetailPage({
   };
 
   const runExtendTrial = async (r: string) => {
-    if (!token || !trialDate) return;
+    if (!token || !trialDate || !targetUserId) return;
     setBusy(true);
     try {
       const endOfDay = new Date(`${trialDate}T23:59:59`).getTime();
-      await setTrialEnd({ token, orgId: org._id, trialEndsAt: endOfDay, reason: r });
+      await setTrialEnd({ token, userId: targetUserId, trialEndsAt: endOfDay, reason: r });
       setTrialDialogOpen(false);
       setReason("");
       toast.success("Trial extended");
@@ -286,7 +288,7 @@ export default function SentryOrgDetailPage({
               </>
             ) : (
               <p className="text-muted-foreground">
-                No subscription found for this organization.
+                No subscription found for this organization&apos;s creator.
               </p>
             )}
           </CardContent>

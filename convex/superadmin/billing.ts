@@ -24,12 +24,12 @@ const limitValidator = v.object({
   maxContestants: v.number(),
 });
 
-async function requireOrg(ctx: QueryCtx, orgId: Id<"organizations">) {
-  const org = await ctx.db.get(orgId);
-  if (!org || org.status === "deleted") {
-    throw appError(ErrorCode.NOT_FOUND, "Organization not found");
+async function requireUser(ctx: QueryCtx, userId: Id<"userProfiles">) {
+  const user = await ctx.db.get(userId);
+  if (!user) {
+    throw appError(ErrorCode.NOT_FOUND, "User not found");
   }
-  return org;
+  return user;
 }
 
 export const listPlans = query({
@@ -144,15 +144,22 @@ export const listSubscriptions = query({
       .paginate(args.paginationOpts);
     const page = await Promise.all(
       result.page.map(async (subscription) => {
-        const [org, plan] = await Promise.all([
-          subscription.orgId ? ctx.db.get(subscription.orgId) : Promise.resolve(null),
+        const subUserId = subscription.userId;
+        const [owner, plan] = await Promise.all([
+          subUserId ? ctx.db.get(subUserId) : Promise.resolve(null),
           ctx.db.get(subscription.planId),
         ]);
+        const coveredOrgs = subUserId
+          ? await ctx.db
+              .query("organizations")
+              .withIndex("by_created_by_id", (q) => q.eq("createdById", subUserId))
+              .collect()
+          : [];
         return {
           subscription,
-          orgName: org?.name ?? null,
-          orgSlug: org?.slug ?? null,
-          orgStatus: org?.status ?? null,
+          ownerName: owner?.name ?? null,
+          ownerEmail: owner?.email ?? null,
+          coveredOrgCount: coveredOrgs.length,
           planName: plan?.name ?? null,
           planPriceCents: plan?.priceCents ?? null,
           planCurrency: plan?.currency ?? null,
@@ -165,26 +172,26 @@ export const listSubscriptions = query({
 });
 
 export const setPlan = mutation({
-  args: { token: v.string(), orgId: v.id("organizations"), planId: v.id("plans"), reason: v.string() },
+  args: { token: v.string(), userId: v.id("userProfiles"), planId: v.id("plans"), reason: v.string() },
   handler: async (ctx, args) => {
     const session = await requireSuperadminSession(ctx, args.token);
     const reason = requireReason(args.reason);
-    const org = await requireOrg(ctx, args.orgId);
+    await requireUser(ctx, args.userId);
     const plan = await ctx.db.get(args.planId);
     if (!plan) throw appError(ErrorCode.NOT_FOUND, "Plan not found");
     const subscription = await ctx.db
       .query("subscriptions")
-      .withIndex("by_org_id", (q) => q.eq("orgId", org._id))
+      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
       .unique();
     if (!subscription) throw appError(ErrorCode.NOT_FOUND, "Subscription not found");
     if (subscription.planId === plan._id) {
-      throw appError(ErrorCode.CONFLICT, `Organization is already on ${plan.name}`);
+      throw appError(ErrorCode.CONFLICT, `Account is already on ${plan.name}`);
     }
 
     const beforePlan = await ctx.db.get(subscription.planId);
     await ctx.db.patch(subscription._id, { planId: plan._id });
     await writeAudit(ctx, {
-      orgId: org._id,
+      orgId: null,
       actorId: null,
       action: "platform.subscription.plan_overridden",
       resourceType: "subscription",
@@ -199,7 +206,7 @@ export const setPlan = mutation({
 export const setStatus = mutation({
   args: {
     token: v.string(),
-    orgId: v.id("organizations"),
+    userId: v.id("userProfiles"),
     status: v.union(
       v.literal("trialing"),
       v.literal("active"),
@@ -213,10 +220,10 @@ export const setStatus = mutation({
   handler: async (ctx, args) => {
     const session = await requireSuperadminSession(ctx, args.token);
     const reason = requireReason(args.reason);
-    const org = await requireOrg(ctx, args.orgId);
+    await requireUser(ctx, args.userId);
     const subscription = await ctx.db
       .query("subscriptions")
-      .withIndex("by_org_id", (q) => q.eq("orgId", org._id))
+      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
       .unique();
     if (!subscription) throw appError(ErrorCode.NOT_FOUND, "Subscription not found");
     if (subscription.status === args.status) {
@@ -225,7 +232,7 @@ export const setStatus = mutation({
 
     await ctx.db.patch(subscription._id, { status: args.status });
     await writeAudit(ctx, {
-      orgId: org._id,
+      orgId: null,
       actorId: null,
       action: "platform.subscription.status_changed",
       resourceType: "subscription",
@@ -238,20 +245,20 @@ export const setStatus = mutation({
 });
 
 export const setTrialEnd = mutation({
-  args: { token: v.string(), orgId: v.id("organizations"), trialEndsAt: v.number(), reason: v.string() },
+  args: { token: v.string(), userId: v.id("userProfiles"), trialEndsAt: v.number(), reason: v.string() },
   handler: async (ctx, args) => {
     const session = await requireSuperadminSession(ctx, args.token);
     const reason = requireReason(args.reason);
-    const org = await requireOrg(ctx, args.orgId);
+    await requireUser(ctx, args.userId);
     const subscription = await ctx.db
       .query("subscriptions")
-      .withIndex("by_org_id", (q) => q.eq("orgId", org._id))
+      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
       .unique();
     if (!subscription) throw appError(ErrorCode.NOT_FOUND, "Subscription not found");
 
     await ctx.db.patch(subscription._id, { trialEndsAt: args.trialEndsAt });
     await writeAudit(ctx, {
-      orgId: org._id,
+      orgId: null,
       actorId: null,
       action: "platform.subscription.trial_extended",
       resourceType: "subscription",

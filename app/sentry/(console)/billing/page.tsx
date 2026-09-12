@@ -11,7 +11,6 @@ import { PlanEditorDialog } from "@/components/sentry/PlanEditorDialog";
 import { PlatformBadge } from "@/components/platform/PlatformBadge";
 import { formatDate } from "@/components/platform/format";
 import {
-  orgStatusLabel,
   subscriptionStatusLabel,
   subscriptionStatusTone,
 } from "@/components/platform/status";
@@ -53,7 +52,7 @@ export default function SentryBillingPage() {
         <PageHeader
           icon={CreditCard}
           title="Billing & Subscription Plans"
-          description="Subscription plans, tier limits, and organization billing states."
+          description="Subscription plans, tier limits, and account billing states."
         />
         <Button
           className="gap-1.5 shadow-sm"
@@ -83,7 +82,7 @@ export default function SentryBillingPage() {
             <CreditCard className="size-4 text-success" />
           </div>
           <p className="mt-2 text-2xl font-bold font-heading text-success">{results.length}</p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">Active organization states</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Active account states</p>
         </Card>
         <Card className="p-4 bg-card/90 shadow-xs">
           <div className="flex items-center justify-between">
@@ -98,64 +97,78 @@ export default function SentryBillingPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base font-bold">
-            <CreditCard aria-hidden className="size-4 text-muted-foreground" />
-            Plans
+            <CreditCard aria-hidden className="size-4 text-primary" />
+            Pricing Tiers & Capabilities
           </CardTitle>
           <CardDescription>
-            Pricing, billing interval, and entitlements. MRR on the dashboard derives from here.
+            Configure public plans, functional entitlements, and resource limits.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {plans.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No plans configured yet.</p>
+            <EmptyState
+              icon={CreditCard}
+              title="No plans configured"
+              hint="Create a plan to start offering subscriptions."
+            />
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Order</TableHead>
                   <TableHead>Plan</TableHead>
                   <TableHead>Price</TableHead>
+                  <TableHead>Members</TableHead>
+                  <TableHead>Events</TableHead>
+                  <TableHead>Judges</TableHead>
+                  <TableHead>Contestants</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Limits</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {plans.map((plan) => (
                   <TableRow key={plan._id}>
-                    <TableCell>
-                      <p className="font-medium">{plan.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {plan.isSystem ? "System plan" : "Custom plan"}
-                      </p>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {plan.sortOrder}
                     </TableCell>
                     <TableCell>
-                      {plan.priceCents !== undefined ? (
-                        <span className="font-mono tabular-nums">
-                          {formatMoney(plan.priceCents, plan.currency ?? "USD")}
-                          <span className="text-muted-foreground">
-                            {" "}
-                            / {plan.billingInterval ?? "monthly"}
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{plan.name}</span>
+                        {plan.isSystem && (
+                          <PlatformBadge label="System" tone="muted" />
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {plan.priceCents !== undefined && plan.priceCents > 0 ? (
+                        <div>
+                          <span className="font-medium">
+                            {formatMoney(plan.priceCents, plan.currency ?? "USD")}
                           </span>
-                        </span>
+                          <span className="text-xs text-muted-foreground">
+                            /{plan.billingInterval ?? "mo"}
+                          </span>
+                        </div>
                       ) : (
-                        <span className="text-muted-foreground">No price</span>
+                        <span className="text-muted-foreground">Free</span>
                       )}
                     </TableCell>
+                    <TableCell className="text-xs">{plan.limits.maxMembers}</TableCell>
+                    <TableCell className="text-xs">{plan.limits.maxEvents}</TableCell>
+                    <TableCell className="text-xs">{plan.limits.maxJudges}</TableCell>
+                    <TableCell className="text-xs">{plan.limits.maxContestants}</TableCell>
                     <TableCell>
                       <PlatformBadge
-                        label={plan.isActive === false ? "Inactive" : "Active"}
-                        tone={plan.isActive === false ? "muted" : "success"}
+                        label={plan.isActive ?? true ? "Active" : "Inactive"}
+                        tone={plan.isActive ?? true ? "success" : "muted"}
                       />
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {plan.limits.maxEvents} events · {plan.limits.maxMembers} members ·{" "}
-                      {plan.limits.maxContestants} contestants
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="gap-1.5 text-muted-foreground"
+                        className="gap-1 text-xs"
                         onClick={() => {
                           setEditingPlanId(plan._id);
                           setEditorOpen(true);
@@ -179,7 +192,7 @@ export default function SentryBillingPage() {
             <CreditCard aria-hidden className="size-4 text-muted-foreground" />
             Subscriptions
           </CardTitle>
-          <CardDescription>Open an organization to manage its plan and trial.</CardDescription>
+          <CardDescription>Open a user to manage their plan and trial.</CardDescription>
         </CardHeader>
         <CardContent>
           {status === "LoadingFirstPage" ? (
@@ -188,33 +201,41 @@ export default function SentryBillingPage() {
             <EmptyState
               icon={CreditCard}
               title="No subscriptions yet"
-              hint="Subscriptions are created when organizations sign up."
+              hint="Subscriptions are created when users create their first organization."
             />
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Organization</TableHead>
+                  <TableHead>Account</TableHead>
                   <TableHead>Plan</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Trial ends</TableHead>
+                  <TableHead>Covered orgs</TableHead>
                   <TableHead>Period ends</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {results.map(
-                  ({ subscription, orgName, orgSlug, orgStatus, planName, planPriceCents, planCurrency, planInterval }) => (
+                  ({
+                    subscription,
+                    ownerName,
+                    ownerEmail,
+                    coveredOrgCount,
+                    planName,
+                    planPriceCents,
+                    planCurrency,
+                    planInterval,
+                  }) => (
                     <TableRow key={subscription._id}>
                       <TableCell>
                         <Link
-                          href={`/sentry/organizations/${subscription.orgId}`}
+                          href={`/sentry/users/${subscription.userId}`}
                           className="block truncate font-medium underline-offset-4 hover:underline"
                         >
-                          {orgName ?? "Unknown org"}
+                          {ownerEmail ?? "—"}
                         </Link>
                         <p className="truncate text-xs text-muted-foreground">
-                          {orgSlug}
-                          {orgStatus && orgStatus !== "active" ? ` · ${orgStatusLabel[orgStatus]}` : ""}
+                          {ownerName ?? "Unknown name"}
                         </p>
                       </TableCell>
                       <TableCell>
@@ -236,7 +257,10 @@ export default function SentryBillingPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {subscription.trialEndsAt ? formatDate(subscription.trialEndsAt) : "—"}
+                        <span className="font-medium">{coveredOrgCount}</span>
+                        <p className="text-xs text-muted-foreground">
+                          {coveredOrgCount === 1 ? "1 organization" : `${coveredOrgCount} organizations`}
+                        </p>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {subscription.currentPeriodEndAt
