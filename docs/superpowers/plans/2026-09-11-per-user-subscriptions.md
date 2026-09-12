@@ -15,6 +15,7 @@
 - Trial-once rule is structural: exactly one subscription row per user (unique `by_user_id` index), created on first org creation with the Free plan and `status: "active"` (today's new-org semantics). `trialing` stays an ops-granted state via existing superadmin trial extension.
 - Audit rule: every billing/subscription write calls `writeAudit`; billing events that are no longer org-scoped use `orgId: null`.
 - Verification per task: `npx tsc --noEmit` must pass and `npm test` (vitest) must be green before committing.
+- Dirty-tree commit rule: several plan-touched files contain unrelated uncommitted hunks (sibling hardening workstream). Every task commit must contain ONLY that task's hunks: generate `git diff <file>`, delete unrelated hunks from the patch text (identified by surrounding context lines), stage with `git apply --cached <filtered.patch>`, then verify with `git diff --cached --stat` and `git status --short` that nothing unrelated is staged. Leave all other hunks unstaged in the working tree.
 - Run commands from repo root; single test files via `npx vitest run convex-test/<file>.test.ts`.
 - After any task that adds/renames convex modules, run `npx convex codegen` so `convex/_generated/api` picks them up (commit generated changes with the task).
 
@@ -137,6 +138,29 @@ const [org, plan] = await Promise.all([
 ]);
 ```
 
+Extend the same `?? null` pattern to the remaining audit calls broken by optional `orgId` (zero behavior change — existing rows always carry `orgId`):
+- `convex/billing/webhook.ts`: `flagPayment`, both paid-success audits, `applyTerminalEvent` — `orgId: payment.orgId` → `orgId: payment.orgId ?? null`.
+- `convex/billing/checkout.ts` `failPayment` audit — `orgId: payment.orgId` → `orgId: payment.orgId ?? null`. (Do NOT touch the unrelated `internal.rateLimits.check` hardening in `syncCheckoutStatus` in this task.)
+
+Widen `getUsage` in `convex/lib/usage.ts` to accept a missing key (transitional; Task 3 rewrites this file):
+
+```ts
+export async function getUsage(
+  ctx: QueryCtx,
+  orgId: Id<"organizations"> | undefined,
+  resource: string,
+): Promise<number> {
+  if (!orgId) return 0;
+  const row = await ctx.db
+    .query("usage")
+    .withIndex("by_org_id_and_resource", (q) => q.eq("orgId", orgId).eq("resource", resource))
+    .unique();
+  return row?.count ?? 0;
+}
+```
+
+Fix the `app/platform/subscriptions/page.tsx` knock-on: `list` now passes `orgId: subscription.orgId ?? null` through, so the row type carries `orgId: Id<"organizations"> | null`. In `openOverride`, add an early return `if (!row.orgId) return;` (narrowing keeps the state type intact) and disable the row's "Change plan" button when `!row.orgId`. No rows are affected today (all subscriptions still carry `orgId`).
+
 - [ ] **Step 3: Typecheck**
 
 Run: `npx tsc --noEmit`
@@ -147,10 +171,16 @@ Expected: clean, no errors
 Run: `npx vitest run convex-test/billing.test.ts convex-test/billingCheckout.test.ts convex-test/billingWebhook.test.ts convex-test/billingLifecycle.test.ts convex-test/billingPayments.test.ts convex-test/billingRefunds.test.ts convex-test/billingSubscriptions.test.ts convex-test/billingUnits.test.ts`
 Expected: all suites pass
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Commit (patch-filtered — see Global Constraints dirty-tree rule)**
+
+Stage ONLY this task's hunks (the file `convex/schema.ts` and `convex/billing/checkout.ts` contain unrelated sibling-workstream hunks — filter the patch to keep only userId/index/audit/getUsage/page-guard hunks):
 
 ```bash
-git add convex/schema.ts convex/billing/webhook.ts convex/billing/lifecycle.ts convex/superadmin/billing.ts convex/platform/subscriptions.ts
+git diff convex/schema.ts convex/billing/webhook.ts convex/billing/lifecycle.ts convex/superadmin/billing.ts convex/platform/subscriptions.ts convex/billing/checkout.ts convex/lib/usage.ts "app/platform/subscriptions/page.tsx" > /tmp/task1.patch
+# delete unrelated hunks from /tmp/task1.patch, then:
+git apply --cached /tmp/task1-filtered.patch
+git diff --cached --stat
+git status --short
 git commit -m "feat(billing): widen schema with optional userId and indexes"
 ```
 
@@ -628,6 +658,8 @@ if (!existingSubscription) {
 
 Remove the now-unused `import { incrementUsage } from "./lib/usage";` from `convex/organizations.ts`. (`members` leaves the usage table; per-org member counts are live counts — see Task 3.)
 
+Do NOT touch the uncommitted `enforceRateLimit` / `MAX_ORGS_PER_USER` hardening elsewhere in `create()` — your edit replaces only the subscription-insert + members-increment block. The 3-org cap stays (human decision: "unlimited" means no per-org charge, not no cap).
+
 - [ ] **Step 4: Run the tests**
 
 Run: `npx vitest run convex-test/perUserResolution.test.ts`
@@ -946,7 +978,17 @@ export const cancelCheckout = mutation({
 });
 ```
 
-Rewrite `syncCheckoutStatus` with `args: {}` and query `api.billing.payments.getActiveCheckout` with `{}` (rest of the polling logic unchanged).
+Rewrite `syncCheckoutStatus` with `args: {}` and query `api.billing.payments.getActiveCheckout` with `{}` (rest of the polling logic unchanged), but PRESERVE the uncommitted `internal.rateLimits.check` hardening, re-keyed from org to user — place it after the `no_pending` early return:
+
+```ts
+const { user } = await requireSubscriptionOwner(ctx);
+await ctx.runMutation(internal.rateLimits.check, {
+  name: "checkoutSync",
+  key: user._id,
+});
+```
+
+(Add the `requireSubscriptionOwner` import alongside the existing `requirePermission` removal — the action context satisfies its `QueryCtx` parameter.)
 
 - [ ] **Step 4: Rewrite payments.ts user-scoped**
 
@@ -1216,9 +1258,9 @@ const latestPayment = await ctx.db
   .first();
 ```
 
-Apply the identical replacement in `submitRefundTicket` (~107-112). In `submitRefundTicket`, add the owner gate after `requirePermission` (same two lines as `changePlan`: only the subscription owner may request a refund against their payment). Keep `refundTickets.orgId`, `crmLeads.convertedOrgId`, and the audit `orgId: actx.org._id` — the ticket is raised from that org's page and the trail stays org-attributed.
+Apply the identical replacement in `submitRefundTicket` (~107-112). In `submitRefundTicket`, add the owner gate after `requirePermission` (same two lines as `changePlan`: only the subscription owner may request a refund against their payment). Keep `refundTickets.orgId`, `crmLeads.convertedOrgId`, and the audit `orgId: actx.org._id` — the ticket is raised from that org's page and the trail stays org-attributed. PRESERVE the uncommitted `enforceRateLimit` import + call (re-key its key from `actx.org._id` to `actx.subscriberId`) and the `MAX_REFUND_DETAILS_LENGTH` + `trimmedDetails` validation exactly as they exist in the working tree.
 
-In `convex/support/tickets.ts` `getRefundEligibility` (~48-53) and `createRefundTicket` (its paid-payment lookup), apply the same `by_org_id` → `by_user_id(actx.subscriberId)` replacement. Keep the rest of both functions (ticket CRUD, notifications, rate limit) unchanged.
+In `convex/support/tickets.ts` `getRefundEligibility` (~48-53) and `createRefundTicket` (its paid-payment lookup), apply the same `by_org_id` → `by_user_id(actx.subscriberId)` replacement. Keep the rest of both functions (ticket CRUD, notifications, rate limits, validation) unchanged — preserve every `enforceRateLimit` call and validation block exactly as it exists in the working tree.
 
 - [ ] **Step 3: Update the refund tests and add owner-gate coverage**
 
