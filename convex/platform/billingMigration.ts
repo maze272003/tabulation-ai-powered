@@ -22,13 +22,16 @@ export const migrationStatus = query({
     let paymentsWithoutUser = 0;
     let usageRowsWithoutUser = 0;
     for await (const sub of ctx.db.query("subscriptions")) {
-      if (!sub.userId) orgKeyedSubscriptions += 1;
+      const legacySub = sub as unknown as { userId?: Id<"userProfiles"> };
+      if (!legacySub.userId) orgKeyedSubscriptions += 1;
     }
     for await (const payment of ctx.db.query("billingPayments")) {
-      if (!payment.userId) paymentsWithoutUser += 1;
+      const legacyPayment = payment as unknown as { userId?: Id<"userProfiles"> };
+      if (!legacyPayment.userId) paymentsWithoutUser += 1;
     }
     for await (const row of ctx.db.query("usage")) {
-      if (!row.userId) usageRowsWithoutUser += 1;
+      const legacyRow = row as unknown as { userId?: Id<"userProfiles"> };
+      if (!legacyRow.userId) usageRowsWithoutUser += 1;
     }
     return { orgKeyedSubscriptions, paymentsWithoutUser, usageRowsWithoutUser };
   },
@@ -52,8 +55,9 @@ export const migrateOrgSubscriptionsToUsers = mutation({
     let usagePooled = 0;
 
     for await (const sub of ctx.db.query("subscriptions")) {
-      if (sub.userId) continue;
-      const org = sub.orgId ? await ctx.db.get(sub.orgId) : null;
+      const legacySub = sub as unknown as { orgId?: Id<"organizations">; userId?: Id<"userProfiles"> };
+      if (legacySub.userId) continue;
+      const org = legacySub.orgId ? await ctx.db.get(legacySub.orgId) : null;
       const creatorId = org?.createdById ?? org?.ownerId ?? null;
       if (!creatorId) {
         await ctx.db.delete(sub._id);
@@ -112,12 +116,13 @@ export const migrateOrgSubscriptionsToUsers = mutation({
 
     const pooled = new Map<string, { userId: Id<"userProfiles">; resource: string; count: number }>();
     for await (const row of ctx.db.query("usage")) {
-      if (row.userId) continue;
+      const legacyRow = row as unknown as { orgId?: Id<"organizations">; userId?: Id<"userProfiles"> };
+      if (legacyRow.userId) continue;
       if (row.resource === "members") {
         await ctx.db.delete(row._id);
         continue;
       }
-      const org = row.orgId ? await ctx.db.get(row.orgId) : null;
+      const org = legacyRow.orgId ? await ctx.db.get(legacyRow.orgId) : null;
       const ownerId = org?.createdById ?? org?.ownerId ?? null;
       if (!ownerId) {
         await ctx.db.delete(row._id);

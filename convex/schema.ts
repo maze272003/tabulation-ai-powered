@@ -95,8 +95,7 @@ export default defineSchema({
     .index("by_name", ["name"]),
 
   subscriptions: defineTable({
-    orgId: v.optional(v.id("organizations")),
-    userId: v.optional(v.id("userProfiles")),
+    userId: v.id("userProfiles"),
     planId: v.id("plans"),
     status: v.union(
       v.literal("trialing"),
@@ -112,13 +111,12 @@ export default defineSchema({
     stripeCustomerId: v.union(v.null(), v.string()),
     stripeSubscriptionId: v.union(v.null(), v.string()),
   })
-    .index("by_org_id", ["orgId"])
     .index("by_user_id", ["userId"])
     .index("by_status_and_period_end", ["status", "currentPeriodEndAt"]),
 
   billingPayments: defineTable({
     orgId: v.optional(v.id("organizations")),
-    userId: v.optional(v.id("userProfiles")),
+    userId: v.id("userProfiles"),
     planId: v.id("plans"),
     createdById: v.id("userProfiles"),
     checkoutSessionId: v.union(v.null(), v.string()),
@@ -141,7 +139,6 @@ export default defineSchema({
     paidAt: v.union(v.null(), v.number()),
     failureReason: v.union(v.null(), v.string()),
   })
-    .index("by_org_id", ["orgId"])
     .index("by_user_id", ["userId"])
     .index("by_status", ["status"])
     .index("by_checkout_session_id", ["checkoutSessionId"])
@@ -155,13 +152,11 @@ export default defineSchema({
     .index("by_event_id", ["eventId"]),
 
   usage: defineTable({
-    orgId: v.optional(v.id("organizations")),
-    userId: v.optional(v.id("userProfiles")),
+    userId: v.id("userProfiles"),
     resource: v.string(),
     count: v.number(),
     periodKey: v.union(v.null(), v.string()),
   })
-    .index("by_org_id_and_resource", ["orgId", "resource"])
     .index("by_user_id_and_resource", ["userId", "resource"]),
 
   auditLogs: defineTable({

@@ -225,24 +225,25 @@ export const resetEvents = mutation({
         }
       }
 
-      // Reset event-related usage counter for this org
+      // Reset event-related usage counter for this org's subscriber
+      const subscriberId = org.createdById;
       const eventUsage = await ctx.db
         .query("usage")
-        .withIndex("by_org_id_and_resource", (q) => q.eq("orgId", org._id).eq("resource", "events"))
+        .withIndex("by_user_id_and_resource", (q) => q.eq("userId", subscriberId).eq("resource", "events"))
         .unique();
       if (eventUsage) {
         await ctx.db.patch(eventUsage._id, { count: 0 });
       }
       const judgeUsage = await ctx.db
         .query("usage")
-        .withIndex("by_org_id_and_resource", (q) => q.eq("orgId", org._id).eq("resource", "judges"))
+        .withIndex("by_user_id_and_resource", (q) => q.eq("userId", subscriberId).eq("resource", "judges"))
         .unique();
       if (judgeUsage) {
         await ctx.db.patch(judgeUsage._id, { count: 0 });
       }
       const contestantUsage = await ctx.db
         .query("usage")
-        .withIndex("by_org_id_and_resource", (q) => q.eq("orgId", org._id).eq("resource", "contestants"))
+        .withIndex("by_user_id_and_resource", (q) => q.eq("userId", subscriberId).eq("resource", "contestants"))
         .unique();
       if (contestantUsage) {
         await ctx.db.patch(contestantUsage._id, { count: 0 });

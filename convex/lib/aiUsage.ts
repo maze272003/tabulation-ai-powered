@@ -37,14 +37,17 @@ export async function consumeAiQuota(
   limit: number,
 ): Promise<void> {
   const today = todayKey();
+  const org = await ctx.db.get(orgId);
+  const userId = org?.createdById ?? org?.ownerId;
+  if (!userId) return;
   const existing = await ctx.db
     .query("usage")
-    .withIndex("by_org_id_and_resource", (q) => q.eq("orgId", orgId).eq("resource", resource))
+    .withIndex("by_user_id_and_resource", (q) => q.eq("userId", userId).eq("resource", resource))
     .unique();
   const nextCount = resolveDailyQuotaCount(existing?.count ?? null, existing?.periodKey ?? null, today, limit);
   if (existing) {
     await ctx.db.patch(existing._id, { count: nextCount, periodKey: today });
   } else {
-    await ctx.db.insert("usage", { orgId, resource, count: nextCount, periodKey: today });
+    await ctx.db.insert("usage", { userId, resource, count: nextCount, periodKey: today });
   }
 }
