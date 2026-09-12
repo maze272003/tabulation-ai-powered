@@ -6,7 +6,6 @@ import { appError, ErrorCode } from "./lib/errors";
 import { requireUserProfile } from "./lib/auth";
 import { requireOrgMember, requirePermission } from "./lib/authz";
 import { writeAudit } from "./lib/audit";
-import { incrementUsage } from "./lib/usage";
 import { seedReferenceDataInternal } from "./seed";
 
 function slugify(name: string): string {
@@ -85,17 +84,25 @@ export const create = mutation({
       status: "active",
       joinedAt: Date.now(),
     });
-    await ctx.db.insert("subscriptions", {
-      orgId,
-      planId: freePlan._id,
-      status: "active",
-      trialEndsAt: null,
-      currentPeriodEndAt: null,
-      cancelAtPeriodEnd: false,
-      stripeCustomerId: null,
-      stripeSubscriptionId: null,
-    });
-    await incrementUsage(ctx, orgId, "members", 1);
+    // One subscription per user, ever (unique by_user_id): the first org
+    // creation opens it on the Free plan; later orgs reuse it. This is the
+    // trial-once guarantee — creating more orgs never yields a new trial.
+    const existingSubscription = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_user_id", (q) => q.eq("userId", profile._id))
+      .unique();
+    if (!existingSubscription) {
+      await ctx.db.insert("subscriptions", {
+        userId: profile._id,
+        planId: freePlan._id,
+        status: "active",
+        trialEndsAt: null,
+        currentPeriodEndAt: null,
+        cancelAtPeriodEnd: false,
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
+      });
+    }
     await writeAudit(ctx, {
       orgId,
       actorId: profile._id,
