@@ -21,7 +21,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/PageHeader";
-import { CheckCircle2, CreditCard, LifeBuoy, Loader2, Clock } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  Clock,
+  CreditCard,
+  LifeBuoy,
+  Loader2,
+  ShieldCheck,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const pesoFormat = new Intl.NumberFormat("en-PH", {
@@ -125,58 +135,103 @@ function OrgBillingContent({ orgSlug }: { orgSlug: string }) {
               : "This organization's subscription is past due — ask the owner to renew. Paid features stop working when the grace period ends."}
           </span>
           {isOwner ? (
-            <Link href="/app/billing">
+            <Link href={`/app/billing?from=${orgSlug}`}>
               <Button size="sm">Renew now</Button>
             </Link>
           ) : null}
         </div>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-heading text-lg">Coverage</CardTitle>
-          <CardDescription>
-            {isOwner
-              ? "This organization is covered by your subscription."
-              : "This organization is covered by its creator's subscription."}
-          </CardDescription>
+      <Card className="rounded-2xl border border-border/80 shadow-xs bg-gradient-to-b from-card to-card/70 overflow-hidden">
+        <CardHeader className="pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20 shrink-0">
+                <ShieldCheck className="size-5" />
+              </div>
+              <div>
+                <CardTitle className="font-heading text-lg">Subscription Coverage</CardTitle>
+                <CardDescription>
+                  {isOwner
+                    ? "This organization is covered by your personal account subscription."
+                    : "This organization is covered by its creator's subscription."}
+                </CardDescription>
+              </div>
+            </div>
+            <div>
+              {subscription.subscription.cancelAtPeriodEnd ? (
+                <Badge variant="outline" className="border-warning/50 text-warning bg-warning-muted text-xs font-semibold">
+                  Cancelling at period end
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="capitalize text-xs font-semibold">
+                  {status}
+                </Badge>
+              )}
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Plan</span>
-            <span className="font-semibold">{currentPlan?.name ?? "—"}</span>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-xl bg-muted/40 border border-border/50 text-xs">
+            <div>
+              <span className="text-muted-foreground block">Active Plan</span>
+              <span className="font-bold text-sm text-foreground">{currentPlan?.name ?? "—"}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground block">
+                {subscription.subscription.cancelAtPeriodEnd ? "Access Ends" : "Current Period Ends"}
+              </span>
+              <span className="font-semibold text-foreground font-mono">{formatDate(periodEndAt)}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground block">Pooled Capacity</span>
+              <span className="font-semibold text-foreground">
+                {currentPlan?.limits.maxEvents ?? 1} events · {currentPlan?.limits.maxJudges ?? 5} judges
+              </span>
+            </div>
           </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Status</span>
-            <Badge variant="outline" className="capitalize">{status}</Badge>
+
+          <div className="space-y-2 pt-1">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+              Entitlements Included
+            </span>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              {PLAN_FEATURE_LABELS.map(({ key, label }) => {
+                const enabled = currentPlan?.features[key as keyof typeof currentPlan.features] === true;
+                return (
+                  <li
+                    key={key}
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg p-2 bg-card/60 border border-border/40",
+                      enabled ? "text-foreground font-medium" : "text-muted-foreground/50",
+                    )}
+                  >
+                    {enabled ? (
+                      <span className="flex size-4 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shrink-0">
+                        <Check className="size-2.5 stroke-[3]" />
+                      </span>
+                    ) : (
+                      <span className="flex size-4 items-center justify-center rounded-full bg-muted text-muted-foreground/40 shrink-0">
+                        <X className="size-2.5" />
+                      </span>
+                    )}
+                    <span>{label}</span>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Period ends</span>
-            <span className="font-mono text-xs">{formatDate(periodEndAt)}</span>
-          </div>
-          <ul className="space-y-2 pt-2 text-xs">
-            {PLAN_FEATURE_LABELS.map(({ key, label }) => {
-              const enabled = currentPlan?.features[key as keyof typeof currentPlan.features] === true;
-              return (
-                <li
-                  key={key}
-                  className={cn(
-                    "flex items-center gap-2",
-                    enabled ? "text-foreground font-medium" : "text-muted-foreground/50",
-                  )}
-                >
-                  <CheckCircle2 aria-hidden className="size-3.5 text-success shrink-0" />
-                  {enabled ? <span>{label}</span> : <span>{label} — not included</span>}
-                </li>
-              );
-            })}
-          </ul>
+
           {isOwner ? (
-            <Link href="/app/billing" className="block pt-2">
-              <Button className="w-full font-semibold">Manage subscription</Button>
+            <Link href={`/app/billing?from=${orgSlug}`} className="block pt-2">
+              <Button className="w-full font-semibold shadow-xs gap-2 group">
+                <CreditCard className="size-4" />
+                Manage Account Subscription & Plans
+                <ArrowRight className="size-4 ml-auto group-hover:translate-x-0.5 transition-transform" />
+              </Button>
             </Link>
           ) : (
-            <p className="pt-2 text-xs text-muted-foreground">
+            <p className="pt-2 text-xs text-muted-foreground text-center">
               Only the subscription owner can change the plan or make payments.
             </p>
           )}

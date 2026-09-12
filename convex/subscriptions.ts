@@ -100,3 +100,51 @@ export const getMine = query({
     return { subscription, plan };
   },
 });
+
+export const cancelMine = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const { user, subscription } = await requireSubscriptionOwner(ctx);
+    const plan = await ctx.db.get(subscription.planId);
+    if (!plan) throw appError(ErrorCode.NOT_FOUND, "Plan not found");
+    if ((plan.priceCents ?? 0) === 0) {
+      throw appError(ErrorCode.CONFLICT, "Cannot cancel Free plan");
+    }
+    if (subscription.cancelAtPeriodEnd) {
+      throw appError(ErrorCode.CONFLICT, "Cancellation is already scheduled");
+    }
+    await ctx.db.patch(subscription._id, { cancelAtPeriodEnd: true });
+    await writeAudit(ctx, {
+      orgId: null,
+      actorId: user._id,
+      action: "subscription.cancel_scheduled",
+      resourceType: "subscription",
+      resourceId: subscription._id,
+      before: { cancelAtPeriodEnd: false },
+      after: { cancelAtPeriodEnd: true },
+    });
+    return { success: true };
+  },
+});
+
+export const resumeMine = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const { user, subscription } = await requireSubscriptionOwner(ctx);
+    if (!subscription.cancelAtPeriodEnd) {
+      throw appError(ErrorCode.CONFLICT, "No scheduled cancellation to resume");
+    }
+    await ctx.db.patch(subscription._id, { cancelAtPeriodEnd: false });
+    await writeAudit(ctx, {
+      orgId: null,
+      actorId: user._id,
+      action: "subscription.resumed",
+      resourceType: "subscription",
+      resourceId: subscription._id,
+      before: { cancelAtPeriodEnd: true },
+      after: { cancelAtPeriodEnd: false },
+    });
+    return { success: true };
+  },
+});
+

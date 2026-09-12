@@ -68,4 +68,47 @@ describe("subscriptions changePlan/resume", () => {
       t.withIdentity(bobIdentity).mutation(api.subscriptions.resume, { orgSlug }),
     ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
   });
+
+  it("supports user-scoped cancelMine and resumeMine", async () => {
+    const { t } = await paidOrg();
+    // Alice is on Starter
+    const initial = await t.withIdentity(aliceIdentity).query(api.subscriptions.getMine, {});
+    expect(initial.plan?.name).toBe("Starter");
+    expect(initial.subscription.cancelAtPeriodEnd).toBe(false);
+
+    // Cancel Alice's subscription
+    const cancelResult = await t.withIdentity(aliceIdentity).mutation(api.subscriptions.cancelMine, {});
+    expect(cancelResult.success).toBe(true);
+
+    const cancelled = await t.withIdentity(aliceIdentity).query(api.subscriptions.getMine, {});
+    expect(cancelled.subscription.cancelAtPeriodEnd).toBe(true);
+
+    // Calling cancelMine again should conflict
+    await expect(
+      t.withIdentity(aliceIdentity).mutation(api.subscriptions.cancelMine, {}),
+    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
+
+    // Resume Alice's subscription
+    const resumeResult = await t.withIdentity(aliceIdentity).mutation(api.subscriptions.resumeMine, {});
+    expect(resumeResult.success).toBe(true);
+
+    const resumed = await t.withIdentity(aliceIdentity).query(api.subscriptions.getMine, {});
+    expect(resumed.subscription.cancelAtPeriodEnd).toBe(false);
+
+    // Calling resumeMine when not cancelled should conflict
+    await expect(
+      t.withIdentity(aliceIdentity).mutation(api.subscriptions.resumeMine, {}),
+    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
+
+    // User on Free plan (Bob) cannot cancel
+    await seedAndProvision(t, bobIdentity);
+    await t.withIdentity(bobIdentity).mutation(api.organizations.create, {
+      name: "Bob Org",
+      slug: "bob-org",
+    });
+    await expect(
+      t.withIdentity(bobIdentity).mutation(api.subscriptions.cancelMine, {}),
+    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
+  });
 });
+
