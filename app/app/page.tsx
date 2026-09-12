@@ -11,10 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowRight, Building2, Loader2, Plus, Sparkles } from "lucide-react";
-import { PageHeader } from "@/components/PageHeader";
+import { ArrowLeft, ArrowRight, Building2, Loader2, Sparkles, Trophy } from "lucide-react";
 import { UserMenu } from "@/components/UserMenu";
-import { EmptyState } from "@/components/tabulation/StateBlock";
 import { LoadingScreen } from "@/components/LoadingScreen";
 
 function AppHomeContent() {
@@ -23,175 +21,178 @@ function AppHomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const planParam = searchParams.get("plan");
+  const isExplicitNew = searchParams.get("new") === "true" || searchParams.get("new") === "1";
+
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
 
-  // If the user already has a single organization and arrived with a selected plan, automatically forward
+  // If the user already has organizations and is not explicitly creating a new one,
+  // automatically redirect straight to their workspace overview.
   useEffect(() => {
-    if (mine && mine.length === 1 && planParam) {
-      const orgSlug = mine[0].org?.slug;
-      if (orgSlug) {
-        if (planParam.toLowerCase() === "free") {
-          router.replace(`/app/${orgSlug}`);
-        } else {
-          router.replace(`/app/billing?plan=${encodeURIComponent(planParam.toLowerCase())}`);
-        }
-      }
+    if (!mine || mine.length === 0 || isExplicitNew) {
+      return;
     }
-  }, [mine, planParam, router]);
 
-  if (mine && mine.length === 1 && planParam) {
-    return (
-      <main className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 sm:px-6">
-        <LoadingScreen label="Opening billing..." />
-      </main>
-    );
+    if (planParam && planParam.toLowerCase() !== "free") {
+      router.replace(`/app/billing?plan=${encodeURIComponent(planParam.toLowerCase())}`);
+      return;
+    }
+
+    const lastSlug = typeof window !== "undefined" ? localStorage.getItem("last_org_slug") : null;
+    const targetOrg = mine.find((m) => m.org?.slug === lastSlug)?.org?.slug ?? mine[0]?.org?.slug;
+
+    if (targetOrg) {
+      router.replace(`/app/${targetOrg}/overview`);
+    }
+  }, [mine, planParam, isExplicitNew, router]);
+
+  // Loading state while checking organizations
+  if (mine === undefined) {
+    return <LoadingScreen label="Loading workspace…" />;
   }
 
+  // If the user has organizations and is being forwarded to overview
+  if (mine.length > 0 && !isExplicitNew) {
+    return <LoadingScreen label="Opening your workspace…" />;
+  }
+
+  // Get Started / Create First Organization onboarding state
+  const isFirstOrg = mine.length === 0;
+
   return (
-    <main className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 sm:px-6">
-      <PageHeader
-        icon={Building2}
-        title="Your organizations"
-        description="Select an organization to manage its events, templates, and billing."
-        actions={<UserMenu />}
-      />
-
-      {planParam && mine && mine.length > 1 ? (
-        <div className="p-4 bg-primary/10 border border-primary/25 rounded-xl flex items-center justify-between gap-3 text-sm">
-          <div className="flex items-center gap-2.5">
-            <Sparkles className="size-5 text-primary shrink-0" />
-            <div>
-              <span className="font-semibold capitalize">Selected: {planParam} Plan</span>
-              <p className="text-xs text-muted-foreground">Select an organization below to apply this subscription.</p>
-            </div>
-          </div>
-          <Badge className="bg-primary text-primary-foreground text-xs uppercase font-bold">{planParam}</Badge>
+    <div className="flex min-h-screen flex-col bg-background">
+      {/* Clean Onboarding Header */}
+      <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border/60 bg-background/85 px-4 sm:px-8 backdrop-blur-md">
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary shadow-xs">
+            <Trophy className="size-4" />
+          </span>
+          <span className="font-heading font-bold text-sm tracking-tight text-foreground">
+            Tabulation
+          </span>
         </div>
-      ) : null}
 
-      <Card className={planParam && mine && mine.length === 0 ? "border-primary/40 ring-1 ring-primary/20" : ""}>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Create an organization</CardTitle>
-            {planParam ? (
-              <Badge className="bg-primary/15 text-primary border-primary/30 text-[10px] uppercase font-bold gap-1">
-                <Sparkles className="size-3" />
-                {planParam} Plan Selected
-              </Badge>
-            ) : null}
-          </div>
-          <CardDescription>
-            {planParam
-              ? `Enter your organization name to complete setup and activate the ${planParam} plan.`
-              : "Organizations group your events, members, and subscriptions."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            className="flex flex-col gap-2 sm:flex-row"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (!name.trim()) return;
-              setCreating(true);
-              try {
-                const slug = await create({ name });
-                toast.success("Organization created — your subscription covers it.");
-                if (planParam && planParam.toLowerCase() !== "free") {
-                  router.push(`/app/billing?plan=${encodeURIComponent(planParam.toLowerCase())}`);
-                } else {
-                  router.push(`/app/${slug}`);
-                }
-              } catch (err: unknown) {
-                const code = (err as { data?: { code?: string } })?.data?.code;
-                if (code === "CONFLICT") {
-                  toast.error("An organization with that name already exists. Try a different name.");
-                } else {
-                  toast.error("Could not create organization.");
-                }
-                setCreating(false);
-              }
-            }}
-          >
-            <div className="flex-1 space-y-1.5">
-              <Label htmlFor="org-name" className="sr-only">
-                Organization name
-              </Label>
-              <Input
-                id="org-name"
-                placeholder="e.g. National Debate Federation"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                disabled={creating}
-              />
-            </div>
-            <Button type="submit" disabled={creating || !name.trim()} className="sm:w-auto font-semibold">
-              {creating ? (
-                <Loader2 aria-hidden className="animate-spin" />
-              ) : (
-                <Plus aria-hidden />
-              )}
-              {planParam && planParam.toLowerCase() !== "free" ? "Create & Continue" : "Create"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {mine === undefined ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {[0, 1].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <CardContent className="space-y-2">
-                <div className="h-5 w-1/2 rounded bg-muted" />
-                <div className="h-4 w-1/3 rounded bg-muted" />
-              </CardContent>
-            </Card>
-          ))}
+        <div className="flex items-center gap-3">
+          {!isFirstOrg && (
+            <Link href="/app">
+              <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+                <ArrowLeft className="size-3.5" />
+                Back to Workspace
+              </Button>
+            </Link>
+          )}
+          <UserMenu />
         </div>
-      ) : mine.length === 0 ? (
-        <EmptyState
-          icon={Building2}
-          title="No organizations yet"
-          hint="Create your first organization above to start running events."
-        />
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {mine.map((m) => {
-            const orgHref = planParam && planParam.toLowerCase() !== "free"
-              ? `/app/billing?plan=${encodeURIComponent(planParam.toLowerCase())}`
-              : `/app/${m.org?.slug}`;
+      </header>
 
-            return (
-              <Link key={m.membership._id} href={orgHref} className="group block">
-                <Card className="h-full transition-all group-hover:ring-primary/30 group-hover:shadow-md">
-                  <CardContent className="flex items-start justify-between gap-4">
-                    <div className="flex min-w-0 items-start gap-3">
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                        <Building2 aria-hidden className="size-5" />
-                      </span>
-                      <div className="min-w-0">
-                        <div className="truncate font-medium text-foreground">{m.org?.name}</div>
-                        <div className="mt-0.5 text-sm text-muted-foreground">{m.role?.name}</div>
-                      </div>
-                    </div>
-                    <ArrowRight
-                      aria-hidden
-                      className="mt-1 size-4 shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-primary"
-                    />
-                  </CardContent>
-                </Card>
-              </Link>
-            );
-          })}
+      {/* Centered Onboarding Prompt */}
+      <main className="flex flex-1 items-center justify-center px-4 py-12 sm:px-6">
+        <div className="w-full max-w-md space-y-6">
+          <Card className="border-border/70 shadow-xl ring-1 ring-foreground/5 backdrop-blur-sm">
+            <CardHeader className="text-center pb-4 pt-8 space-y-3">
+              <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-8 ring-primary/5">
+                <Building2 aria-hidden className="size-7" />
+              </div>
+
+              {planParam ? (
+                <div className="flex justify-center">
+                  <Badge className="bg-primary/15 text-primary border-primary/30 text-xs font-semibold gap-1.5 px-3 py-1 uppercase tracking-wide">
+                    <Sparkles className="size-3.5" />
+                    {planParam} Plan Selected
+                  </Badge>
+                </div>
+              ) : null}
+
+              <div className="space-y-1.5">
+                <CardTitle className="text-2xl font-bold tracking-tight">
+                  {isFirstOrg ? "Get started with Tabulation" : "Create an organization"}
+                </CardTitle>
+                <CardDescription className="text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
+                  {isFirstOrg
+                    ? "Create your first organization to start managing competitions, scoring rubrics, and real-time tabulation."
+                    : "Organizations group your events, team members, and scoring rubrics."}
+                </CardDescription>
+              </div>
+            </CardHeader>
+
+            <CardContent className="pb-8 px-6">
+              <form
+                className="space-y-4"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const trimmed = name.trim();
+                  if (!trimmed) return;
+                  setCreating(true);
+                  try {
+                    const slug = await create({ name: trimmed });
+                    try {
+                      localStorage.setItem("last_org_slug", slug);
+                    } catch {
+                      // ignore storage errors
+                    }
+                    toast.success("Organization created!");
+                    if (planParam && planParam.toLowerCase() !== "free") {
+                      router.push(`/app/billing?plan=${encodeURIComponent(planParam.toLowerCase())}`);
+                    } else {
+                      router.push(`/app/${slug}/overview`);
+                    }
+                  } catch (err: unknown) {
+                    const code = (err as { data?: { code?: string } })?.data?.code;
+                    if (code === "CONFLICT") {
+                      toast.error("An organization with that name already exists. Try a different name.");
+                    } else {
+                      toast.error("Could not create organization.");
+                    }
+                    setCreating(false);
+                  }
+                }}
+              >
+                <div className="space-y-2 text-left">
+                  <Label htmlFor="org-name" className="text-xs font-semibold text-foreground">
+                    Organization name
+                  </Label>
+                  <Input
+                    id="org-name"
+                    placeholder="e.g. National Debate Federation"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    disabled={creating}
+                    className="h-11 text-sm shadow-xs"
+                    autoFocus
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    This will be the workspace name and unique URL for your organization.
+                  </p>
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={creating || !name.trim()}
+                  className="w-full h-11 font-semibold text-sm shadow-sm gap-2"
+                >
+                  {creating ? (
+                    <Loader2 aria-hidden className="size-4 animate-spin" />
+                  ) : (
+                    <ArrowRight aria-hidden className="size-4" />
+                  )}
+                  {planParam && planParam.toLowerCase() !== "free"
+                    ? "Create & Continue"
+                    : isFirstOrg
+                    ? "Create & Get Started"
+                    : "Create Organization"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
         </div>
-      )}
-    </main>
+      </main>
+    </div>
   );
 }
 
 export default function AppHome() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<LoadingScreen label="Loading workspace…" />}>
       <AppHomeContent />
     </Suspense>
   );

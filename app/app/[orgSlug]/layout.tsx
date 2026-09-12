@@ -4,7 +4,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { notFound, usePathname } from "next/navigation";
 import Link from "next/link";
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Award,
@@ -48,6 +48,16 @@ export default function OrgLayout({
   const unreadSupportCount = supportBadge?.unreadCount ?? 0;
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    if (orgSlug) {
+      try {
+        localStorage.setItem("last_org_slug", orgSlug);
+      } catch {
+        // Ignore potential storage errors in restricted contexts
+      }
+    }
+  }, [orgSlug]);
 
   if (org === undefined) return <LoadingScreen label="Loading workspace…" />;
   if (org === null) return notFound();

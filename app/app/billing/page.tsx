@@ -321,7 +321,7 @@ function BillingContent() {
             <Link href="/app">
               <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
                 <ArrowLeft className="size-3.5" />
-                All Organizations
+                Back to Workspace
               </Button>
             </Link>
           )}
