@@ -128,7 +128,7 @@ export function LandingPricingSection() {
             Predictable, transparent competition plans
           </h2>
           <p className="mt-2.5 text-sm text-muted-foreground sm:text-base">
-            Empower your organization with real-time scoring, custom certificate generation, and verified audit trails.
+            One subscription per account — unlimited organizations, real-time scoring, custom certificates, and verified audit trails.
           </p>
         </div>
 

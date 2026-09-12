@@ -22,11 +22,9 @@ import {
   AlertCircle,
   ArrowRight,
   Building2,
-  CheckCircle2,
   KeyRound,
   Loader2,
   Lock,
-  Shield,
   ShieldCheck,
   Sparkles,
   Trophy,
@@ -253,7 +251,7 @@ export function SignInForm({
               </div>
               <CardDescription className="text-xs leading-relaxed">
                 {chosenPlan
-                  ? `Sign in with Google to configure your organization and activate the ${chosenPlan} subscription.`
+                  ? `Sign in with Google to configure your organization and activate the ${chosenPlan} subscription on your account.`
                   : "Sign in with your organization account to create competitions, manage judges, templates, and billing."}
               </CardDescription>
             </CardHeader>
@@ -264,7 +262,7 @@ export function SignInForm({
                   <div>
                     <span className="font-semibold block capitalize">Selected: {chosenPlan} Plan</span>
                     <span className="text-muted-foreground">
-                      After Google sign-in, you will be redirected directly to your organization with this plan pre-selected for checkout.
+                      After Google sign-in, you will be redirected directly to your account billing page with this plan pre-selected for checkout.
                     </span>
                   </div>
                 </div>
