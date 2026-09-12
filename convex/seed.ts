@@ -200,6 +200,29 @@ export const seedE2EData = mutation({
       });
       org = (await ctx.db.get(orgId))!;
 
+      const freePlan = await ctx.db
+        .query("plans")
+        .withIndex("by_name", (q) => q.eq("name", "Free"))
+        .unique();
+      if (freePlan) {
+        const existingSub = await ctx.db
+          .query("subscriptions")
+          .withIndex("by_user_id", (q) => q.eq("userId", testUser._id))
+          .unique();
+        if (!existingSub) {
+          await ctx.db.insert("subscriptions", {
+            userId: testUser._id,
+            planId: freePlan._id,
+            status: "active",
+            trialEndsAt: null,
+            currentPeriodEndAt: null,
+            cancelAtPeriodEnd: false,
+            stripeCustomerId: null,
+            stripeSubscriptionId: null,
+          });
+        }
+      }
+
       // Add org membership for owner
       const ownerRole = await ctx.db
         .query("roles")
