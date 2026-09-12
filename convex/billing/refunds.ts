@@ -2,9 +2,12 @@ import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { requirePermission } from "../lib/authz";
 import { appError, ErrorCode } from "../lib/errors";
+import { enforceRateLimit } from "../lib/rateLimit";
 import { writeAudit } from "../lib/audit";
 
 export const TEN_HOURS_MS = 10 * 60 * 60 * 1000;
+
+const MAX_REFUND_DETAILS_LENGTH = 5000;
 
 export const getEligibility = query({
   args: { orgSlug: v.string() },
@@ -17,10 +20,10 @@ export const getEligibility = query({
     const plan = await ctx.db.get(actx.subscription.planId);
     const isFree = (plan?.priceCents ?? 0) === 0;
 
-    // Fetch the latest completed paid payment for this organization
+    // Fetch the latest completed paid payment for this user
     const latestPayment = await ctx.db
       .query("billingPayments")
-      .withIndex("by_org_id", (q) => q.eq("orgId", actx.org._id))
+      .withIndex("by_user_id", (q) => q.eq("userId", actx.subscriberId))
       .filter((q) => q.eq(q.field("status"), "paid"))
       .order("desc")
       .first();
@@ -81,6 +84,10 @@ export const submitRefundTicket = mutation({
       orgSlug: args.orgSlug,
       permission: "subscription.manage",
     });
+    if (actx.org.createdById !== actx.user._id) {
+      throw appError(ErrorCode.FORBIDDEN, "Only the subscription owner can manage billing");
+    }
+    await enforceRateLimit(ctx, "refundTicket", actx.subscriberId);
 
     const trimmedReason = args.reason.trim();
     if (trimmedReason.length < 3) {
@@ -95,6 +102,13 @@ export const submitRefundTicket = mutation({
         "Reason is too long (maximum 500 characters).",
       );
     }
+    const trimmedDetails = args.details?.trim() ?? "";
+    if (trimmedDetails.length > MAX_REFUND_DETAILS_LENGTH) {
+      throw appError(
+        ErrorCode.VALIDATION_ERROR,
+        `Details are too long (maximum ${MAX_REFUND_DETAILS_LENGTH} characters).`,
+      );
+    }
 
     const plan = await ctx.db.get(actx.subscription.planId);
     if (!plan || (plan.priceCents ?? 0) === 0) {
@@ -106,7 +120,7 @@ export const submitRefundTicket = mutation({
 
     const latestPayment = await ctx.db
       .query("billingPayments")
-      .withIndex("by_org_id", (q) => q.eq("orgId", actx.org._id))
+      .withIndex("by_user_id", (q) => q.eq("userId", actx.subscriberId))
       .filter((q) => q.eq(q.field("status"), "paid"))
       .order("desc")
       .first();
@@ -161,7 +175,7 @@ export const submitRefundTicket = mutation({
     await ctx.db.insert("crmNotes", {
       leadId: crmLeadId,
       orgId: actx.org._id,
-      body: `[SUBSCRIPTION REFUND TICKET]\nPlan: ${plan.name}\nAmount: ₱${formattedAmount}\nPayment ID: ${latestPayment._id}\nPaid At: ${new Date(paidAt).toISOString()}\nSubmitted At: ${new Date(now).toISOString()}\nWindow: Valid (within 10-hour policy window)\n\nReason: ${trimmedReason}\nAdditional Details: ${args.details?.trim() || "None"}`,
+      body: `[SUBSCRIPTION REFUND TICKET]\nPlan: ${plan.name}\nAmount: ₱${formattedAmount}\nPayment ID: ${latestPayment._id}\nPaid At: ${new Date(paidAt).toISOString()}\nSubmitted At: ${new Date(now).toISOString()}\nWindow: Valid (within 10-hour policy window)\n\nReason: ${trimmedReason}\nAdditional Details: ${trimmedDetails || "None"}`,
       createdById: actx.user._id,
     });
 
@@ -173,7 +187,7 @@ export const submitRefundTicket = mutation({
       planId: plan._id,
       amountCents: latestPayment.amountCents,
       reason: trimmedReason,
-      details: args.details?.trim(),
+      details: trimmedDetails || undefined,
       status: "pending",
       paidAt,
       expiresAt,

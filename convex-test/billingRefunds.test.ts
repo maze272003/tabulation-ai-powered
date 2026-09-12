@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { api } from "../convex/_generated/api";
-import { aliceIdentity, grantPaidPlan, setupTest } from "./setup";
+import {
+  addOrgMemberWithoutDocumentsManage,
+  aliceIdentity,
+  bobIdentity,
+  createOrgAndEvent,
+  grantPaidPlan,
+  seedAndProvision,
+  setupTest,
+} from "./setup";
 
 describe("billing refund tickets (10-hour policy)", () => {
   it("shows eligible for refund within 10 hours of payment", async () => {
@@ -58,5 +66,32 @@ describe("billing refund tickets (10-hour policy)", () => {
         reason: "Second duplicate request",
       }),
     ).rejects.toThrow("already been submitted");
+  });
+
+  it("lets the owner refund against a payment shared across their orgs", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    await grantPaidPlan(t, "Starter");
+    await t.withIdentity(aliceIdentity).mutation(api.organizations.create, { name: "beta", slug: "beta" });
+    const eligibility = await t
+      .withIdentity(aliceIdentity)
+      .query(api.billing.refunds.getEligibility, { orgSlug: "beta" });
+    expect(eligibility.hasPaidSubscription).toBe(true);
+    expect(eligibility.isEligible).toBe(true);
+    expect(eligibility.planName).toBe("Starter");
+  });
+
+  it("rejects refund submission from a non-owner member", async () => {
+    const t = setupTest();
+    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
+    await grantPaidPlan(t, "Starter");
+    await seedAndProvision(t, bobIdentity);
+    await addOrgMemberWithoutDocumentsManage(t, "acme", bobIdentity);
+    await expect(
+      t.withIdentity(bobIdentity).mutation(api.billing.refunds.submitRefundTicket, {
+        orgSlug: "acme",
+        reason: "Changed my mind",
+      }),
+    ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
   });
 });

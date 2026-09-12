@@ -2,10 +2,15 @@ import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { requirePermission } from "../lib/authz";
 import { appError, ErrorCode } from "../lib/errors";
+import { enforceRateLimit } from "../lib/rateLimit";
 import { writeAudit } from "../lib/audit";
 import { createNotification } from "./notifications";
 
 export const TEN_HOURS_MS = 10 * 60 * 60 * 1000;
+
+const MAX_TICKET_SUBJECT_LENGTH = 200;
+const MAX_TICKET_DESCRIPTION_LENGTH = 5000;
+const MAX_MESSAGE_BODY_LENGTH = 5000;
 
 export const ticketTypeValidator = v.union(
   v.literal("refund"),
@@ -42,7 +47,7 @@ export const getRefundEligibility = query({
 
     const latestPayment = await ctx.db
       .query("billingPayments")
-      .withIndex("by_org_id", (q) => q.eq("orgId", actx.org._id))
+      .withIndex("by_user_id", (q) => q.eq("userId", actx.subscriberId))
       .filter((q) => q.eq(q.field("status"), "paid"))
       .order("desc")
       .first();
@@ -104,6 +109,7 @@ export const createRefundTicket = mutation({
       orgSlug: args.orgSlug,
       permission: "subscription.manage",
     });
+    await enforceRateLimit(ctx, "refundTicket", actx.org._id);
 
     const trimmedReason = args.reason.trim();
     if (trimmedReason.length < 3) {
@@ -118,6 +124,13 @@ export const createRefundTicket = mutation({
         "Reason is too long (maximum 500 characters).",
       );
     }
+    const trimmedDetails = args.details?.trim() ?? "";
+    if (trimmedDetails.length > MAX_TICKET_DESCRIPTION_LENGTH) {
+      throw appError(
+        ErrorCode.VALIDATION_ERROR,
+        `Details are too long (maximum ${MAX_TICKET_DESCRIPTION_LENGTH} characters).`,
+      );
+    }
 
     const plan = await ctx.db.get(actx.subscription.planId);
     if (!plan || (plan.priceCents ?? 0) === 0) {
@@ -129,7 +142,7 @@ export const createRefundTicket = mutation({
 
     const latestPayment = await ctx.db
       .query("billingPayments")
-      .withIndex("by_org_id", (q) => q.eq("orgId", actx.org._id))
+      .withIndex("by_user_id", (q) => q.eq("userId", actx.subscriberId))
       .filter((q) => q.eq(q.field("status"), "paid"))
       .order("desc")
       .first();
@@ -183,7 +196,7 @@ export const createRefundTicket = mutation({
     await ctx.db.insert("crmNotes", {
       leadId: crmLeadId,
       orgId: actx.org._id,
-      body: `[SUBSCRIPTION REFUND TICKET]\nPlan: ${plan.name}\nAmount: ₱${formattedAmount}\nPayment ID: ${latestPayment._id}\nPaid At: ${new Date(paidAt).toISOString()}\nSubmitted At: ${new Date(now).toISOString()}\nPolicy: Within 10-hour refund window.\nReason: ${trimmedReason}\nDetails: ${args.details?.trim() || "None"}`,
+      body: `[SUBSCRIPTION REFUND TICKET]\nPlan: ${plan.name}\nAmount: ₱${formattedAmount}\nPayment ID: ${latestPayment._id}\nPaid At: ${new Date(paidAt).toISOString()}\nSubmitted At: ${new Date(now).toISOString()}\nPolicy: Within 10-hour refund window.\nReason: ${trimmedReason}\nDetails: ${trimmedDetails || "None"}`,
       createdById: actx.user._id,
     });
 
@@ -210,8 +223,8 @@ export const createRefundTicket = mutation({
     });
 
     // Insert initial ticket message
-    const initialBody = args.details?.trim()
-      ? `Refund Request Submitted:\n**Reason:** ${trimmedReason}\n\n**Additional Details:**\n${args.details.trim()}`
+    const initialBody = trimmedDetails
+      ? `Refund Request Submitted:\n**Reason:** ${trimmedReason}\n\n**Additional Details:**\n${trimmedDetails}`
       : `Refund Request Submitted:\n**Reason:** ${trimmedReason}`;
 
     await ctx.db.insert("ticketMessages", {
@@ -231,7 +244,7 @@ export const createRefundTicket = mutation({
       planId: plan._id,
       amountCents: latestPayment.amountCents,
       reason: trimmedReason,
-      details: args.details?.trim(),
+      details: trimmedDetails || undefined,
       status: "pending",
       paidAt,
       expiresAt,
@@ -283,6 +296,7 @@ export const createSupportTicket = mutation({
       orgSlug: args.orgSlug,
       permission: "organization.view",
     });
+    await enforceRateLimit(ctx, "supportTicket", actx.user._id);
 
     const subject = args.subject.trim();
     const description = args.description.trim();
@@ -290,8 +304,20 @@ export const createSupportTicket = mutation({
     if (subject.length < 3) {
       throw appError(ErrorCode.VALIDATION_ERROR, "Subject must be at least 3 characters.");
     }
+    if (subject.length > MAX_TICKET_SUBJECT_LENGTH) {
+      throw appError(
+        ErrorCode.VALIDATION_ERROR,
+        `Subject must be at most ${MAX_TICKET_SUBJECT_LENGTH} characters.`,
+      );
+    }
     if (description.length < 5) {
       throw appError(ErrorCode.VALIDATION_ERROR, "Description must be at least 5 characters.");
+    }
+    if (description.length > MAX_TICKET_DESCRIPTION_LENGTH) {
+      throw appError(
+        ErrorCode.VALIDATION_ERROR,
+        `Description must be at most ${MAX_TICKET_DESCRIPTION_LENGTH} characters.`,
+      );
     }
 
     const now = Date.now();
@@ -472,6 +498,13 @@ export const sendMessage = mutation({
     if (body.length === 0) {
       throw appError(ErrorCode.VALIDATION_ERROR, "Message cannot be empty.");
     }
+    if (body.length > MAX_MESSAGE_BODY_LENGTH) {
+      throw appError(
+        ErrorCode.VALIDATION_ERROR,
+        `Message must be at most ${MAX_MESSAGE_BODY_LENGTH} characters.`,
+      );
+    }
+    await enforceRateLimit(ctx, "supportMessage", actx.user._id);
 
     const now = Date.now();
     const messageId = await ctx.db.insert("ticketMessages", {

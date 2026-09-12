@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { appError, ErrorCode } from "./lib/errors";
 import { requirePermission } from "./lib/authz";
+import { requireSubscriptionOwner } from "./lib/billingOwnership";
 import { writeAudit } from "./lib/audit";
 
 export const getForOrg = query({
@@ -12,7 +13,11 @@ export const getForOrg = query({
       permission: "subscription.view",
     });
     const plan = await ctx.db.get(actx.subscription.planId);
-    return { subscription: actx.subscription, plan };
+    return {
+      subscription: actx.subscription,
+      plan,
+      isOwner: actx.org.createdById === actx.user._id,
+    };
   },
 });
 
@@ -28,6 +33,9 @@ export const changePlan = mutation({
       orgSlug: args.orgSlug,
       permission: "subscription.manage",
     });
+    if (actx.org.createdById !== actx.user._id) {
+      throw appError(ErrorCode.FORBIDDEN, "Only the subscription owner can manage billing");
+    }
     const plan = await ctx.db
       .query("plans")
       .withIndex("by_name", (q) => q.eq("name", args.planName))
@@ -47,7 +55,7 @@ export const changePlan = mutation({
     }
     await ctx.db.patch(actx.subscription._id, { cancelAtPeriodEnd: true });
     await writeAudit(ctx, {
-      orgId: actx.org._id,
+      orgId: null,
       actorId: actx.user._id,
       action: "subscription.cancel_scheduled",
       resourceType: "subscription",
@@ -65,12 +73,15 @@ export const resume = mutation({
       orgSlug: args.orgSlug,
       permission: "subscription.manage",
     });
+    if (actx.org.createdById !== actx.user._id) {
+      throw appError(ErrorCode.FORBIDDEN, "Only the subscription owner can manage billing");
+    }
     if (!actx.subscription.cancelAtPeriodEnd) {
       throw appError(ErrorCode.CONFLICT, "No scheduled cancellation to resume");
     }
     await ctx.db.patch(actx.subscription._id, { cancelAtPeriodEnd: false });
     await writeAudit(ctx, {
-      orgId: actx.org._id,
+      orgId: null,
       actorId: actx.user._id,
       action: "subscription.resumed",
       resourceType: "subscription",
@@ -78,5 +89,14 @@ export const resume = mutation({
       before: { cancelAtPeriodEnd: true },
       after: { cancelAtPeriodEnd: false },
     });
+  },
+});
+
+export const getMine = query({
+  args: {},
+  handler: async (ctx) => {
+    const { subscription } = await requireSubscriptionOwner(ctx);
+    const plan = await ctx.db.get(subscription.planId);
+    return { subscription, plan };
   },
 });
