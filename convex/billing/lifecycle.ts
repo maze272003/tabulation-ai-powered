@@ -28,7 +28,7 @@ export const expireSubscriptions = internalMutation({
       if (payment._creationTime > now - STALE_PENDING_MS) continue;
       await ctx.db.patch(payment._id, { status: "expired" });
       await writeAudit(ctx, {
-        orgId: payment.orgId,
+        orgId: payment.orgId ?? null,
         actorId: null,
         action: "billing.payment.expired",
         resourceType: "billingPayment",
@@ -48,7 +48,7 @@ export const expireSubscriptions = internalMutation({
       if (subscription.currentPeriodEndAt === null) continue;
       await ctx.db.patch(subscription._id, { status: "past_due" });
       await writeAudit(ctx, {
-        orgId: subscription.orgId,
+        orgId: subscription.orgId ?? null,
         actorId: null,
         action: "subscription.past_due",
         resourceType: "subscription",
@@ -81,7 +81,7 @@ export const expireSubscriptions = internalMutation({
         cancelAtPeriodEnd: false,
       });
       await writeAudit(ctx, {
-        orgId: subscription.orgId,
+        orgId: subscription.orgId ?? null,
         actorId: null,
         action: "subscription.expired",
         resourceType: "subscription",

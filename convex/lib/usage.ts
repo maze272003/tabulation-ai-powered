@@ -3,9 +3,10 @@ import type { Id } from "../_generated/dataModel";
 
 export async function getUsage(
   ctx: QueryCtx,
-  orgId: Id<"organizations">,
+  orgId: Id<"organizations"> | undefined,
   resource: string,
 ): Promise<number> {
+  if (!orgId) return 0;
   const row = await ctx.db
     .query("usage")
     .withIndex("by_org_id_and_resource", (q) => q.eq("orgId", orgId).eq("resource", resource))

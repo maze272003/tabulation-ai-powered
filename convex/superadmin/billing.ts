@@ -145,7 +145,7 @@ export const listSubscriptions = query({
     const page = await Promise.all(
       result.page.map(async (subscription) => {
         const [org, plan] = await Promise.all([
-          ctx.db.get(subscription.orgId),
+          subscription.orgId ? ctx.db.get(subscription.orgId) : Promise.resolve(null),
           ctx.db.get(subscription.planId),
         ]);
         return {

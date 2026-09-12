@@ -115,7 +115,7 @@ export const failPayment = internalMutation({
     if (!payment || payment.status !== "pending") return;
     await ctx.db.patch(payment._id, { status: "failed", failureReason: args.reason });
     await writeAudit(ctx, {
-      orgId: payment.orgId,
+      orgId: payment.orgId ?? null,
       actorId: null,
       action: "billing.checkout.failed",
       resourceType: "billingPayment",

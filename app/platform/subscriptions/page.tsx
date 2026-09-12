@@ -63,6 +63,7 @@ export default function PlatformSubscriptionsPage() {
   const setPlan = useMutation(api.platform.subscriptions.setPlan);
 
   const openOverride = (row: (typeof results)[number]) => {
+    if (!row.orgId) return;
     setOverrideOrg({
       orgId: row.orgId,
       orgName: row.orgName ?? row.orgSlug ?? "Unknown organization",
@@ -155,7 +156,7 @@ export default function PlatformSubscriptionsPage() {
                       : "—"}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => openOverride(row)}>
+                    <Button variant="outline" size="sm" disabled={!row.orgId} onClick={() => openOverride(row)}>
                       Change plan
                     </Button>
                   </TableCell>
