@@ -301,3 +301,26 @@ describe("billing period math", () => {
     expect(computeRenewalWindow({ status: "active", currentPeriodEndAt: null }, "monthly", now).periodStartAt).toBe(now);
   });
 });
+
+import { pickWinningSubscription, subscriptionRank } from "../convex/lib/billingOwnership";
+
+describe("pickWinningSubscription", () => {
+  it("prefers paid-active over trial, then furthest period end", () => {
+    const trial = { status: "trialing" as const, currentPeriodEndAt: null };
+    const activeShort = { status: "active" as const, currentPeriodEndAt: 1000 };
+    const activeLong = { status: "active" as const, currentPeriodEndAt: 2000 };
+    expect(pickWinningSubscription([trial, activeShort, activeLong])).toBe(activeLong);
+    expect(subscriptionRank(activeShort)).toBeGreaterThan(subscriptionRank(trial));
+  });
+
+  it("prefers past_due over canceled regardless of period end", () => {
+    const canceled = { status: "canceled" as const, currentPeriodEndAt: 9000 };
+    const pastDue = { status: "past_due" as const, currentPeriodEndAt: 100 };
+    expect(pickWinningSubscription([canceled, pastDue])).toBe(pastDue);
+  });
+
+  it("throws on an empty candidate list", () => {
+    expect(() => pickWinningSubscription([])).toThrow();
+  });
+});
+
