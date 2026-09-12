@@ -260,7 +260,6 @@ export async function createOrgWithPendingCheckout(
     await t
       .withIdentity(aliceIdentity)
       .action(api.billing.checkout.createCheckout, {
-        orgSlug,
         planName: opts.planName ?? "Starter",
       });
   } finally {
@@ -269,7 +268,7 @@ export async function createOrgWithPendingCheckout(
   }
   const active = await t
     .withIdentity(aliceIdentity)
-    .query(api.billing.payments.getActiveCheckout, { orgSlug });
+    .query(api.billing.payments.getActiveCheckout, {});
   if (!active) throw new Error("pending checkout not found after createCheckout");
   return {
     orgSlug,

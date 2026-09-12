@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { action, internalMutation, mutation } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { appError, ErrorCode } from "../lib/errors";
-import { requirePermission } from "../lib/authz";
+import { requireSubscriptionOwner } from "../lib/billingOwnership";
 import { writeAudit } from "../lib/audit";
 import { randomHex } from "../lib/billing";
 import { createCheckoutSession, retrieveCheckoutSession, siteUrl } from "../lib/paymongo";
@@ -10,12 +10,9 @@ import { createCheckoutSession, retrieveCheckoutSession, siteUrl } from "../lib/
 const REFERENCE_SUFFIX_LENGTH = 6;
 
 export const createPendingPayment = internalMutation({
-  args: { orgSlug: v.string(), planName: v.string() },
+  args: { planName: v.string() },
   handler: async (ctx, args) => {
-    const actx = await requirePermission(ctx, {
-      orgSlug: args.orgSlug,
-      permission: "subscription.manage",
-    });
+    const { user } = await requireSubscriptionOwner(ctx);
     const plan = await ctx.db
       .query("plans")
       .withIndex("by_name", (q) => q.eq("name", args.planName))
@@ -34,7 +31,7 @@ export const createPendingPayment = internalMutation({
 
     const pending = await ctx.db
       .query("billingPayments")
-      .withIndex("by_org_id", (q) => q.eq("orgId", actx.org._id))
+      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
       .filter((q) => q.eq(q.field("status"), "pending"))
       .first();
     if (pending) {
@@ -45,9 +42,9 @@ export const createPendingPayment = internalMutation({
     }
 
     const paymentId = await ctx.db.insert("billingPayments", {
-      orgId: actx.org._id,
+      userId: user._id,
       planId: plan._id,
-      createdById: actx.user._id,
+      createdById: user._id,
       checkoutSessionId: null,
       checkoutUrl: null,
       referenceNumber: "",
@@ -63,8 +60,8 @@ export const createPendingPayment = internalMutation({
     const referenceNumber = `${paymentId}.${randomHex(REFERENCE_SUFFIX_LENGTH)}`;
     await ctx.db.patch(paymentId, { referenceNumber });
     await writeAudit(ctx, {
-      orgId: actx.org._id,
-      actorId: actx.user._id,
+      orgId: null,
+      actorId: user._id,
       action: "billing.checkout.created",
       resourceType: "billingPayment",
       resourceId: paymentId,
@@ -72,7 +69,7 @@ export const createPendingPayment = internalMutation({
     });
     return {
       paymentId,
-      orgId: actx.org._id,
+      userId: user._id,
       planName: plan.name,
       amountCents,
       currency: plan.currency,
@@ -115,7 +112,7 @@ export const failPayment = internalMutation({
     if (!payment || payment.status !== "pending") return;
     await ctx.db.patch(payment._id, { status: "failed", failureReason: args.reason });
     await writeAudit(ctx, {
-      orgId: payment.orgId ?? null,
+      orgId: null,
       actorId: null,
       action: "billing.checkout.failed",
       resourceType: "billingPayment",
@@ -126,10 +123,9 @@ export const failPayment = internalMutation({
 });
 
 export const createCheckout = action({
-  args: { orgSlug: v.string(), planName: v.string() },
+  args: { planName: v.string() },
   handler: async (ctx, args): Promise<string> => {
     const pending = await ctx.runMutation(internal.billing.checkout.createPendingPayment, {
-      orgSlug: args.orgSlug,
       planName: args.planName,
     });
     try {
@@ -138,9 +134,9 @@ export const createCheckout = action({
         amountCents: pending.amountCents,
         currency: pending.currency,
         referenceNumber: pending.referenceNumber,
-        successUrl: `${siteUrl()}/app/${args.orgSlug}/billing?billing=success`,
-        cancelUrl: `${siteUrl()}/app/${args.orgSlug}/billing?billing=cancelled`,
-        metadata: { orgId: pending.orgId, paymentId: pending.paymentId },
+        successUrl: `${siteUrl()}/app/billing?billing=success`,
+        cancelUrl: `${siteUrl()}/app/billing?billing=cancelled`,
+        metadata: { userId: pending.userId, paymentId: pending.paymentId },
       });
       await ctx.runMutation(internal.billing.checkout.attachCheckoutSession, {
         paymentId: pending.paymentId,
@@ -160,22 +156,19 @@ export const createCheckout = action({
 });
 
 export const cancelCheckout = mutation({
-  args: { orgSlug: v.string() },
-  handler: async (ctx, args): Promise<void> => {
-    const actx = await requirePermission(ctx, {
-      orgSlug: args.orgSlug,
-      permission: "subscription.manage",
-    });
+  args: {},
+  handler: async (ctx): Promise<void> => {
+    const { user } = await requireSubscriptionOwner(ctx);
     const pending = await ctx.db
       .query("billingPayments")
-      .withIndex("by_org_id", (q) => q.eq("orgId", actx.org._id))
+      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
       .filter((q) => q.eq(q.field("status"), "pending"))
       .first();
     if (!pending) throw appError(ErrorCode.CONFLICT, "No active checkout to cancel");
     await ctx.db.patch(pending._id, { status: "cancelled" });
     await writeAudit(ctx, {
-      orgId: actx.org._id,
-      actorId: actx.user._id,
+      orgId: null,
+      actorId: user._id,
       action: "billing.checkout.cancelled",
       resourceType: "billingPayment",
       resourceId: pending._id,
@@ -184,20 +177,24 @@ export const cancelCheckout = mutation({
 });
 
 export const syncCheckoutStatus = action({
-  args: { orgSlug: v.string() },
+  args: { orgSlug: v.optional(v.string()) },
   handler: async (
     ctx,
-    args,
   ): Promise<{
     status: "activated" | "already_active" | "still_pending" | "cancelled" | "no_pending" | "error";
     planName?: string;
     message?: string;
   }> => {
-    const active = await ctx.runQuery(api.billing.payments.getActiveCheckout, {
-      orgSlug: args.orgSlug,
-    });
+    const active = await ctx.runQuery(api.billing.payments.getActiveCheckout, {});
     if (!active) {
       return { status: "no_pending" };
+    }
+    // Bound the per-user call rate so a single user cannot exhaust the provider quota.
+    if (active.userId) {
+      await ctx.runMutation(internal.rateLimits.check, {
+        name: "checkoutSync",
+        key: active.userId,
+      });
     }
     if (!active.checkoutSessionId) {
       return { status: "still_pending" };
@@ -231,4 +228,3 @@ export const syncCheckoutStatus = action({
     }
   },
 });
-

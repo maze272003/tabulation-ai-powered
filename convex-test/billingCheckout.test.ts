@@ -32,11 +32,11 @@ describe("billing checkout", () => {
     stubCheckoutSuccess();
     const url = await t
       .withIdentity(aliceIdentity)
-      .action(api.billing.checkout.createCheckout, { orgSlug: "acme", planName: "Starter" });
+      .action(api.billing.checkout.createCheckout, { planName: "Starter" });
     expect(url).toBe("https://checkout.paymongo.com/test/1");
     const active = await t
       .withIdentity(aliceIdentity)
-      .query(api.billing.payments.getActiveCheckout, { orgSlug: "acme" });
+      .query(api.billing.payments.getActiveCheckout, {});
     expect(active).not.toBeNull();
     expect(active?.planName).toBe("Starter");
     expect(active?.amountCents).toBe(49900);
@@ -48,42 +48,38 @@ describe("billing checkout", () => {
     await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
     await expect(
       t.withIdentity(aliceIdentity).action(api.billing.checkout.createCheckout, {
-        orgSlug: "acme",
         planName: "Free",
       }),
     ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
     await expect(
       t.withIdentity(aliceIdentity).action(api.billing.checkout.createCheckout, {
-        orgSlug: "acme",
         planName: "Platinum",
       }),
     ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
   });
 
-  it("enforces the one-live-checkout rule with CONFLICT", async () => {
+  it("enforces the one-live-checkout rule per user with CONFLICT", async () => {
     const t = setupTest();
     await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
     stubCheckoutSuccess();
     await t
       .withIdentity(aliceIdentity)
-      .action(api.billing.checkout.createCheckout, { orgSlug: "acme", planName: "Starter" });
+      .action(api.billing.checkout.createCheckout, { planName: "Starter" });
     stubCheckoutSuccess("2");
     await expect(
       t.withIdentity(aliceIdentity).action(api.billing.checkout.createCheckout, {
-        orgSlug: "acme",
         planName: "Pro",
       }),
     ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
   });
 
-  it("requires subscription.manage permission", async () => {
+  it("rejects users without a subscription (non-creators cannot purchase)", async () => {
     const t = setupTest();
     await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
     await seedAndProvision(t, bobIdentity);
     stubCheckoutSuccess();
     await expect(
       t.withIdentity(bobIdentity).action(api.billing.checkout.createCheckout, {
-        orgSlug: "acme",
         planName: "Starter",
       }),
     ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
@@ -105,17 +101,16 @@ describe("billing checkout", () => {
     vi.stubEnv("PAYMONGO_SECRET_KEY", "sk_test_key");
     await expect(
       t.withIdentity(aliceIdentity).action(api.billing.checkout.createCheckout, {
-        orgSlug: "acme",
         planName: "Starter",
       }),
     ).rejects.toMatchObject({ data: { code: "PAYMENT_PROVIDER" } });
     const active = await t
       .withIdentity(aliceIdentity)
-      .query(api.billing.payments.getActiveCheckout, { orgSlug: "acme" });
+      .query(api.billing.payments.getActiveCheckout, {});
     expect(active).toBeNull();
     const history = await t
       .withIdentity(aliceIdentity)
-      .query(api.billing.payments.listForOrg, { orgSlug: "acme" });
+      .query(api.billing.payments.listForUser, {});
     expect(history.length).toBe(1);
     expect(history[0].status).toBe("failed");
     expect(history[0].failureReason).toContain("Invalid amount");
@@ -127,16 +122,16 @@ describe("billing checkout", () => {
     stubCheckoutSuccess();
     await t
       .withIdentity(aliceIdentity)
-      .action(api.billing.checkout.createCheckout, { orgSlug: "acme", planName: "Starter" });
+      .action(api.billing.checkout.createCheckout, { planName: "Starter" });
     await t
       .withIdentity(aliceIdentity)
-      .mutation(api.billing.checkout.cancelCheckout, { orgSlug: "acme" });
+      .mutation(api.billing.checkout.cancelCheckout, {});
     const active = await t
       .withIdentity(aliceIdentity)
-      .query(api.billing.payments.getActiveCheckout, { orgSlug: "acme" });
+      .query(api.billing.payments.getActiveCheckout, {});
     expect(active).toBeNull();
     await expect(
-      t.withIdentity(aliceIdentity).mutation(api.billing.checkout.cancelCheckout, { orgSlug: "acme" }),
+      t.withIdentity(aliceIdentity).mutation(api.billing.checkout.cancelCheckout, {}),
     ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
   });
 });

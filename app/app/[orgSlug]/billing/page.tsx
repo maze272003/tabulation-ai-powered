@@ -114,8 +114,8 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
 
   const subscription = useQuery(api.subscriptions.getForOrg, { orgSlug });
   const plans = useQuery(api.plans.list, {});
-  const payments = useQuery(api.billing.payments.listForOrg, { orgSlug });
-  const activeCheckout = useQuery(api.billing.payments.getActiveCheckout, { orgSlug });
+  const payments = useQuery(api.billing.payments.listForUser, {});
+  const activeCheckout = useQuery(api.billing.payments.getActiveCheckout, {});
   const refundEligibility = useQuery(api.support.tickets.getRefundEligibility, { orgSlug });
 
   const startCheckout = useAction(api.billing.checkout.createCheckout);
@@ -147,7 +147,7 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
 
     const checkPayment = async () => {
       try {
-        const res = await syncCheckout({ orgSlug });
+        const res = await syncCheckout({});
         if (!isMounted) return;
         if (res.status === "activated") {
           toast.success(`Subscription activated! You are now on the ${res.planName} plan.`);
@@ -174,12 +174,12 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
     return () => {
       isMounted = false;
     };
-  }, [billingResult, activeCheckout?.paymentId, orgSlug, syncCheckout]);
+  }, [billingResult, activeCheckout?.paymentId, syncCheckout]);
 
   const handleCheckout = async (planName: string) => {
     setBusyPlan(planName);
     try {
-      const url = await startCheckout({ orgSlug, planName });
+      const url = await startCheckout({ planName });
       window.location.assign(url);
     } catch (error) {
       toast.error(errorMessage(error));
@@ -189,7 +189,7 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
 
   const handleCancelCheckout = async () => {
     try {
-      await cancelCheckout({ orgSlug });
+      await cancelCheckout({});
       toast.info("Checkout cancelled.");
     } catch (error) {
       toast.error(errorMessage(error));
@@ -199,7 +199,7 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
   const handleSyncCheckout = async () => {
     setSyncing(true);
     try {
-      const res = await syncCheckout({ orgSlug });
+      const res = await syncCheckout({});
       if (res.status === "activated") {
         toast.success(`Subscription activated! You are now on the ${res.planName} plan.`);
       } else if (res.status === "still_pending") {
