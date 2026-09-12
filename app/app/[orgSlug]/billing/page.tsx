@@ -9,7 +9,13 @@ import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -22,10 +28,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/PageHeader";
 import {
-  ArrowRight,
+  ArrowUpRight,
+  CalendarClock,
   Check,
-  CheckCircle2,
-  Clock,
   CreditCard,
   LifeBuoy,
   Loader2,
@@ -83,7 +88,10 @@ const PLAN_FEATURE_LABELS: { key: string; label: string }[] = [
 function OrgBillingContent({ orgSlug }: { orgSlug: string }) {
   const subscription = useQuery(api.subscriptions.getForOrg, { orgSlug });
   const plans = useQuery(api.plans.list, {});
-  const refundEligibility = useQuery(api.support.tickets.getRefundEligibility, { orgSlug });
+  const refundEligibility = useQuery(
+    api.support.tickets.getRefundEligibility,
+    { orgSlug },
+  );
   const submitRefundTicket = useMutation(api.support.tickets.createRefundTicket);
 
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
@@ -116,10 +124,14 @@ function OrgBillingContent({ orgSlug }: { orgSlug: string }) {
   };
 
   if (subscription === undefined || plans === undefined) {
-    return <div className="h-72 animate-pulse rounded-xl bg-muted" aria-busy />;
+    return (
+      <div className="h-72 animate-pulse rounded-xl bg-muted" aria-busy />
+    );
   }
 
-  const currentPlan = plans.find((p) => p._id === subscription.subscription.planId);
+  const currentPlan = plans.find(
+    (p) => p._id === subscription.subscription.planId,
+  );
   const isOwner = subscription.isOwner;
   const status = subscription.subscription.status;
   const periodEndAt = subscription.subscription.currentPeriodEndAt;
@@ -128,7 +140,7 @@ function OrgBillingContent({ orgSlug }: { orgSlug: string }) {
   return (
     <div className="space-y-6">
       {status === "past_due" ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning-muted px-4 py-3 text-sm text-warning">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
           <span>
             {isOwner
               ? `Your subscription expired on ${formatDate(periodEndAt)}. Renew within the 7-day grace period to keep your paid features across all your organizations.`
@@ -136,155 +148,233 @@ function OrgBillingContent({ orgSlug }: { orgSlug: string }) {
           </span>
           {isOwner ? (
             <Link href={`/app/billing?from=${orgSlug}`}>
-              <Button size="sm">Renew now</Button>
+              <Button size="sm" variant="outline">
+                Renew now
+              </Button>
             </Link>
           ) : null}
         </div>
       ) : null}
 
-      <Card className="rounded-2xl border border-border/80 shadow-xs bg-gradient-to-b from-card to-card/70 overflow-hidden">
+      {/* Coverage Card */}
+      <Card className="rounded-xl border-border/70 shadow-sm">
         <CardHeader className="pb-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20 shrink-0">
-                <ShieldCheck className="size-5" />
+              <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15">
+                <ShieldCheck className="size-4" />
               </div>
               <div>
-                <CardTitle className="font-heading text-lg">Subscription Coverage</CardTitle>
-                <CardDescription>
+                <CardTitle className="font-heading text-base font-semibold tracking-tight">
+                  Subscription Coverage
+                </CardTitle>
+                <CardDescription className="text-[13px]">
                   {isOwner
                     ? "This organization is covered by your personal account subscription."
                     : "This organization is covered by its creator's subscription."}
                 </CardDescription>
               </div>
             </div>
-            <div>
-              {subscription.subscription.cancelAtPeriodEnd ? (
-                <Badge variant="outline" className="border-warning/50 text-warning bg-warning-muted text-xs font-semibold">
-                  Cancelling at period end
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="capitalize text-xs font-semibold">
-                  {status}
-                </Badge>
-              )}
-            </div>
+            {subscription.subscription.cancelAtPeriodEnd ? (
+              <Badge
+                variant="outline"
+                className="shrink-0 gap-1.5 border-amber-500/30 bg-amber-500/10 text-[11px] font-semibold text-amber-700 dark:text-amber-400"
+              >
+                <span className="size-1.5 rounded-full bg-amber-500" />
+                Cancelling
+              </Badge>
+            ) : (
+              <Badge
+                variant="outline"
+                className={cn(
+                  "shrink-0 gap-1.5 text-[11px] font-semibold capitalize",
+                  status === "active" &&
+                    "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+                )}
+              >
+                <span
+                  className={cn(
+                    "size-1.5 rounded-full",
+                    status === "active" ? "bg-emerald-500" : "bg-muted-foreground",
+                  )}
+                />
+                {status}
+              </Badge>
+            )}
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-xl bg-muted/40 border border-border/50 text-xs">
-            <div>
-              <span className="text-muted-foreground block">Active Plan</span>
-              <span className="font-bold text-sm text-foreground">{currentPlan?.name ?? "—"}</span>
+
+        <CardContent className="space-y-5">
+          {/* Stats */}
+          <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border/70 bg-border/70 sm:grid-cols-3">
+            <div className="bg-card px-4 py-3">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Active Plan
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-foreground">
+                {currentPlan?.name ?? "—"}
+              </p>
             </div>
-            <div>
-              <span className="text-muted-foreground block">
-                {subscription.subscription.cancelAtPeriodEnd ? "Access Ends" : "Current Period Ends"}
-              </span>
-              <span className="font-semibold text-foreground font-mono">{formatDate(periodEndAt)}</span>
+            <div className="bg-card px-4 py-3">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                {subscription.subscription.cancelAtPeriodEnd
+                  ? "Access Ends"
+                  : "Current Period Ends"}
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-foreground">
+                {formatDate(periodEndAt)}
+              </p>
             </div>
-            <div>
-              <span className="text-muted-foreground block">Pooled Capacity</span>
-              <span className="font-semibold text-foreground">
-                {currentPlan?.limits.maxEvents ?? 1} events · {currentPlan?.limits.maxJudges ?? 5} judges
-              </span>
+            <div className="bg-card px-4 py-3">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Pooled Capacity
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-foreground">
+                {currentPlan?.limits.maxEvents ?? 1} events ·{" "}
+                {currentPlan?.limits.maxJudges ?? 5} judges
+              </p>
             </div>
           </div>
 
-          <div className="space-y-2 pt-1">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+          {/* Entitlements */}
+          <div className="space-y-2.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Entitlements Included
-            </span>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            </p>
+            <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
               {PLAN_FEATURE_LABELS.map(({ key, label }) => {
-                const enabled = currentPlan?.features[key as keyof typeof currentPlan.features] === true;
+                const enabled =
+                  currentPlan?.features[
+                    key as keyof typeof currentPlan.features
+                  ] === true;
                 return (
                   <li
                     key={key}
                     className={cn(
-                      "flex items-center gap-2 rounded-lg p-2 bg-card/60 border border-border/40",
-                      enabled ? "text-foreground font-medium" : "text-muted-foreground/50",
+                      "flex items-center gap-2.5 rounded-md border px-3 py-2 text-[13px]",
+                      enabled
+                        ? "border-border/70 bg-card text-foreground"
+                        : "border-dashed border-border/60 bg-muted/30 text-muted-foreground",
                     )}
                   >
                     {enabled ? (
-                      <span className="flex size-4 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shrink-0">
-                        <Check className="size-2.5 stroke-[3]" />
-                      </span>
+                      <Check className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                     ) : (
-                      <span className="flex size-4 items-center justify-center rounded-full bg-muted text-muted-foreground/40 shrink-0">
-                        <X className="size-2.5" />
-                      </span>
+                      <X className="size-3.5 shrink-0 text-muted-foreground/60" />
                     )}
-                    <span>{label}</span>
+                    <span className={cn(!enabled && "line-through opacity-70")}>
+                      {label}
+                    </span>
                   </li>
                 );
               })}
             </ul>
           </div>
 
+          {/* CTA — compact, aligned right, not a full-width banner */}
           {isOwner ? (
-            <Link href={`/app/billing?from=${orgSlug}`} className="block pt-2">
-              <Button className="w-full font-semibold shadow-xs gap-2 group">
-                <CreditCard className="size-4" />
-                Manage Account Subscription & Plans
-                <ArrowRight className="size-4 ml-auto group-hover:translate-x-0.5 transition-transform" />
-              </Button>
-            </Link>
+            <div className="flex items-center justify-between gap-3 border-t border-border/70 pt-4">
+              <p className="text-xs text-muted-foreground">
+                Change your plan, update payment method, or view invoices.
+              </p>
+              <Link href={`/app/billing?from=${orgSlug}`}>
+                <Button size="sm" className="gap-1.5 font-medium">
+                  <CreditCard className="size-3.5" />
+                  Manage Subscription
+                  <ArrowUpRight className="size-3.5" />
+                </Button>
+              </Link>
+            </div>
           ) : (
-            <p className="pt-2 text-xs text-muted-foreground text-center">
-              Only the subscription owner can change the plan or make payments.
-            </p>
+            <div className="border-t border-border/70 pt-4">
+              <p className="text-xs text-muted-foreground">
+                Only the subscription owner can change the plan or make
+                payments.
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>
 
+      {/* Refund Card */}
       {isOwner && isPaidPlan && refundEligibility ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-heading flex items-center gap-2 text-base">
-              <LifeBuoy className="size-4 text-primary" /> Subscription Refund Policy
-            </CardTitle>
-            <CardDescription>
-              {refundEligibility.isEligible ? (
-                <span>
-                  Refund requests are valid strictly within <strong>10 hours</strong> of payment.
-                  You have <strong>{formatRemainingTime(refundEligibility.remainingMs)}</strong> remaining.
-                </span>
-              ) : (
-                <span>Refund tickets are only accepted within 10 hours of payment. This window has passed.</span>
-              )}
-            </CardDescription>
+        <Card className="rounded-xl border-border/70 shadow-sm">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15">
+                <LifeBuoy className="size-4" />
+              </div>
+              <div>
+                <CardTitle className="font-heading text-base font-semibold tracking-tight">
+                  Subscription Refund Policy
+                </CardTitle>
+                <CardDescription className="text-[13px]">
+                  {refundEligibility.isEligible ? (
+                    <>
+                      Refund requests are valid strictly within{" "}
+                      <span className="font-medium text-foreground">
+                        10 hours
+                      </span>{" "}
+                      of payment. You have{" "}
+                      <span className="font-medium text-foreground">
+                        {formatRemainingTime(refundEligibility.remainingMs)}
+                      </span>{" "}
+                      remaining.
+                    </>
+                  ) : (
+                    <>
+                      Refund tickets are only accepted within 10 hours of
+                      payment. This window has passed.
+                    </>
+                  )}
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          {refundEligibility.isEligible && !refundEligibility.existingTicket ? (
-            <CardContent>
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setRefundDialogOpen(true)}>
-                <Clock className="size-4 text-warning" /> Request Refund Ticket
+          {refundEligibility.isEligible &&
+          !refundEligibility.existingTicket ? (
+            <CardContent className="pt-0">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setRefundDialogOpen(true)}
+              >
+                <CalendarClock className="size-3.5" />
+                Request Refund Ticket
               </Button>
             </CardContent>
           ) : null}
         </Card>
       ) : null}
 
+      {/* Refund Dialog */}
       <Dialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <form onSubmit={handleSubmitRefund} className="space-y-4">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <LifeBuoy className="size-5 text-primary" /> Request Subscription Refund
+                <LifeBuoy className="size-5 text-primary" />
+                Request Subscription Refund
               </DialogTitle>
               <DialogDescription>
-                Refund tickets are processed by our support team. Submissions are valid strictly
-                within <strong>10 hours</strong> from the payment timestamp.
+                Refund tickets are processed by our support team. Submissions
+                are valid strictly within <strong>10 hours</strong> from the
+                payment timestamp.
               </DialogDescription>
             </DialogHeader>
-            <div className="rounded-lg border bg-muted/50 p-3 text-xs space-y-1">
+            <div className="space-y-1.5 rounded-lg border border-border/70 bg-muted/40 p-3 text-xs">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Plan:</span>
-                <span className="font-medium">{refundEligibility?.planName}</span>
+                <span className="text-muted-foreground">Plan</span>
+                <span className="font-medium">
+                  {refundEligibility?.planName}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Amount:</span>
-                <span className="font-medium">{formatPeso(refundEligibility?.amountCents ?? 0)}</span>
+                <span className="text-muted-foreground">Amount</span>
+                <span className="font-medium">
+                  {formatPeso(refundEligibility?.amountCents ?? 0)}
+                </span>
               </div>
             </div>
             <div className="space-y-2">
@@ -303,11 +393,14 @@ function OrgBillingContent({ orgSlug }: { orgSlug: string }) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="refund-details">
-                Additional Details <span className="text-muted-foreground text-xs">(Optional)</span>
+                Additional Details{" "}
+                <span className="text-xs font-normal text-muted-foreground">
+                  (Optional)
+                </span>
               </Label>
               <textarea
                 id="refund-details"
-                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 min-h-[80px]"
+                className="min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                 placeholder="Provide any additional context for our support team..."
                 value={refundDetails}
                 onChange={(e) => setRefundDetails(e.target.value)}
@@ -315,13 +408,19 @@ function OrgBillingContent({ orgSlug }: { orgSlug: string }) {
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setRefundDialogOpen(false)} disabled={submittingRefund}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setRefundDialogOpen(false)}
+                disabled={submittingRefund}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={submittingRefund}>
                 {submittingRefund ? (
                   <>
-                    <Loader2 className="size-4 animate-spin" /> Submitting…
+                    <Loader2 className="size-4 animate-spin" />
+                    Submitting…
                   </>
                 ) : (
                   "Submit Refund Ticket"
@@ -335,7 +434,11 @@ function OrgBillingContent({ orgSlug }: { orgSlug: string }) {
   );
 }
 
-export default function OrgBillingPage({ params }: { params: Promise<{ orgSlug: string }> }) {
+export default function OrgBillingPage({
+  params,
+}: {
+  params: Promise<{ orgSlug: string }>;
+}) {
   const { orgSlug } = use(params);
   return (
     <div className="space-y-6">
