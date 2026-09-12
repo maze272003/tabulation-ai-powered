@@ -3,10 +3,10 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { appError, ErrorCode } from "./errors";
 import { getUsage } from "./usage";
 
-export async function getSubscription(ctx: QueryCtx, orgId: Id<"organizations">) {
+export async function getSubscription(ctx: QueryCtx, userId: Id<"userProfiles">) {
   const sub = await ctx.db
     .query("subscriptions")
-    .withIndex("by_org_id", (q) => q.eq("orgId", orgId))
+    .withIndex("by_user_id", (q) => q.eq("userId", userId))
     .unique();
   if (!sub) throw appError(ErrorCode.NOT_FOUND, "Subscription not found");
   return sub;
@@ -51,9 +51,10 @@ export async function requireLimit(
   ctx: MutationCtx,
   sub: Doc<"subscriptions">,
   resource: string,
+  subscriberId: Id<"userProfiles">,
 ): Promise<void> {
   const plan = await getPlan(ctx, sub);
-  const current = await getUsage(ctx, sub.orgId, resource);
+  const current = await getUsage(ctx, subscriberId, resource);
   const limitKey = limitKeyForResource(resource);
   if (!hasLimit(plan, limitKey, current)) {
     throw appError(ErrorCode.LIMIT_EXCEEDED, `Limit reached: ${resource}`, {

@@ -45,7 +45,7 @@ export const create = mutation({
       .withIndex("by_org_id_and_slug", (q) => q.eq("orgId", actx.org._id).eq("slug", slug))
       .unique();
     if (existing) throw appError(ErrorCode.CONFLICT, "Event slug already taken", { slug });
-    await requireLimit(ctx, actx.subscription, "events");
+    await requireLimit(ctx, actx.subscription, "events", actx.subscriberId);
     const eventCode = await uniqueEventCode(ctx);
     const eventId = await ctx.db.insert("events", {
       orgId: actx.org._id,
@@ -62,7 +62,7 @@ export const create = mutation({
       createdById: actx.user._id,
     });
     await ctx.db.insert("categories", { eventId, name: "Open", order: 0 });
-    await incrementUsage(ctx, actx.org._id, "events", 1);
+    await incrementUsage(ctx, actx.subscriberId, "events", 1);
     await writeAudit(ctx, {
       orgId: actx.org._id, actorId: actx.user._id, action: "event.created",
       resourceType: "event", resourceId: eventId, after: { slug, name: args.name },
@@ -202,7 +202,7 @@ export const createFromTemplate = mutation({
   args: { orgSlug: v.string(), name: v.string(), slug: v.optional(v.string()), templateId: v.id("eventTemplates") },
   handler: async (ctx, args): Promise<string> => {
     const actx = await requirePermission(ctx, { orgSlug: args.orgSlug, permission: "event.create" });
-    await requireLimit(ctx, actx.subscription, "events");
+    await requireLimit(ctx, actx.subscription, "events", actx.subscriberId);
     const tpl = await ctx.db.get(args.templateId);
     if (!tpl || !(tpl.isSystem || tpl.orgId === actx.org._id)) {
       throw appError(ErrorCode.NOT_FOUND, "Template not found");
@@ -261,7 +261,7 @@ export const createFromTemplate = mutation({
         });
       }
     }
-    await incrementUsage(ctx, actx.org._id, "events", 1);
+    await incrementUsage(ctx, actx.subscriberId, "events", 1);
     await writeAudit(ctx, {
       orgId: actx.org._id, actorId: actx.user._id, action: "event.created",
       resourceType: "event", resourceId: eventId,

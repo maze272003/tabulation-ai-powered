@@ -89,7 +89,7 @@ export const createAccount = internalMutation({
     if (args.kind === "staff" && eactx.event.status !== "draft" && eactx.event.status !== "ready") {
       throw appError(ErrorCode.CONFLICT, "Staff can only be added before the event is finalized");
     }
-    await requireLimit(ctx, eactx.subscription, "judges");
+    await requireLimit(ctx, eactx.subscription, "judges", eactx.subscriberId);
     const resolvedUsername = args.username ?? (await nextAutoUsername(ctx, args.kind, eactx.event._id));
     const dup = await ctx.db
       .query("eventAccounts")
@@ -114,7 +114,7 @@ export const createAccount = internalMutation({
         eventId: eactx.event._id,
       });
     }
-    await incrementUsage(ctx, eactx.org._id, "judges", 1);
+    await incrementUsage(ctx, eactx.subscriberId, "judges", 1);
     await writeAudit(ctx, {
       orgId: eactx.org._id,
       actorId: eactx.user._id,
@@ -268,7 +268,7 @@ export const deleteAccount = mutation({
     for (const a of assignments) await ctx.db.delete(a._id);
     await revokeSessions(ctx, args.accountId);
     await ctx.db.delete(args.accountId);
-    await incrementUsage(ctx, eactx.org._id, "judges", -1);
+    await incrementUsage(ctx, eactx.subscriberId, "judges", -1);
     await writeAudit(ctx, {
       orgId: eactx.org._id,
       actorId: eactx.user._id,
@@ -442,7 +442,7 @@ export const bulkCreateAccounts = internalMutation({
 
     // Bulk plan-limit check (mirrors requireLimit but for a batch).
     const plan = await getPlan(ctx, eactx.subscription);
-    const currentJudges = await getUsage(ctx, eactx.org._id, "judges");
+    const currentJudges = await getUsage(ctx, eactx.subscriberId, "judges");
     const maxJudges = plan.limits.maxJudges;
     if (typeof maxJudges === "number" && currentJudges + args.entries.length > maxJudges) {
       throw appError(ErrorCode.LIMIT_EXCEEDED, `Bulk creation would exceed the plan limit of ${maxJudges} judges`, {
@@ -505,7 +505,7 @@ export const bulkCreateAccounts = internalMutation({
       }
       accounts.push({ accountId, displayName: entry.displayName, username: resolvedUsernames[i], password: entry.password });
     }
-    await incrementUsage(ctx, eactx.org._id, "judges", args.entries.length);
+    await incrementUsage(ctx, eactx.subscriberId, "judges", args.entries.length);
     await writeAudit(ctx, {
       orgId: eactx.org._id,
       actorId: eactx.user._id,

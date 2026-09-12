@@ -43,18 +43,24 @@ export const list = query({
       result.page.map(async (org) => {
         const subscription = await ctx.db
           .query("subscriptions")
-          .withIndex("by_org_id", (q) => q.eq("orgId", org._id))
+          .withIndex("by_user_id", (q) => q.eq("userId", org.createdById))
           .unique();
         const plan = subscription ? await ctx.db.get(subscription.planId) : null;
+        const subscriberId = org.createdById;
+        const activeMembers = await ctx.db
+          .query("organizationMembers")
+          .withIndex("by_org_id", (q) => q.eq("orgId", org._id))
+          .filter((q) => q.eq(q.field("status"), "active"))
+          .collect();
         return {
           org,
           planName: plan?.name ?? null,
           subscriptionStatus: subscription?.status ?? null,
           usage: {
-            members: await getUsage(ctx, org._id, "members"),
-            events: await getUsage(ctx, org._id, "events"),
-            judges: await getUsage(ctx, org._id, "judges"),
-            contestants: await getUsage(ctx, org._id, "contestants"),
+            members: activeMembers.length,
+            events: await getUsage(ctx, subscriberId, "events"),
+            judges: await getUsage(ctx, subscriberId, "judges"),
+            contestants: await getUsage(ctx, subscriberId, "contestants"),
           },
         };
       }),
@@ -83,7 +89,7 @@ export const detail = query({
 
     const subscription = await ctx.db
       .query("subscriptions")
-      .withIndex("by_org_id", (q) => q.eq("orgId", org._id))
+      .withIndex("by_user_id", (q) => q.eq("userId", org.createdById))
       .unique();
     const [owner, plan] = await Promise.all([
       ctx.db.get(org.ownerId),
@@ -159,10 +165,10 @@ export const detail = query({
       events,
       counts: { contestants, sheetsSubmitted, scoresEntered },
       usage: {
-        members: await getUsage(ctx, org._id, "members"),
-        events: await getUsage(ctx, org._id, "events"),
-        judges: await getUsage(ctx, org._id, "judges"),
-        contestants: await getUsage(ctx, org._id, "contestants"),
+        members: members.length,
+        events: await getUsage(ctx, org.createdById, "events"),
+        judges: await getUsage(ctx, org.createdById, "judges"),
+        contestants: await getUsage(ctx, org.createdById, "contestants"),
       },
       members: membersWithProfiles,
       recentAudit,

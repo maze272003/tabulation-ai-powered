@@ -35,13 +35,21 @@ export const list = query({
       .paginate(args.paginationOpts);
     const page = await Promise.all(
       result.page.map(async (subscription) => {
+        const subUserId = subscription.userId;
         const [org, plan] = await Promise.all([
-          subscription.orgId ? ctx.db.get(subscription.orgId) : Promise.resolve(null),
+          subscription.orgId
+            ? ctx.db.get(subscription.orgId)
+            : subUserId
+              ? ctx.db
+                  .query("organizations")
+                  .withIndex("by_created_by_id", (q) => q.eq("createdById", subUserId))
+                  .first()
+              : Promise.resolve(null),
           ctx.db.get(subscription.planId),
         ]);
         return {
           subscription,
-          orgId: subscription.orgId ?? null,
+          orgId: subscription.orgId ?? org?._id ?? null,
           orgName: org?.name ?? null,
           orgSlug: org?.slug ?? null,
           orgStatus: org?.status ?? null,
@@ -71,7 +79,7 @@ export const setPlan = mutation({
     const org = await requireOrg(ctx, args.orgId);
     const plan = await ctx.db.get(args.planId);
     if (!plan) throw appError(ErrorCode.NOT_FOUND, "Plan not found");
-    const subscription = await getSubscription(ctx, org._id);
+    const subscription = await getSubscription(ctx, org.createdById);
     if (subscription.planId === plan._id) {
       throw appError(ErrorCode.CONFLICT, `Organization is already on ${plan.name}`);
     }

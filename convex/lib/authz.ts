@@ -10,6 +10,7 @@ export type AuthCtx = {
   role: Doc<"roles">;
   permissions: Set<string>;
   subscription: Doc<"subscriptions">;
+  subscriberId: Id<"userProfiles">;
 };
 
 export async function resolveOrgBySlug(ctx: QueryCtx, slug: string) {
@@ -52,11 +53,11 @@ export async function requireOrgMember(
   if (!role) throw appError(ErrorCode.FORBIDDEN, "Role not found");
   const subscription = await ctx.db
     .query("subscriptions")
-    .withIndex("by_org_id", (q) => q.eq("orgId", org._id))
+    .withIndex("by_user_id", (q) => q.eq("userId", org.createdById))
     .unique();
   if (!subscription) throw appError(ErrorCode.FORBIDDEN, "No subscription");
   const permissions = await loadPermissions(ctx, role._id);
-  return { user, org, membership, role, permissions, subscription };
+  return { user, org, membership, role, permissions, subscription, subscriberId: org.createdById };
 }
 
 export async function requirePermission(

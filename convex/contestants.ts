@@ -15,7 +15,7 @@ export const add = mutation({
   },
   handler: async (ctx, args) => {
     const eactx = await requireDraftEvent(ctx, { orgSlug: args.orgSlug, eventSlug: args.eventSlug, permission: "contestant.manage" });
-    await requireLimit(ctx, eactx.subscription, "contestants");
+    await requireLimit(ctx, eactx.subscription, "contestants", eactx.subscriberId);
     if (!args.name.trim()) throw appError(ErrorCode.VALIDATION_ERROR, "name must not be empty");
     if (!Number.isInteger(args.number) || args.number < 1) {
       throw appError(ErrorCode.VALIDATION_ERROR, "number must be a positive integer");
@@ -44,7 +44,7 @@ export const add = mutation({
       status: "active",
       customFields: args.customFields,
     });
-    await incrementUsage(ctx, eactx.org._id, "contestants", 1);
+    await incrementUsage(ctx, eactx.subscriberId, "contestants", 1);
     await writeAudit(ctx, {
       orgId: eactx.org._id, actorId: eactx.user._id, action: "contestant.added",
       resourceType: "contestant", resourceId: id, after: { name: args.name, number: args.number },
@@ -101,7 +101,7 @@ export const remove = mutation({
     const c = await ctx.db.get(args.contestantId);
     if (!c || c.eventId !== eactx.event._id) throw appError(ErrorCode.NOT_FOUND, "Contestant not found");
     await ctx.db.delete(args.contestantId);
-    await incrementUsage(ctx, eactx.org._id, "contestants", -1);
+    await incrementUsage(ctx, eactx.subscriberId, "contestants", -1);
     await writeAudit(ctx, {
       orgId: eactx.org._id, actorId: eactx.user._id, action: "contestant.removed",
       resourceType: "contestant", resourceId: args.contestantId, before: { name: c.name },
@@ -182,7 +182,7 @@ export const bulkAdd = mutation({
     }
 
     const plan = await getPlan(ctx, eactx.subscription);
-    const currentCount = await getUsage(ctx, eactx.org._id, "contestants");
+    const currentCount = await getUsage(ctx, eactx.subscriberId, "contestants");
     const maxContestants = plan.limits.maxContestants;
     if (typeof maxContestants === "number" && currentCount + args.rows.length > maxContestants) {
       throw appError(ErrorCode.LIMIT_EXCEEDED, `Import would exceed the plan limit of ${maxContestants} contestants`, {
@@ -201,7 +201,7 @@ export const bulkAdd = mutation({
         status: "active",
       });
     }
-    await incrementUsage(ctx, eactx.org._id, "contestants", args.rows.length);
+    await incrementUsage(ctx, eactx.subscriberId, "contestants", args.rows.length);
     await writeAudit(ctx, {
       orgId: eactx.org._id,
       actorId: eactx.user._id,

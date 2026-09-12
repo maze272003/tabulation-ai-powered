@@ -371,24 +371,22 @@ export const resetSingleEvent = mutation({
     }
 
     const deletedCounts = await deleteEventCascade(ctx, event._id);
-    await incrementUsage(ctx, org._id, "events", -1);
+    await incrementUsage(ctx, org.createdById, "events", -1);
     let totalDeleted = 0;
     for (const val of Object.values(deletedCounts)) {
       totalDeleted += val;
     }
 
-    if (caller) {
-      await writeAudit(ctx, {
-        orgId: org._id,
-        actorId: caller._id,
-        action: "platform.database.reset_single_event",
-        resourceType: "event",
-        resourceId: event._id,
-        before: { eventSlug: args.eventSlug, totalDeleted },
-        after: {},
-        reason: `Deleted event ${args.eventSlug}`,
-      });
-    }
+    await writeAudit(ctx, {
+      orgId: org._id,
+      actorId: caller._id,
+      action: "platform.database.reset_single_event",
+      resourceType: "event",
+      resourceId: event._id,
+      before: { eventSlug: args.eventSlug, totalDeleted },
+      after: {},
+      reason: `Deleted event ${args.eventSlug}`,
+    });
 
     return {
       success: true,

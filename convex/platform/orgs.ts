@@ -58,7 +58,7 @@ export const list = query({
       result.page.map(async (org) => {
         const subscription = await ctx.db
           .query("subscriptions")
-          .withIndex("by_org_id", (q) => q.eq("orgId", org._id))
+          .withIndex("by_user_id", (q) => q.eq("userId", org.createdById))
           .unique();
         const plan = subscription ? await ctx.db.get(subscription.planId) : null;
         return {
@@ -91,18 +91,24 @@ export const get = query({
     await requirePlatformOwner(ctx);
     const org = await requireOrg(ctx, args.orgId);
 
-    const subscription = await getSubscription(ctx, org._id);
+    const subscription = await getSubscription(ctx, org.createdById);
     const [owner, plan] = await Promise.all([
       ctx.db.get(org.ownerId),
       ctx.db.get(subscription.planId),
     ]);
     if (!plan) throw appError(ErrorCode.NOT_FOUND, "Plan not found");
 
+    const subscriberId = org.createdById;
+    const activeMembers = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_org_id", (q) => q.eq("orgId", org._id))
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
     const usage = {
-      members: await getUsage(ctx, org._id, "members"),
-      events: await getUsage(ctx, org._id, "events"),
-      judges: await getUsage(ctx, org._id, "judges"),
-      contestants: await getUsage(ctx, org._id, "contestants"),
+      members: activeMembers.length,
+      events: await getUsage(ctx, subscriberId, "events"),
+      judges: await getUsage(ctx, subscriberId, "judges"),
+      contestants: await getUsage(ctx, subscriberId, "contestants"),
     };
 
     const auditRows = await ctx.db
