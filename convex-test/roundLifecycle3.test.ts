@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { api } from "../convex/_generated/api";
-import { aliceIdentity, bobIdentity, createOrgAndEvent, prepareScoredEvent, setupTest } from "./setup";
+import { aliceIdentity, bobIdentity, carolIdentity, createOrgAndEvent, prepareScoredEvent, setupTest } from "./setup";
 
 async function submitJudgeScores(
   t: ReturnType<typeof setupTest>,
@@ -65,9 +65,9 @@ describe("round lifecycle", () => {
     await expect(
       t.mutation(api.roundAdmin.closeRound, { orgSlug: "acme", eventSlug: "gala", roundId: ids.roundId }),
     ).rejects.toMatchObject({ data: { code: "UNAUTHENTICATED" } });
-    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme2", eventSlug: "gala2" });
-    await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "acme2", eventSlug: "gala2", name: "R" });
-    const otherRounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "acme2", eventSlug: "gala2" });
+    await createOrgAndEvent(t, carolIdentity, { orgSlug: "acme2", eventSlug: "gala2" });
+    await t.withIdentity(carolIdentity).mutation(api.rounds.add, { orgSlug: "acme2", eventSlug: "gala2", name: "R" });
+    const otherRounds = await t.withIdentity(carolIdentity).query(api.rounds.list, { orgSlug: "acme2", eventSlug: "gala2" });
     await expect(
       t.withIdentity(aliceIdentity).query(api.roundAdmin.roundMonitor, { orgSlug: "acme", eventSlug: "gala", roundId: otherRounds[0]._id }),
     ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });

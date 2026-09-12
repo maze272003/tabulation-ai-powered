@@ -4,6 +4,7 @@ import type { QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { appError, ErrorCode } from "./lib/errors";
 import { requireEventSession, touchSession } from "./lib/eventSession";
+import { enforceRateLimit } from "./lib/rateLimit";
 import { writeAudit } from "./lib/audit";
 
 const SVG_PATH_REGEX = /^[MmLlHhVvCcSsQqTtAaZz0-9, .\-]+$/;
@@ -342,6 +343,13 @@ export const nudgeJudge = mutation({
       requireReadyEvent: true,
     });
 
+    // The round scopes the audit record, so it must belong to the caller's
+    // event — otherwise a foreign round id pollutes the audit trail.
+    const round = await ctx.db.get(args.roundId);
+    if (!round || round.eventId !== sctx.event._id) {
+      throw appError(ErrorCode.NOT_FOUND, "Round not found");
+    }
+
     const judge = await ctx.db.get(args.judgeId);
     if (!judge || judge.eventId !== sctx.event._id) {
       throw appError(ErrorCode.NOT_FOUND, "Judge not found");
@@ -541,18 +549,24 @@ export const scrutineerCountersign = mutation({
   },
 });
 
+const VERIFICATION_HASH_PATTERN = /^[0-9a-f]{64}$/;
+
 export const getPublicVerificationRecord = query({
   args: {
     verificationHash: v.string(),
   },
   handler: async (ctx, args) => {
-    if (!args.verificationHash || args.verificationHash.trim().length === 0) {
+    const hash = args.verificationHash.trim().toLowerCase();
+    // Cheap format gate first: the hash is the unguessable capability, and
+    // strict format checking keeps garbage input from ever touching the index.
+    if (!VERIFICATION_HASH_PATTERN.test(hash)) {
       return null;
     }
 
-    // Search resultVersions for matching verificationHash
-    const versions = await ctx.db.query("resultVersions").collect();
-    const match = versions.find((v) => v.snapshot.verificationHash === args.verificationHash);
+    const match = await ctx.db
+      .query("resultVersions")
+      .withIndex("by_verification_hash", (q) => q.eq("verificationHash", hash))
+      .unique();
     if (!match) return null;
 
     const event = await ctx.db.get(match.eventId);
@@ -590,7 +604,7 @@ export const getPublicVerificationRecord = query({
       decimalPrecision: match.snapshot.decimalPrecision,
       standings,
       certifications,
-      verificationHash: args.verificationHash,
+      verificationHash: hash,
     };
   },
 });
@@ -600,11 +614,12 @@ export const generateAttachmentUploadUrl = mutation({
     sessionToken: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireEventSession(ctx, {
+    const sctx = await requireEventSession(ctx, {
       sessionToken: args.sessionToken,
       kind: "staff",
       requireReadyEvent: true,
     });
+    await enforceRateLimit(ctx, "uploadUrl", sctx.event._id);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -615,9 +630,25 @@ export const getAttachmentUrl = query({
     storageId: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireEventSession(ctx, {
+    const sctx = await requireEventSession(ctx, {
       sessionToken: args.sessionToken,
+      kind: "staff",
     });
+
+    // Storage ids are deployment-global; without this check any session
+    // holder could mint a URL for any blob in the deployment. Only override
+    // evidence attachments recorded for this event resolve.
+    const eventSignatures = await ctx.db
+      .query("roundSignatures")
+      .withIndex("by_event_id_and_scope", (q) => q.eq("eventId", sctx.event._id))
+      .collect();
+    const isRegisteredOverride = eventSignatures.some(
+      (sig) => sig.overrideAttachmentStorageId === args.storageId,
+    );
+    if (!isRegisteredOverride) {
+      throw appError(ErrorCode.NOT_FOUND, "Attachment not found");
+    }
+
     return await ctx.storage.getUrl(args.storageId);
   },
 });
@@ -628,8 +659,11 @@ export const getRoundAuditSheetData = query({
     roundId: v.id("rounds"),
   },
   handler: async (ctx, args) => {
+    // The audit sheet aggregates every judge's signature specimen and the
+    // full standings — staff-only surface.
     const sctx = await requireEventSession(ctx, {
       sessionToken: args.sessionToken,
+      kind: "staff",
     });
 
     const round = await ctx.db.get(args.roundId);

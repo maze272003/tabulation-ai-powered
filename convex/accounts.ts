@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { action, internalMutation, mutation, query } from "./_generated/server";
+import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
@@ -12,6 +12,35 @@ import { hashPassword, MIN_PASSWORD_LENGTH, USERNAME_PATTERN } from "./lib/passw
 
 const AUTO_PASSWORD_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
 const AUTO_PASSWORD_LENGTH = 10;
+// Upper bound so huge client-supplied key material cannot inflate the
+// PBKDF2 input before validation rejects it.
+export const MAX_PASSWORD_LENGTH = 128;
+
+/**
+ * Auth gate for the public account actions. These actions hash passwords
+ * (expensive PBKDF2) before delegating to internal mutations; authenticating
+ * first via this cheap indexed query keeps anonymous callers from burning
+ * CPU. The internal mutations remain the transactional authority.
+ */
+export const requireAccountManager = internalQuery({
+  args: { orgSlug: v.string(), eventSlug: v.string() },
+  handler: async (ctx, args) => {
+    await requireEventPermission(ctx, {
+      orgSlug: args.orgSlug,
+      eventSlug: args.eventSlug,
+      permission: "judge.manage",
+    });
+  },
+});
+
+function assertPasswordLength(password: string): void {
+  if (password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
+    throw appError(
+      ErrorCode.VALIDATION_ERROR,
+      `Password must be ${MIN_PASSWORD_LENGTH}-${MAX_PASSWORD_LENGTH} characters`,
+    );
+  }
+}
 
 function generateAutoPassword(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(AUTO_PASSWORD_LENGTH));
@@ -47,12 +76,16 @@ export const create = action({
     password: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<{ accountId: Id<"eventAccounts">; username: string; password: string }> => {
+    await ctx.runQuery(internal.accounts.requireAccountManager, {
+      orgSlug: args.orgSlug,
+      eventSlug: args.eventSlug,
+    });
     const username = args.username?.toLowerCase().trim();
     if (username !== undefined && !USERNAME_PATTERN.test(username)) {
       throw appError(ErrorCode.VALIDATION_ERROR, "Username must be 3-32 chars: a-z, 0-9, dot, dash, underscore");
     }
-    if (args.password !== undefined && args.password.length < MIN_PASSWORD_LENGTH) {
-      throw appError(ErrorCode.VALIDATION_ERROR, `Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+    if (args.password !== undefined) {
+      assertPasswordLength(args.password);
     }
     const password = args.password ?? generateAutoPassword();
     const passwordHash = await hashPassword(password);
@@ -170,8 +203,12 @@ export const resetPassword = action({
     password: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<{ password: string }> => {
-    if (args.password !== undefined && args.password.length < MIN_PASSWORD_LENGTH) {
-      throw appError(ErrorCode.VALIDATION_ERROR, `Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+    await ctx.runQuery(internal.accounts.requireAccountManager, {
+      orgSlug: args.orgSlug,
+      eventSlug: args.eventSlug,
+    });
+    if (args.password !== undefined) {
+      assertPasswordLength(args.password);
     }
     const password = args.password ?? generateAutoPassword();
     const passwordHash = await hashPassword(password);
@@ -366,9 +403,14 @@ export const bulkCreate = action({
   handler: async (ctx, args): Promise<{
     accounts: { accountId: Id<"eventAccounts">; displayName: string; username: string; password: string }[];
   }> => {
+    // Authenticate before the expensive PBKDF2 loop; the internal mutation
+    // below re-checks atomically and remains the authority.
+    await ctx.runQuery(internal.accounts.requireAccountManager, {
+      orgSlug: args.orgSlug,
+      eventSlug: args.eventSlug,
+    });
     // Actions are publicly callable, so reject invalid batches before the
-    // expensive PBKDF2 hashing loop. The internal mutation re-checks these
-    // atomically and remains the authority.
+    // expensive PBKDF2 hashing loop.
     if (args.entries.length === 0) {
       throw appError(ErrorCode.VALIDATION_ERROR, "No entries provided");
     }

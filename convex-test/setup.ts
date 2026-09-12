@@ -16,8 +16,39 @@ export async function seedAndProvision(
   t: ReturnType<typeof setupTest>,
   identity: Partial<UserIdentity>,
 ) {
-  await t.mutation(api.seed.seedReferenceData, {});
+  await t.mutation(internal.seed.seedReferenceData, {});
   return t.withIdentity(identity).mutation(api.auth.ensureUserProfile, {});
+}
+
+export const ownerIdentity = {
+  tokenIdentifier: "owner-token",
+  subject: "owner-subject",
+  name: "Owner",
+  email: "owner@example.com",
+  pictureUrl: "https://example.com/o.png",
+  issuer: "https://tabulation.example.com",
+} as const;
+
+/**
+ * Provisions `identity` and elevates the profile to platform_owner via direct
+ * DB access, mirroring how the production bootstrap would promote the first
+ * owner. Used by tests that exercise platform-owner-only surfaces.
+ */
+export async function promoteToPlatformOwner(
+  t: ReturnType<typeof setupTest>,
+  identity: Partial<UserIdentity>,
+) {
+  await seedAndProvision(t, identity);
+  const tokenIdentifier = identity.tokenIdentifier;
+  if (!tokenIdentifier) throw new Error("identity.tokenIdentifier is required");
+  await t.run(async (ctx) => {
+    const profile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_token_identifier", (q) => q.eq("tokenIdentifier", tokenIdentifier))
+      .unique();
+    if (!profile) throw new Error(`Profile not provisioned for ${tokenIdentifier}`);
+    await ctx.db.patch(profile._id, { platformRole: "platform_owner" });
+  });
 }
 
 export const aliceIdentity = {

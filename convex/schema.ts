@@ -32,6 +32,7 @@ export default defineSchema({
     }),
   })
     .index("by_slug", ["slug"])
+    .index("by_owner_id", ["ownerId"])
     .index("by_created_by_id", ["createdById"]),
 
   organizationMembers: defineTable({
@@ -332,6 +333,9 @@ export default defineSchema({
     eventId: v.id("events"),
     roundId: v.id("rounds"),
     version: v.number(),
+    // Denormalized from snapshot.verificationHash so the public verification
+    // lookup is an indexed read instead of a full-table scan.
+    verificationHash: v.optional(v.string()),
     snapshot: v.object({
       computedAt: v.number(),
       decimalPrecision: v.number(),
@@ -392,7 +396,8 @@ export default defineSchema({
     reason: v.optional(v.string()),
   })
     .index("by_round_id", ["roundId"])
-    .index("by_event_id", ["eventId"]),
+    .index("by_event_id", ["eventId"])
+    .index("by_verification_hash", ["verificationHash"]),
 
   advancementOverrides: defineTable({
     eventId: v.id("events"),
@@ -486,12 +491,14 @@ export default defineSchema({
     .index("by_org_id_and_storage_id", ["orgId", "storageId"]),
 
   superadminSessions: defineTable({
-    token: v.string(),
+    // SHA-256 hex of the bearer token. Raw tokens are only ever returned to
+    // the superadmin client once at login, never persisted.
+    tokenHash: v.string(),
     label: v.string(),
     expiresAt: v.number(),
     lastSeenAt: v.number(),
   })
-    .index("by_token", ["token"])
+    .index("by_token_hash", ["tokenHash"])
     .index("by_expires_at", ["expiresAt"]),
 
   crmLeads: defineTable({
@@ -680,4 +687,15 @@ export default defineSchema({
     .index("by_event_id_and_round_id", ["eventId", "roundId"])
     .index("by_event_id_and_scope", ["eventId", "scope"])
     .index("by_round_and_actor", ["roundId", "actorId"]),
+
+  // Fixed-window abuse counters. One row per (name, key); windows reset by
+  // rewriting the row. Purged by cron once stale.
+  rateLimits: defineTable({
+    name: v.string(),
+    key: v.string(),
+    count: v.number(),
+    windowStartMs: v.number(),
+  })
+    .index("by_name_and_key", ["name", "key"])
+    .index("by_window_start", ["windowStartMs"]),
 });

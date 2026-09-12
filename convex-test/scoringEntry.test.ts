@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { api } from "../convex/_generated/api";
-import { createOrgAndEvent, prepareScoredEvent, setupTest, aliceIdentity } from "./setup";
+import { createOrgAndEvent, prepareScoredEvent, setupTest, aliceIdentity, carolIdentity } from "./setup";
 
 describe("score entry", () => {
   it("judge sees only their own sheets", async () => {
@@ -128,13 +128,13 @@ describe("score entry", () => {
   it("sheetDetail rejects ids from a foreign event", async () => {
     const t = setupTest();
     const ids = await prepareScoredEvent(t);
-    await createOrgAndEvent(t, aliceIdentity, { orgSlug: "other", eventSlug: "gala2" });
-    await t.withIdentity(aliceIdentity).mutation(api.rounds.add, { orgSlug: "other", eventSlug: "gala2", name: "R" });
-    const otherRounds = await t.withIdentity(aliceIdentity).query(api.rounds.list, { orgSlug: "other", eventSlug: "gala2" });
-    await t.withIdentity(aliceIdentity).mutation(api.contestants.add, {
+    await createOrgAndEvent(t, carolIdentity, { orgSlug: "other", eventSlug: "gala2" });
+    await t.withIdentity(carolIdentity).mutation(api.rounds.add, { orgSlug: "other", eventSlug: "gala2", name: "R" });
+    const otherRounds = await t.withIdentity(carolIdentity).query(api.rounds.list, { orgSlug: "other", eventSlug: "gala2" });
+    await t.withIdentity(carolIdentity).mutation(api.contestants.add, {
       orgSlug: "other", eventSlug: "gala2", name: "Zoe", number: 1,
     });
-    const otherContestants = await t.withIdentity(aliceIdentity).query(api.contestants.list, {
+    const otherContestants = await t.withIdentity(carolIdentity).query(api.contestants.list, {
       orgSlug: "other", eventSlug: "gala2",
     });
     await expect(

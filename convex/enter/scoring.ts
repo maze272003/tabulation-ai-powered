@@ -8,6 +8,16 @@ import { checkValue } from "../lib/sheetValidation";
 import { maybeAutoCloseRound } from "../lib/roundAutomation";
 import { writeAudit } from "../lib/audit";
 
+// A round can hold at most one sheet per contestant, and plan limits cap
+// contestants well below this; anything larger is abuse, not a workload.
+const MAX_BATCH_ITEMS = 500;
+
+function assertBatchSize(itemCount: number): void {
+  if (itemCount > MAX_BATCH_ITEMS) {
+    throw appError(ErrorCode.VALIDATION_ERROR, `Batch is limited to ${MAX_BATCH_ITEMS} items`);
+  }
+}
+
 async function loadOwnSheet(
   ctx: QueryCtx,
   args: { sessionToken: string; sheetId: Id<"scoreSheets"> },
@@ -378,6 +388,7 @@ export const saveRoundDraftsBatch = mutation({
       kind: "judge",
       requireReadyEvent: true,
     });
+    assertBatchSize(args.drafts.length);
 
     const round = await ctx.db.get(args.roundId);
     if (!round || round.eventId !== sctx.event._id) {
@@ -435,6 +446,7 @@ export const submitRoundSheetsBatch = mutation({
       kind: "judge",
       requireReadyEvent: true,
     });
+    assertBatchSize(args.submissions.length);
 
     const round = await ctx.db.get(args.roundId);
     if (!round || round.eventId !== sctx.event._id) {

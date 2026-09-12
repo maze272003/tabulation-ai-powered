@@ -1,20 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { api } from "../convex/_generated/api";
+import { api, internal } from "../convex/_generated/api";
 import { aliceIdentity, seedAndProvision, setupTest } from "./setup";
 
 describe("reference reads & platform", () => {
   it("plans.list returns sorted plans", async () => {
     const t = setupTest();
-    await t.mutation(api.seed.seedReferenceData, {});
+    await t.mutation(internal.seed.seedReferenceData, {});
     const plans = await t.query(api.plans.list, {});
     expect(plans.length).toBeGreaterThanOrEqual(3);
     expect(plans[0].sortOrder).toBeLessThan(plans[1].sortOrder);
   });
 
-  it("roles.list returns organization-scope roles", async () => {
+  it("roles.list rejects anonymous callers and returns organization-scope roles to members", async () => {
     const t = setupTest();
-    await t.mutation(api.seed.seedReferenceData, {});
-    const roles = await t.query(api.roles.list, {});
+    await seedAndProvision(t, aliceIdentity);
+    await expect(t.query(api.roles.list, {})).rejects.toMatchObject({
+      data: { code: "UNAUTHENTICATED" },
+    });
+    const roles = await t.withIdentity(aliceIdentity).query(api.roles.list, {});
     expect(roles.find((r) => r.name === "Org Owner")).toBeTruthy();
     expect(roles.every((r) => r.scope === "organization")).toBe(true);
   });

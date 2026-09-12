@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { api } from "../convex/_generated/api";
 import { aliceIdentity, bobIdentity, grantPaidPlan, setupTest } from "./setup";
+import { hashSuperadminToken } from "../convex/lib/superadmin";
 
 async function createSuperadminSession(t: ReturnType<typeof setupTest>): Promise<string> {
   const token = "test_superadmin_token_" + Math.random().toString(36).slice(2);
+  const tokenHash = await hashSuperadminToken(token);
   await t.run(async (ctx) => {
     await ctx.db.insert("superadminSessions", {
-      token,
+      tokenHash,
       label: "superadmin",
       expiresAt: Date.now() + 24 * 60 * 60 * 1000,
       lastSeenAt: Date.now(),

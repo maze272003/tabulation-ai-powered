@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import { describe, expect, it } from "vitest";
-import { api } from "../convex/_generated/api";
+import { api, internal } from "../convex/_generated/api";
 import { aliceIdentity, bobIdentity, addOrgMemberWithoutDocumentsManage, createOrgAndEvent, setupTest } from "./setup";
 import { isDocumentSpec } from "../convex/documents/spec";
 import type { DocumentSpec } from "../convex/documents/spec";
@@ -28,7 +28,7 @@ describe("documents: system templates", () => {
   it("is idempotent when seeding runs again", async () => {
     const t = setupTest();
     await createOrgAndEvent(t, aliceIdentity, { orgSlug: "acme", eventSlug: "gala" });
-    await t.mutation(api.seed.seedReferenceData, {});
+    await t.mutation(internal.seed.seedReferenceData, {});
     const list = await t.withIdentity(aliceIdentity).query(api.documents.templates.list, {
       orgSlug: "acme",
       kind: "certificate",

@@ -5,8 +5,14 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { appError, ErrorCode } from "./lib/errors";
 import { requireUserProfile } from "./lib/auth";
 import { requireOrgMember, requirePermission } from "./lib/authz";
+import { enforceRateLimit } from "./lib/rateLimit";
 import { writeAudit } from "./lib/audit";
 import { seedReferenceDataInternal } from "./seed";
+
+// Per-owner cap on self-provisioned orgs. Every org carries a free
+// subscription plus per-org AI quotas, so unlimited creation would multiply
+// free resources indefinitely.
+const MAX_ORGS_PER_USER = 3;
 
 function slugify(name: string): string {
   return name
@@ -39,6 +45,22 @@ export const create = mutation({
   args: { name: v.string(), slug: v.optional(v.string()) },
   handler: async (ctx, args): Promise<string> => {
     const profile = await requireUserProfile(ctx);
+    await enforceRateLimit(ctx, "orgCreate", profile._id);
+
+    // Per-owner org sets are tiny (capped by MAX_ORGS_PER_USER), so a JS
+    // filter over the indexed scan is both cheap and precise.
+    const ownedOrgs = (
+      await ctx.db
+        .query("organizations")
+        .withIndex("by_owner_id", (q) => q.eq("ownerId", profile._id))
+        .collect()
+    ).filter((org) => org.status !== "deleted");
+    if (ownedOrgs.length >= MAX_ORGS_PER_USER) {
+      throw appError(
+        ErrorCode.LIMIT_EXCEEDED,
+        `You can own at most ${MAX_ORGS_PER_USER} organizations. Contact support if you need more.`,
+      );
+    }
 
     const slug = slugify(args.slug ?? args.name);
     if (!slug) {

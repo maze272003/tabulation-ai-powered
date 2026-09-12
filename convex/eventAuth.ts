@@ -69,6 +69,20 @@ export const lookupAccountForLogin = internalQuery({
 export const login = action({
   args: { eventCode: v.string(), username: v.string(), password: v.string() },
   handler: async (ctx, args): Promise<{ token: string; kind: string; displayName: string; eventName: string }> => {
+    // Rate limit before any DB/PBKDF2 work: per (event, username) to slow
+    // targeted guessing, and per event code to bound credential stuffing
+    // across many usernames. Complements the per-account lockout below.
+    const eventCodeKey = args.eventCode.toUpperCase().trim();
+    const usernameKey = args.username.toLowerCase().trim();
+    await ctx.runMutation(internal.rateLimits.check, {
+      name: "eventLogin",
+      key: `${eventCodeKey}:${usernameKey}`,
+    });
+    await ctx.runMutation(internal.rateLimits.check, {
+      name: "eventLoginByCode",
+      key: eventCodeKey,
+    });
+
     const res = await ctx.runQuery(internal.eventAuth.lookupAccountForLogin, {
       eventCode: args.eventCode,
       username: args.username,

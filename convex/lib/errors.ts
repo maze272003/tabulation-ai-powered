@@ -13,6 +13,7 @@ export const ErrorCode = {
   TIES_UNRESOLVED: "TIES_UNRESOLVED",
   PAYMENT_PROVIDER: "PAYMENT_PROVIDER",
   UPSTREAM: "UPSTREAM",
+  TOO_MANY_REQUESTS: "TOO_MANY_REQUESTS",
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

@@ -33,3 +33,14 @@ Task 16: complete (4c6a856, review clean; all gates green: typecheck, 333 tests,
 Final review: With fixes -> both Important fixes applied (autosave race, asset-error block); gates re-verified green
 Follow-ups recorded: org asset registry + storage GC, undo coalescing, middle-mouse pan + true fit, drag e2e, deny-path permission test, remaining minor items
 FOLLOW-UPS COMPLETE: 18 fixes in 2 waves (14+3+1 commits) - all review-approved; asset registry shipped (recordUpload/listByOrg/ownership assetUrls/GC + audit); gates: typecheck clean, 352/352 tests, build pass, e2e 8+2 new gated
+
+---
+# SDD Progress Ledger — per-user-subscriptions
+
+Branch: feat/judge-signatures-and-certification (from 4fc6c7c)
+Plan: docs/superpowers/plans/2026-09-11-per-user-subscriptions.md
+Strategy: sequential implementer + reviewer per task (no parallel implementers — shared branch). Pre-flight decisions: keep uncommitted MAX_ORGS_PER_USER=3 cap; preserve rate-limit hardening re-keyed to user; proceed on dirty tree with precise git-add per commit.
+
+Task 1: complete (4aa6d0d, review clean; 1 minor rolled to Task 9 brief: unguarded org link in platform subs page)
+HALT: concurrent executor detected after Task 1 review — see controller note. No further dispatches until resolved.
+

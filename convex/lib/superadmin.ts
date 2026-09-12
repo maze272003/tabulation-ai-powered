@@ -36,6 +36,18 @@ export function generateSuperadminToken(): string {
   return token;
 }
 
+/**
+ * Sessions store only the SHA-256 of the bearer token so a database snapshot
+ * or backup leak cannot be replayed. The raw token is returned to the
+ * superadmin client exactly once at login.
+ */
+export async function hashSuperadminToken(token: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export async function requireSuperadminSession(
   ctx: QueryCtx,
   token: string,
@@ -47,9 +59,10 @@ export async function requireSuperadminSession(
     );
   }
 
+  const tokenHash = await hashSuperadminToken(token);
   const session = await ctx.db
     .query("superadminSessions")
-    .withIndex("by_token", (q) => q.eq("token", token))
+    .withIndex("by_token_hash", (q) => q.eq("tokenHash", tokenHash))
     .unique();
 
   if (!session || session.expiresAt <= Date.now()) {

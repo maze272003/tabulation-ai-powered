@@ -41,6 +41,25 @@ export const cleanupExpiredEventSessions = internalMutation({
   },
 });
 
+/**
+ * Purges stale rate-limit counters. Buckets older than 24h can no longer
+ * affect any active window (the longest window is 24h), so the rows are dead
+ * weight. Bounded batch like the session sweeps above.
+ */
+export const cleanupStaleRateLimits = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const stale = await ctx.db
+      .query("rateLimits")
+      .withIndex("by_window_start", (q) => q.lt("windowStartMs", cutoff))
+      .take(500);
+    for (const bucket of stale) {
+      await ctx.db.delete(bucket._id);
+    }
+  },
+});
+
 const crons = cronJobs();
 
 crons.interval(
@@ -54,6 +73,13 @@ crons.interval(
   "cleanup expired event sessions",
   { hours: 1 },
   internal.crons.cleanupExpiredEventSessions,
+  {},
+);
+
+crons.interval(
+  "cleanup stale rate limit buckets",
+  { hours: 1 },
+  internal.crons.cleanupStaleRateLimits,
   {},
 );
 

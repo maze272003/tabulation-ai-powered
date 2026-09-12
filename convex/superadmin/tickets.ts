@@ -3,7 +3,7 @@ import { paginationOptsValidator } from "convex/server";
 import { action, mutation, query } from "../_generated/server";
 import type { QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { api } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import { requireSuperadminSession } from "../lib/superadmin";
 import { writeAudit } from "../lib/audit";
 import { appError, ErrorCode } from "../lib/errors";
@@ -339,6 +339,10 @@ export const approveRefundWithPayMongo = action({
     ticketId: v.id("supportTickets"),
   },
   handler: async (ctx, args) => {
+    // Direct session gate: this action moves real money, so its authorization
+    // must not depend on the functions it calls happening to check the token.
+    await ctx.runQuery(internal.superadmin.auth.assertSession, { token: args.token });
+
     const detail = await ctx.runQuery(api.superadmin.tickets.getDetail, {
       token: args.token,
       ticketId: args.ticketId,

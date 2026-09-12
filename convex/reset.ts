@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { TableNames, Id } from "./_generated/dataModel";
 import { appError, ErrorCode } from "./lib/errors";
+import { requirePlatformOwner } from "./lib/auth";
 import { seedReferenceDataInternal } from "./seed";
 import { writeAudit } from "./lib/audit";
 import { incrementUsage } from "./lib/usage";
@@ -57,23 +58,13 @@ const EVENT_TABLES: readonly TableNames[] = [
 ] as const;
 
 /**
- * Verifies that the caller is authorized:
- * - If called via client session, requires platform_owner role.
- * - If called via CLI (`npx convex run`), identity is null and confirmation string protects execution.
+ * Verifies that the caller is an authenticated platform owner. Public Convex
+ * mutations are reachable by any client holding the deployment URL, so
+ * destructive operations must never accept anonymous callers — a client-side
+ * "confirmation string" is not an authorization boundary.
  */
 async function assertResetAuthorized(ctx: MutationCtx | QueryCtx) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (identity) {
-    const profile = await ctx.db
-      .query("userProfiles")
-      .withIndex("by_token_identifier", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
-      .unique();
-    if (!profile || profile.platformRole !== "platform_owner") {
-      throw appError(ErrorCode.FORBIDDEN, "Only platform owners can execute database reset operations");
-    }
-    return profile;
-  }
-  return null;
+  return requirePlatformOwner(ctx);
 }
 
 /**
@@ -113,10 +104,8 @@ export const getDatabaseStats = query({
 });
 
 /**
- * Fully reset / wipe database tables.
- *
- * Example CLI usage:
- * npx convex run reset:resetAll '{"confirmation": "CONFIRM_RESET_ALL", "reseed": true}'
+ * Fully reset / wipe database tables. Requires an authenticated platform
+ * owner; the confirmation string is a second factor, not the gate.
  */
 export const resetAll = mutation({
   args: {
@@ -154,18 +143,16 @@ export const resetAll = mutation({
       await seedReferenceDataInternal(ctx);
     }
 
-    if (caller && preserveUsers) {
-      await writeAudit(ctx, {
-        orgId: null,
-        actorId: caller._id,
-        action: "platform.database.reset_all",
-        resourceType: "database",
-        resourceId: "global",
-        before: { totalDocuments: totalDeleted },
-        after: { reseeded: shouldReseed, preserveUsers },
-        reason: "Manual database reset executed",
-      });
-    }
+    await writeAudit(ctx, {
+      orgId: null,
+      actorId: caller._id,
+      action: "platform.database.reset_all",
+      resourceType: "database",
+      resourceId: "global",
+      before: { totalDocuments: totalDeleted },
+      after: { reseeded: shouldReseed, preserveUsers },
+      reason: "Manual database reset executed",
+    });
 
     return {
       success: true,
@@ -180,10 +167,8 @@ export const resetAll = mutation({
 
 /**
  * Reset and cleanup all event and scoring data while preserving users,
- * organizations, subscriptions, and system reference data.
- *
- * Example CLI usage:
- * npx convex run reset:resetEvents '{"confirmation": "CONFIRM_RESET_EVENTS"}'
+ * organizations, subscriptions, and system reference data. Requires an
+ * authenticated platform owner.
  */
 export const resetEvents = mutation({
   args: {
@@ -262,18 +247,16 @@ export const resetEvents = mutation({
         }
       }
 
-      if (caller) {
-        await writeAudit(ctx, {
-          orgId: org._id,
-          actorId: caller._id,
-          action: "platform.database.reset_events",
-          resourceType: "organization",
-          resourceId: org._id,
-          before: { totalDeleted },
-          after: { orgSlug: args.orgSlug },
-          reason: `Reset events for organization ${args.orgSlug}`,
-        });
-      }
+      await writeAudit(ctx, {
+        orgId: org._id,
+        actorId: caller._id,
+        action: "platform.database.reset_events",
+        resourceType: "organization",
+        resourceId: org._id,
+        before: { totalDeleted },
+        after: { orgSlug: args.orgSlug },
+        reason: `Reset events for organization ${args.orgSlug}`,
+      });
 
       return {
         success: true,
@@ -311,18 +294,16 @@ export const resetEvents = mutation({
       }
     }
 
-    if (caller) {
-      await writeAudit(ctx, {
-        orgId: null,
-        actorId: caller._id,
-        action: "platform.database.reset_events",
-        resourceType: "database",
-        resourceId: "events_all",
-        before: { totalDeleted },
-        after: {},
-        reason: "Reset all events across platform",
-      });
-    }
+    await writeAudit(ctx, {
+      orgId: null,
+      actorId: caller._id,
+      action: "platform.database.reset_events",
+      resourceType: "database",
+      resourceId: "events_all",
+      before: { totalDeleted },
+      after: {},
+      reason: "Reset all events across platform",
+    });
 
     return {
       success: true,
@@ -335,9 +316,7 @@ export const resetEvents = mutation({
 
 /**
  * Delete a single event and all associated scoring/structure records.
- *
- * Example CLI usage:
- * npx convex run reset:resetSingleEvent '{"orgSlug": "my-org", "eventSlug": "summer-gala", "confirmation": "CONFIRM_RESET_EVENT"}'
+ * Requires an authenticated platform owner.
  */
 export const resetSingleEvent = mutation({
   args: {
@@ -505,3 +484,26 @@ async function deleteEventCascade(
 
   return counts;
 }
+
+/**
+ * One-time maintenance migration: denormalizes snapshot.verificationHash into
+ * the indexed top-level field for result versions published before the field
+ * existed. Re-run until patchedCount === 0. Requires an authenticated
+ * platform owner.
+ */
+export const backfillVerificationHashes = mutation({
+  args: {},
+  handler: async (ctx): Promise<{ patchedCount: number; remainingHint: boolean }> => {
+    await requirePlatformOwner(ctx);
+    const versions = await ctx.db.query("resultVersions").order("desc").take(500);
+    let patchedCount = 0;
+    for (const version of versions) {
+      if (version.verificationHash !== undefined) continue;
+      const hash = version.snapshot.verificationHash;
+      if (hash === undefined) continue;
+      await ctx.db.patch(version._id, { verificationHash: hash });
+      patchedCount++;
+    }
+    return { patchedCount, remainingHint: versions.length === 500 };
+  },
+});

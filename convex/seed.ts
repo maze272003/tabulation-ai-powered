@@ -1,8 +1,10 @@
-import { mutation, type MutationCtx } from "./_generated/server";
+import { v } from "convex/values";
+import { internalMutation, mutation, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { ROLE_PERMISSIONS, SYSTEM_PERMISSIONS, SYSTEM_PLANS, SYSTEM_ROLES, SYSTEM_TEMPLATES } from "./lib/constants";
 import { seedSystemDocumentTemplates } from "./documents/systemTemplates";
 import { hashPassword } from "./lib/password";
+import { appError, ErrorCode } from "./lib/errors";
 
 /**
  * Deletes every child document belonging to an event so seeding can
@@ -151,16 +153,41 @@ export async function seedReferenceDataInternal(ctx: MutationCtx) {
   await seedSystemDocumentTemplates(ctx);
 }
 
-export const seedReferenceData = mutation({
+/**
+ * Internal-only: reference data is written by provisioning flows
+ * (auth.ts, organizations.ts, reset.ts). Exposing this as a public mutation
+ * would let any client rewrite platform settings and reference tables.
+ */
+export const seedReferenceData = internalMutation({
   args: {},
   handler: async (ctx) => {
     await seedReferenceDataInternal(ctx);
   },
 });
 
+function constantTimeEquals(actual: string, expected: string): boolean {
+  if (actual.length !== expected.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < actual.length; i++) {
+    mismatch |= actual.charCodeAt(i) ^ expected.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
+/**
+ * Seeds the end-to-end fixture event (users, judges, scored rounds). This
+ * creates live event accounts, so it must never be callable from production
+ * clients. It is gated by the E2E_SEED_TOKEN deployment secret: the mutation
+ * refuses unless the env var is set AND the caller presents it. Leave
+ * E2E_SEED_TOKEN unset in production to disable seeding entirely.
+ */
 export const seedE2EData = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    const expected = process.env.E2E_SEED_TOKEN;
+    if (!expected || !constantTimeEquals(args.token, expected)) {
+      throw appError(ErrorCode.FORBIDDEN, "E2E seeding is not enabled on this deployment");
+    }
     await seedReferenceDataInternal(ctx);
 
     // 1. Ensure test user profile exists

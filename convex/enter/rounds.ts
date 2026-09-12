@@ -559,6 +559,8 @@ export const publishRound = mutation({
       eventId: sctx.event._id,
       roundId: result.round._id,
       version: 1,
+      // Top-level indexed copy for the public verification lookup.
+      verificationHash,
       snapshot,
       createdById: null,
       createdByAccountId: sctx.account._id,
@@ -599,6 +601,20 @@ export const correctResults = mutation({
     }
     const latest = await latestVersion(ctx, round._id);
     if (!latest) throw appError(ErrorCode.NOT_FOUND, "No published version to correct");
+    if (args.overrides !== undefined && args.overrides.length > 0) {
+      // Overrides are persisted verbatim into the published snapshot, so every
+      // contestant id must belong to this event before it enters the record.
+      const eventContestants = await ctx.db
+        .query("contestants")
+        .withIndex("by_event_id", (q) => q.eq("eventId", sctx.event._id))
+        .collect();
+      const knownIds = new Set(eventContestants.map((c) => c._id));
+      for (const override of args.overrides) {
+        if (!knownIds.has(override.contestantId)) {
+          throw appError(ErrorCode.NOT_FOUND, "Override references an unknown contestant");
+        }
+      }
+    }
     const result = await loadRoundCompute(ctx, sctx, args.roundId, args.overrides ?? []);
     if (result.unresolvedTies.length > 0) {
       throw appError(ErrorCode.TIES_UNRESOLVED, "Break unresolved ties before publishing correction", {

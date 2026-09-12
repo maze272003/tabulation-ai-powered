@@ -143,6 +143,9 @@ export const generateFromPrompt = action({
       throw appError(ErrorCode.VALIDATION_ERROR, "Describe the event in 1-2000 characters");
     }
     await ctx.runMutation(internal.templates.consumeWizardQuota, { orgSlug: args.orgSlug });
+    // Per-minute burst gate on top of the daily quota: a cached-quota hit is
+    // still a Gemini round-trip, so bursts must be bounded independently.
+    await ctx.runMutation(internal.rateLimits.check, { name: "aiGenerate", key: args.orgSlug });
     const result = await buildTemplateDraft(prompt, (userPrompt) =>
       geminiGenerateJson({ systemInstruction: WIZARD_SYSTEM_INSTRUCTION, prompt: userPrompt }),
     );

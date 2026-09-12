@@ -3,6 +3,7 @@ import { mutation, query } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { requireOrgMember, requirePermission } from "../lib/authz";
+import { enforceRateLimit } from "../lib/rateLimit";
 import { appError, ErrorCode } from "../lib/errors";
 import { writeAudit } from "../lib/audit";
 
@@ -16,7 +17,13 @@ const ALLOWED_ASSET_CONTENT_TYPES = new Set(["image/png", "image/jpeg", "image/s
 export const generateUploadUrl = mutation({
   args: { orgSlug: v.string() },
   handler: async (ctx, args) => {
-    await requireOrgMember(ctx, { orgSlug: args.orgSlug });
+    // Uploading is a documents.manage capability, not a bare-membership one:
+    // unrestricted upload URLs turn the org into a free file host.
+    const actx = await requirePermission(ctx, {
+      orgSlug: args.orgSlug,
+      permission: "documents.manage",
+    });
+    await enforceRateLimit(ctx, "uploadUrl", actx.org._id);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -50,6 +57,11 @@ export const recordUpload = mutation({
     if (!Number.isInteger(args.sizeBytes) || args.sizeBytes < 1 || args.sizeBytes > MAX_ASSET_SIZE_BYTES) {
       throw appError(ErrorCode.VALIDATION_ERROR, "sizeBytes must be an integer between 1 and 2 MiB");
     }
+    // Residual risk, accepted: the blob itself cannot be cross-checked
+    // against the manifest here, so a documents.manage holder can register a
+    // foreign storage id they learned out-of-band. Upload URL minting and
+    // registration are rate-limited and permission-gated, bounding the abuse.
+    await enforceRateLimit(ctx, "uploadUrl", actx.org._id);
 
     const now = Date.now();
     const existing = await ctx.db

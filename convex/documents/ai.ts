@@ -48,6 +48,8 @@ export const generateFromPrompt = action({
     await ctx.runMutation(internal.documents.ai.consumeDocumentDesignQuota, {
       orgSlug: args.orgSlug,
     });
+    // Per-minute burst gate on top of the daily quota.
+    await ctx.runMutation(internal.rateLimits.check, { name: "aiGenerate", key: args.orgSlug });
 
     const result = await buildCertificateIntents(prompt, (userPrompt) =>
       geminiGenerateJson({ systemInstruction: DESIGN_INTENT_SYSTEM_INSTRUCTION, prompt: userPrompt }),
