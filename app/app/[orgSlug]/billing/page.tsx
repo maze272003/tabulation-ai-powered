@@ -1,23 +1,15 @@
 "use client";
 
-import { Suspense, use, useEffect, useState } from "react";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { Suspense, use } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { BorderBeamPanel } from "@/components/ui/border-beam-panel";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -28,27 +20,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { PageHeader } from "@/components/PageHeader";
-import {
-  CheckCircle2,
-  Clock,
-  CreditCard,
-  ExternalLink,
-  LifeBuoy,
-  Loader2,
-  RefreshCw,
-  ShieldAlert,
-  Sparkles,
-  XCircle,
-} from "lucide-react";
+import { CheckCircle2, CreditCard, LifeBuoy, Loader2, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const pesoFormat = new Intl.NumberFormat("en-PH", {
@@ -76,9 +49,7 @@ function formatRemainingTime(ms: number): string {
   if (ms <= 0) return "Expired";
   const hours = Math.floor(ms / (1000 * 60 * 60));
   const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-  if (hours === 0) {
-    return `${minutes} minute${minutes === 1 ? "" : "s"}`;
-  }
+  if (hours === 0) return `${minutes} minute${minutes === 1 ? "" : "s"}`;
   return `${hours} hour${hours === 1 ? "" : "s"} ${minutes} minute${minutes === 1 ? "" : "s"}`;
 }
 
@@ -91,15 +62,6 @@ function errorMessage(error: unknown): string {
   return "Something went wrong. Please try again.";
 }
 
-const PAYMENT_STATUS_TONE: Record<string, string> = {
-  paid: "bg-success-muted text-success",
-  pending: "bg-warning-muted text-warning",
-  flagged: "bg-destructive/15 text-destructive",
-  failed: "bg-muted text-muted-foreground",
-  expired: "bg-muted text-muted-foreground",
-  cancelled: "bg-muted text-muted-foreground",
-};
-
 const PLAN_FEATURE_LABELS: { key: string; label: string }[] = [
   { key: "canExportReports", label: "Report exports" },
   { key: "canUseCustomBranding", label: "Custom branding" },
@@ -108,117 +70,16 @@ const PLAN_FEATURE_LABELS: { key: string; label: string }[] = [
   { key: "canUseAdvancedAnalytics", label: "Advanced analytics" },
 ];
 
-function BillingContent({ orgSlug }: { orgSlug: string }) {
-  const searchParams = useSearchParams();
-  const billingResult = searchParams.get("billing");
-
+function OrgBillingContent({ orgSlug }: { orgSlug: string }) {
   const subscription = useQuery(api.subscriptions.getForOrg, { orgSlug });
   const plans = useQuery(api.plans.list, {});
-  const payments = useQuery(api.billing.payments.listForUser, {});
-  const activeCheckout = useQuery(api.billing.payments.getActiveCheckout, {});
   const refundEligibility = useQuery(api.support.tickets.getRefundEligibility, { orgSlug });
-
-  const startCheckout = useAction(api.billing.checkout.createCheckout);
-  const cancelCheckout = useMutation(api.billing.checkout.cancelCheckout);
-  const syncCheckout = useAction(api.billing.checkout.syncCheckoutStatus);
   const submitRefundTicket = useMutation(api.support.tickets.createRefundTicket);
 
-  const [busyPlan, setBusyPlan] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
-
-  // Refund Ticket Modal State
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
   const [refundReason, setRefundReason] = useState("");
   const [refundDetails, setRefundDetails] = useState("");
   const [submittingRefund, setSubmittingRefund] = useState(false);
-
-  const currentPlanId = subscription?.subscription.planId ?? null;
-  const status = subscription?.subscription.status ?? null;
-  const periodEndAt = subscription?.subscription.currentPeriodEndAt ?? null;
-
-  // Automatically verify and poll payment status if redirected from checkout with ?billing=success
-  useEffect(() => {
-    if (!activeCheckout && billingResult !== "success") return;
-
-    let isMounted = true;
-    let attempts = 0;
-    const maxAttempts = 10;
-    setSyncing(true);
-
-    const checkPayment = async () => {
-      try {
-        const res = await syncCheckout({});
-        if (!isMounted) return;
-        if (res.status === "activated") {
-          toast.success(`Subscription activated! You are now on the ${res.planName} plan.`);
-          setSyncing(false);
-          return;
-        }
-        if (res.status === "cancelled" || res.status === "no_pending" || res.status === "already_active") {
-          setSyncing(false);
-          return;
-        }
-        attempts++;
-        if (attempts < maxAttempts && isMounted) {
-          setTimeout(checkPayment, 2000);
-        } else if (isMounted) {
-          setSyncing(false);
-        }
-      } catch {
-        if (isMounted) setSyncing(false);
-      }
-    };
-
-    void checkPayment();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [billingResult, activeCheckout?.paymentId, syncCheckout]);
-
-  const handleCheckout = async (planName: string) => {
-    setBusyPlan(planName);
-    try {
-      const url = await startCheckout({ planName });
-      window.location.assign(url);
-    } catch (error) {
-      toast.error(errorMessage(error));
-      setBusyPlan(null);
-    }
-  };
-
-  const handleCancelCheckout = async () => {
-    try {
-      await cancelCheckout({});
-      toast.info("Checkout cancelled.");
-    } catch (error) {
-      toast.error(errorMessage(error));
-    }
-  };
-
-  const handleSyncCheckout = async () => {
-    setSyncing(true);
-    try {
-      const res = await syncCheckout({});
-      if (res.status === "activated") {
-        toast.success(`Subscription activated! You are now on the ${res.planName} plan.`);
-      } else if (res.status === "still_pending") {
-        toast.info(
-          "Payment is not yet confirmed by PayMongo. If you have completed payment, please wait a moment and try again.",
-        );
-      } else if (res.status === "cancelled") {
-        toast.info("The checkout session was cancelled or expired.");
-      } else if (res.status === "error") {
-        toast.error(res.message ?? "Could not verify payment with PayMongo.");
-      } else {
-        toast.info("No pending checkout found.");
-      }
-    } catch (error) {
-      toast.error(errorMessage(error));
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   const handleSubmitRefund = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,7 +87,6 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
       toast.error("Please provide a reason for the refund request.");
       return;
     }
-
     setSubmittingRefund(true);
     try {
       const res = await submitRefundTicket({
@@ -246,365 +106,110 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
   };
 
   if (subscription === undefined || plans === undefined) {
-    return (
-      <div className="grid gap-4 md:grid-cols-3" aria-busy>
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="h-72 animate-pulse rounded-xl bg-muted" />
-        ))}
-      </div>
-    );
+    return <div className="h-72 animate-pulse rounded-xl bg-muted" aria-busy />;
   }
 
-  const visiblePlans = plans.filter((plan) => plan.isActive !== false);
-  const pendingCheckoutUrl = activeCheckout?.checkoutUrl ?? null;
-  const currentPlan = plans.find((p) => p._id === currentPlanId);
+  const currentPlan = plans.find((p) => p._id === subscription.subscription.planId);
+  const isOwner = subscription.isOwner;
+  const status = subscription.subscription.status;
+  const periodEndAt = subscription.subscription.currentPeriodEndAt;
   const isPaidPlan = (currentPlan?.priceCents ?? 0) > 0;
-  const requestedPlanName = searchParams.get("plan");
-  const targetPlan = requestedPlanName
-    ? plans.find((p) => p.name.toLowerCase() === requestedPlanName.toLowerCase())
-    : undefined;
 
   return (
     <div className="space-y-6">
-      {targetPlan && targetPlan._id !== currentPlanId ? (
-        <div className="p-4 bg-primary/10 border border-primary/25 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm">
-          <div className="flex items-start gap-2.5">
-            <Sparkles className="size-5 text-primary shrink-0 mt-0.5" />
-            <div>
-              <span className="font-semibold text-foreground">Selected from Landing Page: {targetPlan.name} Plan</span>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                You selected the {targetPlan.name} plan ({formatPeso(targetPlan.priceCents ?? 0)}/month). Complete checkout below to activate your subscription.
-              </p>
-            </div>
-          </div>
-          <Button
-            size="sm"
-            className="font-semibold shrink-0 gap-1.5 shadow-xs"
-            disabled={busyPlan === targetPlan.name || activeCheckout !== null}
-            onClick={() => void handleCheckout(targetPlan.name)}
-          >
-            {busyPlan === targetPlan.name ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <CreditCard className="size-3.5" />
-            )}
-            Upgrade to {targetPlan.name}
-          </Button>
-        </div>
-      ) : null}
-
-      {billingResult === "success" ? (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-success/30 bg-success-muted px-4 py-3 text-sm text-success">
-          <span>
-            {syncing
-              ? "Verifying payment with PayMongo…"
-              : "Payment received — your subscription is active."}
-          </span>
-          {syncing ? <Loader2 aria-hidden className="size-4 animate-spin" /> : null}
-        </div>
-      ) : null}
-      {billingResult === "cancelled" ? (
-        <div className="rounded-lg border bg-muted px-4 py-3 text-sm text-muted-foreground">
-          Checkout cancelled — nothing was charged.
-        </div>
-      ) : null}
-
       {status === "past_due" ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning-muted px-4 py-3 text-sm text-warning">
           <span>
-            Your subscription expired on {formatDate(periodEndAt)}. Renew within the 7-day grace
-            period to keep your paid features.
+            {isOwner
+              ? `Your subscription expired on ${formatDate(periodEndAt)}. Renew within the 7-day grace period to keep your paid features across all your organizations.`
+              : "This organization's subscription is past due — ask the owner to renew. Paid features stop working when the grace period ends."}
           </span>
+          {isOwner ? (
+            <Link href="/app/billing">
+              <Button size="sm">Renew now</Button>
+            </Link>
+          ) : null}
         </div>
       ) : null}
 
-      {/* 10-Hour Refund Policy / CRM Support Ticket Status */}
-      {isPaidPlan && refundEligibility ? (
-        <div className="rounded-xl border bg-card p-4 shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <LifeBuoy className="size-5 text-primary" />
-                <h3 className="font-heading text-sm font-semibold">Subscription Refund Policy</h3>
-                {refundEligibility.existingTicket ? (
-                  <Badge variant="outline" className="border-warning text-warning capitalize">
-                    Ticket {refundEligibility.existingTicket.status}
-                  </Badge>
-                ) : refundEligibility.isEligible ? (
-                  <Badge className="bg-success-muted text-success border-success/30">
-                    10-Hour Window Active
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-muted-foreground">
-                    Refund Window Closed
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {refundEligibility.existingTicket ? (
-                  <span>
-                    Your refund ticket (<em>"{refundEligibility.existingTicket.subject}"</em>) was
-                    submitted on {formatDate(refundEligibility.existingTicket.createdAt)}. Our CRM
-                    support team is reviewing it.
-                  </span>
-                ) : refundEligibility.isEligible ? (
-                  <span>
-                    Refund requests are valid strictly within <strong>10 hours</strong> of payment.
-                    You have <strong>{formatRemainingTime(refundEligibility.remainingMs)}</strong>{" "}
-                    remaining to submit a ticket.
-                  </span>
-                ) : (
-                  <span>
-                    Subscriptions cannot be self-cancelled. Refund tickets are only accepted within
-                    10 hours of payment. This window has passed.
-                  </span>
-                )}
-              </p>
-            </div>
-
-            {refundEligibility.isEligible && !refundEligibility.existingTicket ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="shrink-0 gap-1.5"
-                onClick={() => setRefundDialogOpen(true)}
-              >
-                <Clock className="size-4 text-warning" /> Request Refund Ticket
-              </Button>
-            ) : refundEligibility.existingTicket ? (
-              <Link href={`/app/${orgSlug}/support/${refundEligibility.existingTicket.id}`}>
-                <Button variant="outline" size="sm" className="shrink-0 gap-1.5">
-                  <LifeBuoy className="size-4 text-primary" /> View Ticket & Chat
-                </Button>
-              </Link>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-
-      {/* Active Checkout Card */}
-      {activeCheckout ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-heading text-lg">Checkout in progress</CardTitle>
-            <CardDescription>
-              A {activeCheckout.planName} payment of {formatPeso(activeCheckout.amountCents)} is
-              waiting to be completed.
-            </CardDescription>
-          </CardHeader>
-          <CardFooter className="flex flex-wrap gap-2">
-            {pendingCheckoutUrl ? (
-              <Button onClick={() => window.location.assign(pendingCheckoutUrl)}>
-                Complete payment <ExternalLink aria-hidden className="size-4" />
-              </Button>
-            ) : null}
-            <Button variant="outline" disabled={syncing} onClick={handleSyncCheckout}>
-              {syncing ? (
-                <>
-                  <Loader2 aria-hidden className="size-4 animate-spin" /> Verifying…
-                </>
-              ) : (
-                <>
-                  <RefreshCw aria-hidden className="size-4" /> Verify payment
-                </>
-              )}
-            </Button>
-            <Button variant="outline" onClick={handleCancelCheckout}>
-              Cancel checkout
-            </Button>
-          </CardFooter>
-        </Card>
-      ) : null}
-
-      {/* Plans Grid */}
-      <div className="grid gap-4 md:grid-cols-3 items-stretch">
-        {visiblePlans.map((plan) => {
-          const isCurrent = plan._id === currentPlanId;
-          const isFree = (plan.priceCents ?? 0) === 0;
-          const busy = busyPlan === plan.name;
-          const isSelectedFromLanding = Boolean(
-            requestedPlanName &&
-            plan.name.toLowerCase() === requestedPlanName.toLowerCase() &&
-            !isCurrent
-          );
-          const isFeatured = plan.name.toLowerCase().includes("pro") || plan.name.toLowerCase().includes("growth") || isSelectedFromLanding;
-
-          const cardContent = (
-            <div className="flex flex-col h-full justify-between p-6">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="font-heading font-bold text-lg">{plan.name}</h3>
-                  {isCurrent ? (
-                    <Badge className="bg-primary text-primary-foreground text-[10px] font-bold">
-                      Current Plan
-                    </Badge>
-                  ) : isSelectedFromLanding ? (
-                    <Badge className="bg-primary text-primary-foreground text-[10px] font-bold gap-1 shadow-xs">
-                      <Sparkles className="size-3" />
-                      Selected Plan
-                    </Badge>
-                  ) : isFeatured ? (
-                    <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] font-bold">
-                      Recommended
-                    </Badge>
-                  ) : null}
-                </div>
-                <p className="text-xs text-muted-foreground mb-4">
-                  {isFree ? "Free forever" : `${formatPeso(plan.priceCents ?? 0)} / month`}
-                </p>
-
-                <p className="text-xs font-medium text-foreground mb-3 pb-3 border-b border-border/60">
-                  Up to {plan.limits.maxEvents} event{plan.limits.maxEvents === 1 ? "" : "s"} ·{" "}
-                  {plan.limits.maxJudges} judges · {plan.limits.maxContestants} contestants
-                </p>
-
-                <ul className="space-y-2 mb-6 text-xs">
-                  {PLAN_FEATURE_LABELS.map(({ key, label }) => {
-                    const enabled = plan.features[key as keyof typeof plan.features] === true;
-                    return (
-                      <li
-                        key={key}
-                        className={cn(
-                          "flex items-center gap-2",
-                          enabled ? "text-foreground font-medium" : "text-muted-foreground/50",
-                        )}
-                      >
-                        {enabled ? (
-                          <CheckCircle2 aria-hidden className="size-3.5 text-success shrink-0" />
-                        ) : (
-                          <XCircle aria-hidden className="size-3.5 text-muted-foreground/40 shrink-0" />
-                        )}
-                        <span>{label}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-
-              <div className="pt-2">
-                {isCurrent && !isFree ? (
-                  <Button
-                    className="w-full font-semibold shadow-xs"
-                    disabled={busy || activeCheckout !== null}
-                    onClick={() => void handleCheckout(plan.name)}
-                  >
-                    {busy ? "Redirecting…" : "Renew Subscription"}
-                  </Button>
-                ) : !isCurrent && !isFree ? (
-                  <Button
-                    className={cn(
-                      "w-full font-semibold shadow-xs",
-                      (isFeatured || isSelectedFromLanding) ? "shadow-md shadow-primary/20" : ""
-                    )}
-                    variant={isFeatured || isSelectedFromLanding ? "default" : "outline"}
-                    disabled={busy || activeCheckout !== null}
-                    onClick={() => void handleCheckout(plan.name)}
-                  >
-                    {busy ? "Redirecting…" : `Upgrade to ${plan.name}`}
-                  </Button>
-                ) : isCurrent && isFree ? (
-                  <Button variant="outline" className="w-full font-medium" disabled>
-                    Active Free Tier
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-          );
-
-          if ((isFeatured || isSelectedFromLanding) && !isCurrent) {
-            return (
-              <BorderBeamPanel
-                key={plan._id}
-                glow
-                className="bg-card h-full"
-                containerClassName="h-full"
-              >
-                {cardContent}
-              </BorderBeamPanel>
-            );
-          }
-
-          return (
-            <Card
-              key={plan._id}
-              className={cn(
-                "flex flex-col h-full bg-card/90",
-                isCurrent && "border-primary ring-1 ring-primary/40 shadow-xs"
-              )}
-            >
-              {cardContent}
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Payment History */}
       <Card>
         <CardHeader>
-          <CardTitle className="font-heading text-lg">Payment history</CardTitle>
-          <CardDescription>Recent payments for this organization.</CardDescription>
+          <CardTitle className="font-heading text-lg">Coverage</CardTitle>
+          <CardDescription>
+            {isOwner
+              ? "This organization is covered by your subscription."
+              : "This organization is covered by its creator's subscription."}
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          {payments === undefined ? (
-            <div className="h-24 animate-pulse rounded-lg bg-muted" aria-busy />
-          ) : payments.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">No payments yet.</p>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Plan</span>
+            <span className="font-semibold">{currentPlan?.name ?? "—"}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Status</span>
+            <Badge variant="outline" className="capitalize">{status}</Badge>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Period ends</span>
+            <span className="font-mono text-xs">{formatDate(periodEndAt)}</span>
+          </div>
+          <ul className="space-y-2 pt-2 text-xs">
+            {PLAN_FEATURE_LABELS.map(({ key, label }) => {
+              const enabled = currentPlan?.features[key as keyof typeof currentPlan.features] === true;
+              return (
+                <li
+                  key={key}
+                  className={cn(
+                    "flex items-center gap-2",
+                    enabled ? "text-foreground font-medium" : "text-muted-foreground/50",
+                  )}
+                >
+                  <CheckCircle2 aria-hidden className="size-3.5 text-success shrink-0" />
+                  {enabled ? <span>{label}</span> : <span>{label} — not included</span>}
+                </li>
+              );
+            })}
+          </ul>
+          {isOwner ? (
+            <Link href="/app/billing" className="block pt-2">
+              <Button className="w-full font-semibold">Manage subscription</Button>
+            </Link>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Payment ID</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Interval</TableHead>
-                  <TableHead>Period</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payments.map((payment) => (
-                  <TableRow key={payment._id}>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-mono text-xs font-medium text-foreground">
-                          {payment.referenceNumber || payment._id}
-                        </span>
-                        {payment.referenceNumber && payment.referenceNumber !== payment._id ? (
-                          <span className="font-mono text-[10px] text-muted-foreground">
-                            ID: {payment._id}
-                          </span>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                    <TableCell>{formatDate(payment._creationTime)}</TableCell>
-                    <TableCell>{payment.planName ?? "—"}</TableCell>
-                    <TableCell>{formatPeso(payment.amountCents)}</TableCell>
-                    <TableCell className="capitalize">{payment.billingInterval}</TableCell>
-                    <TableCell>
-                      {payment.periodStartAt === null
-                        ? "—"
-                        : `${formatDate(payment.periodStartAt)} → ${formatDate(payment.periodEndAt)}`}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        className={cn(
-                          "border-transparent capitalize",
-                          PAYMENT_STATUS_TONE[payment.status] ?? "bg-muted text-muted-foreground",
-                        )}
-                      >
-                        {payment.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <p className="pt-2 text-xs text-muted-foreground">
+              Only the subscription owner can change the plan or make payments.
+            </p>
           )}
         </CardContent>
       </Card>
 
-      {/* Refund Request Modal Dialog */}
+      {isOwner && isPaidPlan && refundEligibility ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-heading flex items-center gap-2 text-base">
+              <LifeBuoy className="size-4 text-primary" /> Subscription Refund Policy
+            </CardTitle>
+            <CardDescription>
+              {refundEligibility.isEligible ? (
+                <span>
+                  Refund requests are valid strictly within <strong>10 hours</strong> of payment.
+                  You have <strong>{formatRemainingTime(refundEligibility.remainingMs)}</strong> remaining.
+                </span>
+              ) : (
+                <span>Refund tickets are only accepted within 10 hours of payment. This window has passed.</span>
+              )}
+            </CardDescription>
+          </CardHeader>
+          {refundEligibility.isEligible && !refundEligibility.existingTicket ? (
+            <CardContent>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setRefundDialogOpen(true)}>
+                <Clock className="size-4 text-warning" /> Request Refund Ticket
+              </Button>
+            </CardContent>
+          ) : null}
+        </Card>
+      ) : null}
+
       <Dialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <form onSubmit={handleSubmitRefund} className="space-y-4">
@@ -613,32 +218,20 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
                 <LifeBuoy className="size-5 text-primary" /> Request Subscription Refund
               </DialogTitle>
               <DialogDescription>
-                Refund tickets are processed by our CRM support team. Submissions are valid strictly
+                Refund tickets are processed by our support team. Submissions are valid strictly
                 within <strong>10 hours</strong> from the payment timestamp.
               </DialogDescription>
             </DialogHeader>
-
-            {refundEligibility?.isEligible ? (
-              <div className="rounded-lg border bg-muted/50 p-3 text-xs space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Plan:</span>
-                  <span className="font-medium">{refundEligibility.planName}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Amount:</span>
-                  <span className="font-medium">{formatPeso(refundEligibility.amountCents)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Paid At:</span>
-                  <span>{formatDate(refundEligibility.paidAt)}</span>
-                </div>
-                <div className="flex justify-between text-warning font-medium">
-                  <span>Window Remaining:</span>
-                  <span>{formatRemainingTime(refundEligibility.remainingMs)}</span>
-                </div>
+            <div className="rounded-lg border bg-muted/50 p-3 text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Plan:</span>
+                <span className="font-medium">{refundEligibility?.planName}</span>
               </div>
-            ) : null}
-
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Amount:</span>
+                <span className="font-medium">{formatPeso(refundEligibility?.amountCents ?? 0)}</span>
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="refund-reason">
                 Reason for Refund <span className="text-destructive">*</span>
@@ -653,7 +246,6 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
                 disabled={submittingRefund}
               />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="refund-details">
                 Additional Details <span className="text-muted-foreground text-xs">(Optional)</span>
@@ -667,14 +259,8 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
                 disabled={submittingRefund}
               />
             </div>
-
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setRefundDialogOpen(false)}
-                disabled={submittingRefund}
-              >
+              <Button type="button" variant="outline" onClick={() => setRefundDialogOpen(false)} disabled={submittingRefund}>
                 Cancel
               </Button>
               <Button type="submit" disabled={submittingRefund}>
@@ -694,17 +280,17 @@ function BillingContent({ orgSlug }: { orgSlug: string }) {
   );
 }
 
-export default function BillingPage({ params }: { params: Promise<{ orgSlug: string }> }) {
+export default function OrgBillingPage({ params }: { params: Promise<{ orgSlug: string }> }) {
   const { orgSlug } = use(params);
   return (
     <div className="space-y-6">
       <PageHeader
         icon={CreditCard}
         title="Billing"
-        description="Your subscription plan, payments, and checkout for this organization."
+        description="Subscription coverage for this organization."
       />
       <Suspense fallback={<div className="h-72 animate-pulse rounded-xl bg-muted" />}>
-        <BillingContent orgSlug={orgSlug} />
+        <OrgBillingContent orgSlug={orgSlug} />
       </Suspense>
     </div>
   );

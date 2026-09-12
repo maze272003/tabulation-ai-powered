@@ -34,7 +34,7 @@ function AppHomeContent() {
         if (planParam.toLowerCase() === "free") {
           router.replace(`/app/${orgSlug}`);
         } else {
-          router.replace(`/app/${orgSlug}/billing?plan=${encodeURIComponent(planParam.toLowerCase())}`);
+          router.replace(`/app/billing?plan=${encodeURIComponent(planParam.toLowerCase())}`);
         }
       }
     }
@@ -43,7 +43,7 @@ function AppHomeContent() {
   if (mine && mine.length === 1 && planParam) {
     return (
       <main className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 sm:px-6">
-        <LoadingScreen label={`Opening ${mine[0].org?.name ?? "organization"} billing...`} />
+        <LoadingScreen label="Opening billing..." />
       </main>
     );
   }
@@ -96,8 +96,9 @@ function AppHomeContent() {
               setCreating(true);
               try {
                 const slug = await create({ name });
+                toast.success("Organization created — your subscription covers it.");
                 if (planParam && planParam.toLowerCase() !== "free") {
-                  router.push(`/app/${slug}/billing?plan=${encodeURIComponent(planParam.toLowerCase())}`);
+                  router.push(`/app/billing?plan=${encodeURIComponent(planParam.toLowerCase())}`);
                 } else {
                   router.push(`/app/${slug}`);
                 }
@@ -157,7 +158,7 @@ function AppHomeContent() {
         <div className="grid gap-4 sm:grid-cols-2">
           {mine.map((m) => {
             const orgHref = planParam && planParam.toLowerCase() !== "free"
-              ? `/app/${m.org?.slug}/billing?plan=${encodeURIComponent(planParam.toLowerCase())}`
+              ? `/app/billing?plan=${encodeURIComponent(planParam.toLowerCase())}`
               : `/app/${m.org?.slug}`;
 
             return (
