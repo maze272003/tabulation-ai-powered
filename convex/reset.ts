@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { TableNames, Id } from "./_generated/dataModel";
 import { appError, ErrorCode } from "./lib/errors";
 import { requirePlatformOwner } from "./lib/auth";
@@ -13,7 +13,9 @@ import { incrementUsage } from "./lib/usage";
 const ALL_TABLES: readonly TableNames[] = [
   "scores",
   "scoreSheets",
+  "roundSignatures",
   "resultVersions",
+  "resultExplanations",
   "advancementOverrides",
   "tieBreaks",
   "judgeAssignments",
@@ -25,9 +27,22 @@ const ALL_TABLES: readonly TableNames[] = [
   "categories",
   "events",
   "eventTemplates",
+  "documentTemplates",
+  "documentAssets",
+  "ticketMessages",
+  "supportTickets",
+  "refundTickets",
+  "notifications",
+  "announcements",
+  "crmNotes",
+  "crmLeads",
+  "superadminSessions",
+  "rateLimits",
   "usage",
-  "auditLogs",
+  "billingPayments",
+  "processedWebhookEvents",
   "subscriptions",
+  "auditLogs",
   "organizationMembers",
   "organizations",
   "rolePermissions",
@@ -161,6 +176,43 @@ export const resetAll = mutation({
       reseeded: shouldReseed,
       preserveUsers,
       message: `Successfully reset database. Deleted ${totalDeleted} documents across ${ALL_TABLES.length} tables.${shouldReseed ? " System reference data re-seeded." : ""}`,
+    };
+  },
+});
+
+/**
+ * Internal-only CLI maintenance helper: completely wipes all database tables
+ * and re-seeds system reference data from scratch.
+ * Callable only from CLI / backend (`npx convex run reset:resetDatabaseFromCli`).
+ */
+export const resetDatabaseFromCli = internalMutation({
+  args: {
+    preserveUsers: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const preserveUsers = args.preserveUsers ?? false;
+    const deletedCounts: Record<string, number> = {};
+    let totalDeleted = 0;
+
+    for (const table of ALL_TABLES) {
+      if (table === "userProfiles" && preserveUsers) {
+        deletedCounts[table] = 0;
+        continue;
+      }
+
+      const count = await clearTable(ctx, table);
+      deletedCounts[table] = count;
+      totalDeleted += count;
+    }
+
+    await seedReferenceDataInternal(ctx);
+
+    return {
+      success: true,
+      totalDeleted,
+      deletedCounts,
+      reseeded: true,
+      message: `Successfully wiped ${totalDeleted} documents across ${ALL_TABLES.length} tables and reseeded system reference data.`,
     };
   },
 });
