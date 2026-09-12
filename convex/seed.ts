@@ -174,102 +174,128 @@ function constantTimeEquals(actual: string, expected: string): boolean {
   return mismatch === 0;
 }
 
-/**
- * Seeds the end-to-end fixture event (users, judges, scored rounds). This
- * creates live event accounts, so it must never be callable from production
- * clients. It is gated by the E2E_SEED_TOKEN deployment secret: the mutation
- * refuses unless the env var is set AND the caller presents it. Leave
- * E2E_SEED_TOKEN unset in production to disable seeding entirely.
- */
-export const seedE2EData = mutation({
-  args: { token: v.string() },
-  handler: async (ctx, args) => {
-    const expected = process.env.E2E_SEED_TOKEN;
-    if (!expected || !constantTimeEquals(args.token, expected)) {
-      throw appError(ErrorCode.FORBIDDEN, "E2E seeding is not enabled on this deployment");
-    }
-    await seedReferenceDataInternal(ctx);
+export async function seedSampleDataInternal(ctx: MutationCtx) {
+  await seedReferenceDataInternal(ctx);
 
-    // 1. Ensure test user profile exists
-    let testUser = await ctx.db
-      .query("userProfiles")
-      .withIndex("by_email", (q) => q.eq("email", "e2e-organizer@tabulation.test"))
-      .first();
-    if (!testUser) {
-      const userId = await ctx.db.insert("userProfiles", {
-        tokenIdentifier: "e2e-organizer-token",
-        name: "E2E Test Organizer",
-        email: "e2e-organizer@tabulation.test",
-        image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop",
-        platformRole: "platform_owner",
-        status: "active",
-        lastLoginAt: Date.now(),
-      });
-      testUser = (await ctx.db.get(userId))!;
-    }
+  // 1. Ensure test user profile exists
+  let testUser = await ctx.db
+    .query("userProfiles")
+    .withIndex("by_email", (q) => q.eq("email", "e2e-organizer@tabulation.test"))
+    .first();
+  if (!testUser) {
+    const userId = await ctx.db.insert("userProfiles", {
+      tokenIdentifier: "e2e-organizer-token",
+      name: "E2E Test Organizer",
+      email: "e2e-organizer@tabulation.test",
+      image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop",
+      platformRole: "platform_owner",
+      status: "active",
+      lastLoginAt: Date.now(),
+    });
+    testUser = (await ctx.db.get(userId))!;
+  }
 
-    // 2. Ensure test organization exists
-    let org = await ctx.db
-      .query("organizations")
-      .withIndex("by_slug", (q) => q.eq("slug", "e2e-org"))
-      .first();
-    if (!org) {
-      const orgId = await ctx.db.insert("organizations", {
-        slug: "e2e-org",
-        name: "E2E Showcase Organization",
-        ownerId: testUser._id,
-        createdById: testUser._id,
-        status: "active",
-        branding: {
-          primaryColor: "#059669",
-          secondaryColor: "#10b981",
-        },
-      });
-      org = (await ctx.db.get(orgId))!;
+  // 2. Ensure test organization exists
+  let org = await ctx.db
+    .query("organizations")
+    .withIndex("by_slug", (q) => q.eq("slug", "e2e-org"))
+    .first();
+  if (!org) {
+    const orgId = await ctx.db.insert("organizations", {
+      slug: "e2e-org",
+      name: "E2E Showcase Organization",
+      ownerId: testUser._id,
+      createdById: testUser._id,
+      status: "active",
+      branding: {
+        primaryColor: "#059669",
+        secondaryColor: "#10b981",
+      },
+    });
+    const fetchedOrg = await ctx.db.get(orgId);
+    if (!fetchedOrg) throw new Error("Failed to initialize showcase org");
+    org = fetchedOrg;
+    const initialOrg = fetchedOrg;
 
-      const freePlan = await ctx.db
-        .query("plans")
-        .withIndex("by_name", (q) => q.eq("name", "Free"))
+    const freePlan = await ctx.db
+      .query("plans")
+      .withIndex("by_name", (q) => q.eq("name", "Free"))
+      .unique();
+    if (freePlan) {
+      const existingSub = await ctx.db
+        .query("subscriptions")
+        .withIndex("by_user_id", (q) => q.eq("userId", testUser._id))
         .unique();
-      if (freePlan) {
-        const existingSub = await ctx.db
-          .query("subscriptions")
-          .withIndex("by_user_id", (q) => q.eq("userId", testUser._id))
-          .unique();
-        if (!existingSub) {
-          await ctx.db.insert("subscriptions", {
-            userId: testUser._id,
-            planId: freePlan._id,
-            status: "active",
-            trialEndsAt: null,
-            currentPeriodEndAt: null,
-            cancelAtPeriodEnd: false,
-            stripeCustomerId: null,
-            stripeSubscriptionId: null,
-          });
-        }
-      }
-
-      // Add org membership for owner
-      const ownerRole = await ctx.db
-        .query("roles")
-        .withIndex("by_name", (q) => q.eq("name", "owner"))
-        .first();
-      if (ownerRole) {
-        await ctx.db.insert("organizationMembers", {
-          orgId: org._id,
+      if (!existingSub) {
+        await ctx.db.insert("subscriptions", {
           userId: testUser._id,
-          roleId: ownerRole._id,
+          planId: freePlan._id,
           status: "active",
-          joinedAt: Date.now(),
+          trialEndsAt: null,
+          currentPeriodEndAt: null,
+          cancelAtPeriodEnd: false,
+          stripeCustomerId: null,
+          stripeSubscriptionId: null,
         });
       }
     }
 
-    // 3. Ensure test event exists
-    let event = await ctx.db
-      .query("events")
-      .withIndex("by_org_id_and_slug", (q) => q.eq("orgId", org._id).eq("slug", "e2e-event"))
+    // Add org membership for owner
+    const ownerRole = await ctx.db
+      .query("roles")
+      .withIndex("by_name", (q) => q.eq("name", "owner"))
+      .first();
+    if (ownerRole) {
+      await ctx.db.insert("organizationMembers", {
+        orgId: initialOrg._id,
+        userId: testUser._id,
+        roleId: ownerRole._id,
+        status: "active",
+        joinedAt: Date.now(),
+      });
+
+      // Also ensure configured platform owner has access to showcase org
+      const platformOwnerEmail = process.env.PLATFORM_OWNER_EMAIL;
+      if (platformOwnerEmail) {
+        let ownerProfile = await ctx.db
+          .query("userProfiles")
+          .withIndex("by_email", (q) => q.eq("email", platformOwnerEmail))
+          .first();
+        if (!ownerProfile) {
+          const ownerProfileId = await ctx.db.insert("userProfiles", {
+            tokenIdentifier: platformOwnerEmail,
+            name: "Platform Owner",
+            email: platformOwnerEmail,
+            image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop",
+            platformRole: "platform_owner",
+            status: "active",
+            lastLoginAt: Date.now(),
+          });
+          ownerProfile = (await ctx.db.get(ownerProfileId))!;
+        }
+        const existingMember = await ctx.db
+          .query("organizationMembers")
+          .withIndex("by_org_id_and_user_id", (q) => q.eq("orgId", initialOrg._id).eq("userId", ownerProfile._id))
+          .first();
+        if (!existingMember) {
+          await ctx.db.insert("organizationMembers", {
+            orgId: initialOrg._id,
+            userId: ownerProfile._id,
+            roleId: ownerRole._id,
+            status: "active",
+            joinedAt: Date.now(),
+          });
+        }
+      }
+    }
+  }
+
+  const targetOrg = org;
+
+  // 3. Ensure test event exists
+  let event = await ctx.db
+    .query("events")
+    .withIndex("by_org_id_and_slug", (q) => q.eq("orgId", targetOrg._id).eq("slug", "e2e-event"))
       .first();
 
     if (event) {
@@ -288,7 +314,7 @@ export const seedE2EData = mutation({
       event = (await ctx.db.get(event._id))!;
     } else {
       const eventId = await ctx.db.insert("events", {
-        orgId: org._id,
+        orgId: targetOrg._id,
         slug: "e2e-event",
         eventCode: "DEMO-2026",
         name: "National Tabulation Championship 2026",
@@ -371,7 +397,7 @@ export const seedE2EData = mutation({
     const passwordHash = await hashPassword("password123");
 
     const judge1Id = await ctx.db.insert("eventAccounts", {
-      orgId: org._id,
+      orgId: targetOrg._id,
       eventId: event._id,
       kind: "judge",
       displayName: "Judge Sophia",
@@ -384,7 +410,7 @@ export const seedE2EData = mutation({
     });
 
     const judge2Id = await ctx.db.insert("eventAccounts", {
-      orgId: org._id,
+      orgId: targetOrg._id,
       eventId: event._id,
       kind: "judge",
       displayName: "Judge Marcus",
@@ -397,7 +423,7 @@ export const seedE2EData = mutation({
     });
 
     const staff1Id = await ctx.db.insert("eventAccounts", {
-      orgId: org._id,
+      orgId: targetOrg._id,
       eventId: event._id,
       kind: "staff",
       displayName: "Staff Alex",
@@ -459,7 +485,7 @@ export const seedE2EData = mutation({
     // renders real standings without depending on judge scoring flows.
     let publicEvent = await ctx.db
       .query("events")
-      .withIndex("by_org_id_and_slug", (q) => q.eq("orgId", org._id).eq("slug", "e2e-public"))
+      .withIndex("by_org_id_and_slug", (q) => q.eq("orgId", targetOrg._id).eq("slug", "e2e-public"))
       .first();
 
     if (publicEvent) {
@@ -479,7 +505,7 @@ export const seedE2EData = mutation({
       publicEvent = (await ctx.db.get(publicEvent._id))!;
     } else {
       const publicEventId = await ctx.db.insert("events", {
-        orgId: org._id,
+        orgId: targetOrg._id,
         slug: "e2e-public",
         eventCode: "PUB2026",
         name: "E2E Public Showcase",
@@ -568,7 +594,7 @@ export const seedE2EData = mutation({
 
     return {
       success: true,
-      orgSlug: org.slug,
+      orgSlug: targetOrg.slug,
       eventSlug: event.slug,
       eventCode: event.eventCode,
       publicEventCode: publicEvent.eventCode,
@@ -579,6 +605,30 @@ export const seedE2EData = mutation({
       staffId: staff1Id,
       sheetIds: [sheet1, sheet2, sheet3, sheet4],
     };
+}
+
+/**
+ * Seeds sample showcase data (organizer, org, events, judges, score sheets).
+ * Invoked via CLI: `npx convex run seed:seedSampleData`.
+ */
+export const seedSampleData = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    return await seedSampleDataInternal(ctx);
+  },
+});
+
+/**
+ * Gated E2E seeding endpoint for automated test runs.
+ */
+export const seedE2EData = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    const expected = process.env.E2E_SEED_TOKEN;
+    if (!expected || !constantTimeEquals(args.token, expected)) {
+      throw appError(ErrorCode.FORBIDDEN, "E2E seeding is not enabled on this deployment");
+    }
+    return await seedSampleDataInternal(ctx);
   },
 });
 
