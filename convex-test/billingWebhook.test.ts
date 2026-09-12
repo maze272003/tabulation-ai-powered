@@ -30,7 +30,7 @@ describe("paymongo webhook processing", () => {
     expect(sub?.subscription.currentPeriodEndAt).toBeGreaterThan(Date.now());
     const history = await t
       .withIdentity(aliceIdentity)
-      .query(api.billing.payments.listForOrg, { orgSlug: ctx.orgSlug });
+      .query(api.billing.payments.listForUser, {});
     expect(history[0].status).toBe("paid");
     expect(history[0].periodStartAt).not.toBeNull();
     expect(history[0].periodEndAt).not.toBeNull();
@@ -70,7 +70,7 @@ describe("paymongo webhook processing", () => {
     expect(sub?.subscription.currentPeriodEndAt).toBeNull();
     const history = await t
       .withIdentity(aliceIdentity)
-      .query(api.billing.payments.listForOrg, { orgSlug: ctx.orgSlug });
+      .query(api.billing.payments.listForUser, {});
     expect(history[0].status).toBe("flagged");
   });
 
@@ -104,7 +104,7 @@ describe("paymongo webhook processing", () => {
     });
     const history = await t
       .withIdentity(aliceIdentity)
-      .query(api.billing.payments.listForOrg, { orgSlug: ctx.orgSlug });
+      .query(api.billing.payments.listForUser, {});
     expect(history[0].status).toBe("failed");
     const unknown = await t.mutation(internal.billing.webhook.processWebhookEvent, {
       eventId: "evt_u1",
@@ -185,9 +185,7 @@ describe("paymongo webhook processing", () => {
     try {
       const res = await t
         .withIdentity(aliceIdentity)
-        .action(api.billing.checkout.syncCheckoutStatus, {
-          orgSlug: ctx.orgSlug,
-        });
+        .action(api.billing.checkout.syncCheckoutStatus, {});
       expect(res.status).toBe("activated");
       expect(res.planName).toBe("Starter");
 

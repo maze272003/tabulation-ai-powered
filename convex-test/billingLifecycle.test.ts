@@ -13,17 +13,17 @@ describe("billing lifecycle", () => {
     // Within 24h the checkout is still pending.
     let active = await t
       .withIdentity(aliceIdentity)
-      .query(api.billing.payments.getActiveCheckout, { orgSlug: ctx.orgSlug });
+      .query(api.billing.payments.getActiveCheckout, {});
     expect(active).not.toBeNull();
 
     await t.mutation(internal.billing.lifecycle.expireSubscriptions, { now: createdAt + 25 * DAY });
     active = await t
       .withIdentity(aliceIdentity)
-      .query(api.billing.payments.getActiveCheckout, { orgSlug: ctx.orgSlug });
+      .query(api.billing.payments.getActiveCheckout, {});
     expect(active).toBeNull();
     const history = await t
       .withIdentity(aliceIdentity)
-      .query(api.billing.payments.listForOrg, { orgSlug: ctx.orgSlug });
+      .query(api.billing.payments.listForUser, {});
     expect(history[0].status).toBe("expired");
   });
 

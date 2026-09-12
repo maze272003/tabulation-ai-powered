@@ -138,7 +138,7 @@ async function flagPayment(
 ): Promise<WebhookOutcome> {
   await ctx.db.patch(payment._id, { status: "flagged", failureReason: reason });
   await writeAudit(ctx, {
-    orgId: payment.orgId ?? null,
+    orgId: null,
     actorId: null,
     action: "billing.payment.flagged",
     resourceType: "billingPayment",
@@ -168,15 +168,12 @@ export const applyPaidPayment = internalMutation({
       );
       return { status: "flagged", planName: null };
     }
-    const paymentOrgId = payment.orgId;
-    const subscription = paymentOrgId
-      ? await ctx.db
-          .query("subscriptions")
-          .withIndex("by_org_id", (q) => q.eq("orgId", paymentOrgId))
-          .unique()
-      : null;
+    const subscription = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_user_id", (q) => q.eq("userId", payment.userId))
+      .unique();
     if (!subscription) {
-      await flagPayment(ctx, payment, "No subscription found for organization");
+      await flagPayment(ctx, payment, "No subscription found for user");
       return { status: "flagged", planName: null };
     }
     const now = Date.now();
@@ -195,7 +192,7 @@ export const applyPaidPayment = internalMutation({
     });
     const plan = await ctx.db.get(payment.planId);
     await writeAudit(ctx, {
-      orgId: payment.orgId ?? null,
+      orgId: null,
       actorId: payment.createdById,
       action: "billing.payment.paid",
       resourceType: "billingPayment",
@@ -216,15 +213,12 @@ async function applyPaidEvent(ctx: MutationCtx, event: ProcessedEvent): Promise<
       `Amount mismatch: expected ${payment.amountCents}, webhook reported ${event.paidAmount}`,
     );
   }
-  const paymentOrgId = payment.orgId;
-  const subscription = paymentOrgId
-    ? await ctx.db
-        .query("subscriptions")
-        .withIndex("by_org_id", (q) => q.eq("orgId", paymentOrgId))
-        .unique()
-    : null;
+  const subscription = await ctx.db
+    .query("subscriptions")
+    .withIndex("by_user_id", (q) => q.eq("userId", payment.userId))
+    .unique();
   if (!subscription) {
-    return flagPayment(ctx, payment, "No subscription found for organization");
+    return flagPayment(ctx, payment, "No subscription found for user");
   }
   const now = Date.now();
   const window = computeRenewalWindow(subscription, payment.billingInterval, now);
@@ -242,7 +236,7 @@ async function applyPaidEvent(ctx: MutationCtx, event: ProcessedEvent): Promise<
   });
   const plan = await ctx.db.get(payment.planId);
   await writeAudit(ctx, {
-    orgId: payment.orgId ?? null,
+    orgId: null,
     actorId: payment.createdById,
     action: "billing.payment.paid",
     resourceType: "billingPayment",
@@ -263,7 +257,7 @@ async function applyTerminalEvent(
   if (!payment) return "ignored";
   await ctx.db.patch(payment._id, { status, failureReason: reason });
   await writeAudit(ctx, {
-    orgId: payment.orgId ?? null,
+    orgId: null,
     actorId: null,
     action: auditAction,
     resourceType: "billingPayment",
